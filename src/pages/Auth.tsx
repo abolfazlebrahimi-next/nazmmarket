@@ -71,10 +71,10 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(120%_120%_at_100%_0%,#fff3ec_0%,#faf9f7_45%,#f2efeb_100%)] px-4 py-8 sm:px-6">
+    <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(120%_120%_at_100%_0%,#eaf4ee_0%,#fafcfb_45%,#edf1ee_100%)] px-4 py-8 sm:px-6">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-[30px] border border-line bg-white shadow-[0_30px_80px_-40px_rgba(40,25,10,0.45)] lg:grid-cols-[0.85fr_1fr]">
         {/* brand side (desktop) */}
-        <aside className="relative hidden flex-col justify-between bg-gradient-to-br from-[#ff6a1f] to-[#e03d00] p-9 text-white lg:flex">
+        <aside className="relative hidden flex-col justify-between bg-gradient-to-br from-[#16865b] to-[#26352e] p-9 text-white lg:flex">
           <div className="absolute -right-10 -top-12 h-44 w-44 rounded-full bg-white/10" />
           <div className="absolute -bottom-16 -left-10 h-52 w-52 rounded-full bg-white/10" />
           <div className="relative">

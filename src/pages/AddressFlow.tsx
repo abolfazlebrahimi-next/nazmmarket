@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, ChevronLeft, LoaderCircle, MapPin, MoreVertical, Plus, Trash2, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, LoaderCircle, LocateFixed, MapPin, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import MapPicker from "../components/MapPicker";
 import { pd, toEn } from "../components/ui";
 import type { AppCtx } from "../ctx";
@@ -21,6 +21,33 @@ const coordsLabel = (lat: number, lng: number) => `مختصات: ${pd(lat.toFixe
 
 /** Address selection — map + saved addresses list (full screen mobile / modal on desktop) */
 export function AddressSelect({ c }: { c: AppCtx }) {
+  const [locating, setLocating] = useState(false);
+  const saveCurrentLocation = () => {
+    if (!navigator.geolocation) return c.toast("موقعیت مکانی در این مرورگر در دسترس نیست");
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const { latitude: lat, longitude: lng } = pos.coords;
+      c.setPickedPin({ lat, lng });
+      const fallback = `مختصات ${lat.toFixed(5)}، ${lng.toFixed(5)}`;
+      const label = await reverseGeocode(lat, lng);
+      const address: Address = {
+        id: Date.now(),
+        title: "موقعیت فعلی",
+        address: label || fallback,
+        detail: "ثبت‌شده با موقعیت مکانی",
+        phone: c.user?.phone || c.addresses[0]?.phone || "",
+        type: "home", lat, lng,
+      };
+      c.setPickedLabel(address.address);
+      c.setAddresses([...c.addresses, address]);
+      c.setSelectedAddressId(address.id);
+      setLocating(false);
+      c.toast("موقعیت فعلی به آدرس‌ها اضافه شد");
+    }, () => {
+      setLocating(false);
+      c.toast("دریافت موقعیت ناموفق بود؛ دسترسی مکان را بررسی کنید");
+    }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 30000 });
+  };
   const confirm = () => {
     c.closeSub();
     if (c.subReturn === "checkout") c.openSub({ name: "checkout" });
@@ -59,6 +86,10 @@ export function AddressSelect({ c }: { c: AppCtx }) {
       <div className="relative z-10 -mt-5 flex flex-1 flex-col rounded-t-[26px] bg-white px-5 pb-6 pt-3 shadow-[0_-12px_30px_-18px_rgba(0,0,0,0.35)] lg:overflow-y-auto app-scroll">
         <div className="mx-auto h-1 w-10 rounded-full bg-line" />
         <h2 className="mt-3 text-center text-[16px] font-black text-ink">انتخاب آدرس</h2>
+        <button type="button" onClick={saveCurrentLocation} disabled={locating} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand-soft px-4 py-3 text-[12px] font-black text-brand-dark transition active:scale-[0.99] disabled:opacity-60">
+          {locating ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+          {locating ? "در حال ثبت موقعیت..." : "ثبت موقعیت فعلی با یک لمس"}
+        </button>
 
         {c.pickedPin && (
           <div className="fade-rise mt-4 rounded-2xl border border-brand/30 bg-brand-soft/70 p-3">

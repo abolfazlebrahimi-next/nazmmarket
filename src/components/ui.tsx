@@ -120,7 +120,6 @@ export function StoreCard({ store, onOpen }: { store: StoreType; onOpen: () => v
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="truncate text-[13px] font-extrabold text-ink">{store.name}</span>
-          {store.pro && <span className="shrink-0 rounded-md bg-[#0e7c86] px-1.5 py-0.5 text-[9px] font-black italic text-white">Pro</span>}
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-medium text-muted">
           {store.isNew ? (
@@ -133,7 +132,7 @@ export function StoreCard({ store, onOpen }: { store: StoreType; onOpen: () => v
           <span className="text-line">|</span>
           <span>تا {pd(store.minutes)} دقیقه</span>
           <span className="text-line">|</span>
-          <span>{faNum(store.fee)} تومان</span>
+          <span>ارسال {faNum(store.fee)} · با مشتری</span>
         </span>
         <span className="mt-1 block truncate text-[10px] text-muted">{store.area}</span>
         <span className="mt-2 flex flex-wrap gap-1.5">

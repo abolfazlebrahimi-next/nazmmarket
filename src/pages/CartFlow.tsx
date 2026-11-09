@@ -57,16 +57,12 @@ export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean 
               {c.cartStore ? (
                 <>
                   <p className="text-[13px] font-black text-ink">{c.cartStore.name}</p>
-                  <p className="mt-0.5 text-[11px] font-medium text-muted">
-                    {pd(c.cartCount)} کالا | {fa(c.subtotal)} تومان
-                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-muted">{pd(c.cartCount)} کالا</p>
                 </>
               ) : (
                 <>
                   <p className="text-[13px] font-black text-ink">در انتظار انتخاب فروشگاه</p>
-                  <p className="mt-0.5 text-[11px] font-medium text-muted">
-                    {pd(c.cartCount)} کالا | {fa(c.subtotal)} تومان
-                  </p>
+                  <p className="mt-0.5 text-[11px] font-medium text-muted">{pd(c.cartCount)} کالا</p>
                 </>
               )}
             </div>
@@ -77,14 +73,6 @@ export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean 
                 <Store className="h-6 w-6 text-[#a8a49e]" />
               </span>
             )}
-          </div>
-
-          <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
-            {items.map(({ product }) => (
-              <span key={product.id} className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${product.bg}`}>
-                <product.icon className={`h-7 w-7 ${product.iconColor}`} strokeWidth={1.6} />
-              </span>
-            ))}
           </div>
 
           <div className="mt-4 space-y-2">
@@ -119,7 +107,6 @@ export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean 
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
                     <QtyStepper small qty={qty} onInc={() => c.handleAdd(product, c.cart.storeId ?? undefined)} onDec={() => c.handleDec(product.id)} />
-                    <p className="text-[11px] font-black text-ink">{fa(product.price * qty)} تومان</p>
                   </div>
                 </div>
               ))}
@@ -134,9 +121,10 @@ export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean 
                 <span className="text-muted">هزینه ارسال</span>
                 <span className={c.deliveryFee === 0 ? "font-black text-mint" : "text-ink"}>{c.deliveryFee === 0 ? "رایگان" : `${fa(c.deliveryFee)} تومان`}</span>
               </div>
+              <p className="mt-2 text-[10px] font-medium text-muted">{c.deliveryFee === 0 ? "هزینه ارسال این سفارش رایگان است." : "هزینه ارسال فروشگاه را مشتری پرداخت می‌کند."}</p>
               {c.deliveryFee > 0 && (
                 <p className="mt-2.5 rounded-xl bg-brand-soft px-3 py-2 text-[10px] font-bold leading-5 text-brand-dark">
-                  با {fa(400000 - c.subtotal)} تومان خرید بیشتر، ارسال رایگان می‌شود.
+                  با {fa(400000 - c.subtotal)} تومان خرید بیشتر، ارسال این سفارش رایگان می‌شود.
                 </p>
               )}
             </div>

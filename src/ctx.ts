@@ -7,6 +7,7 @@ export type Sub =
   | { name: "category"; id: string }
   | { name: "search" }
   | { name: "favorites" }
+  | { name: "account-detail"; id: "codes" | "payments" | "reviews" }
   | { name: "map" }
   | { name: "stores" }
   | { name: "address" }
@@ -88,8 +89,6 @@ export interface AppCtx {
   // account extras
   wallet: number;
   setWallet(w: number): void;
-  proActive: boolean;
-  setProActive(v: boolean): void;
 
   // ui
   productModal: Product | null;

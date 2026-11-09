@@ -8,7 +8,7 @@ const NAZARBAD: LatLng = { lat: 35.96721, lng: 50.65043 };
 
 const pinIcon = L.divIcon({
   className: "nz-pin",
-  html: `<div><svg width="34" height="46" viewBox="0 0 34 46" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3))"><path d="M17 1C8.2 1 1 8.2 1 17c0 11.8 16 28 16 28s16-16.2 16-28C33 8.2 25.8 1 17 1z" fill="#ff4d00" stroke="#fff" stroke-width="2"/><circle cx="17" cy="16.5" r="6" fill="#fff"/></svg></div>`,
+  html: `<div><svg width="34" height="46" viewBox="0 0 34 46" style="filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3))"><path d="M17 1C8.2 1 1 8.2 1 17c0 11.8 16 28 16 28s16-16.2 16-28C33 8.2 25.8 1 17 1z" fill="#16865b" stroke="#fff" stroke-width="2"/><circle cx="17" cy="16.5" r="6" fill="#fff"/></svg></div>`,
   iconSize: [34, 46],
   iconAnchor: [17, 46],
 });

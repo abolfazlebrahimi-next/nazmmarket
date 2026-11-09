@@ -2,15 +2,15 @@
 
 @theme {
   --font-sans: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --color-brand: #ff4d00;
-  --color-brand-dark: #e04500;
-  --color-brand-soft: #fff1e9;
-  --color-peach: #fff3ec;
+  --color-brand: #16865b;
+  --color-brand-dark: #26352e;
+  --color-brand-soft: #eaf4ee;
+  --color-peach: #eef5f0;
   --color-ink: #1c1b1a;
   --color-muted: #75726e;
   --color-line: #eeece9;
   --color-app: #fafafa;
-  --color-mint: #0f9d76;
+  --color-mint: #16865b;
 }
 
 :root {
@@ -23,7 +23,7 @@ html {
 
 body {
   margin: 0;
-  background: #e9e6e2;
+  background: #edf1ee;
   color: #1c1b1a;
   font-family: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -31,11 +31,11 @@ body {
 }
 
 ::selection {
-  background: #ffcbb3;
+  background: #cce5d8;
 }
 
 :focus-visible {
-  outline: 2px solid #ff4d00;
+  outline: 2px solid #16865b;
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -124,7 +124,7 @@ textarea::placeholder {
 }
 .leaflet-div-icon { background: transparent; border: none; }
 .leaflet-container .leaflet-control-attribution { font-size: 9px; background: rgba(255, 255, 255, 0.8); }
-.leaflet-container a { color: #ff4d00; }
+.leaflet-container a { color: #16865b; }
 
 .app-scroll {
   scrollbar-width: thin;
@@ -147,3 +147,12 @@ textarea::placeholder {
     transition-duration: 0.01ms !important;
   }
 }
+
+@keyframes brand-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(50%); }
+}
+
+.brand-marquee { animation: brand-marquee 26s linear infinite; }
+.brand-marquee:hover { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .brand-marquee { animation: none; } }

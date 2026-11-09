@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { Bike, CheckCircle2, Search, ShoppingBasket, Star, Store, TicketPercent, Truck, X } from "lucide-react";
-import { Modal, ProductCard, ProductVisual, QtyStepper, ScreenHeader, StoreCard, Empty, pd } from "../components/ui";
+import { Bike, CheckCircle2, ChevronLeft, Search, ShoppingBasket, Star, Store, TicketPercent, Truck, X } from "lucide-react";
+import { ProductCard, ProductVisual, QtyStepper, ScreenHeader, StoreCard, Empty, pd } from "../components/ui";
 import type { AppCtx } from "../ctx";
 import { categories, faNum, products, storeById, stores } from "../data";
 
@@ -28,7 +28,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           <span className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-white/20 text-lg font-black backdrop-blur">{store.initial}</span>
           <div>
             <p className="flex items-center gap-1.5 text-[16px] font-black">
-              {store.name} {store.pro && <span className="rounded-md bg-[#0e7c86] px-1.5 py-0.5 text-[9px] italic">Pro</span>}
+              {store.name}
             </p>
             <p className="mt-1 text-[11px] font-medium text-white/85">{store.area} · شهرستان نظرآباد</p>
           </div>
@@ -38,7 +38,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
         {[
           { icon: Star, text: store.isNew ? "جدید" : pd((store.rating ?? 0).toFixed(1)) },
           { icon: Bike, text: `تا ${pd(store.minutes)} دقیقه` },
-          { icon: Truck, text: `${faNum(store.fee)} تومان` },
+          { icon: Truck, text: `ارسال ${faNum(store.fee)} · با مشتری` },
           { icon: ShoppingBasket, text: `حداقل سبد ${faNum(store.minBasket)}` },
           { icon: Store, text: store.type === "hypermarket" ? "هایپرمارکت" : "سوپرمارکت" },
         ].map((chip, i) => (
@@ -175,41 +175,67 @@ export function ProductModal({ c }: { c: AppCtx }) {
   const p = c.productModal;
   if (!p) return null;
   const qty = c.qtyOf(p.id);
+  const suggestions = products.filter((item) => item.category === p.category && item.id !== p.id).slice(0, 8);
+  const addAction = qty === 0 ? (
+    <button type="button" onClick={() => c.handleAdd(p)} className="rounded-2xl bg-brand px-5 py-3 text-[12px] font-black text-white transition active:scale-95">
+      افزودن به سبد خرید
+    </button>
+  ) : <QtyStepper qty={qty} onInc={() => c.handleAdd(p)} onDec={() => c.handleDec(p.id)} />;
+
   return (
-    <Modal onClose={c.closeProduct} label={p.name}>
-      <div className="relative">
-        <ProductVisual product={p} size="lg" />
-        <button type="button" onClick={c.closeProduct} aria-label="بستن" className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md transition active:scale-90">
-          <X className="h-4.5 w-4.5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => c.toggleFav(p.id)}
-          aria-label="علاقه‌مندی"
-          className="absolute left-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md transition active:scale-90"
-        >
-          <HeartIcon filled={c.isFav(p.id)} />
-        </button>
-      </div>
-      <h3 className="mt-4 text-[15px] font-black leading-6 text-ink">{p.name}</h3>
-      <p className="mt-1 text-[11px] font-medium text-muted">{p.unit} · موجود در فروشگاه‌های نظرآباد</p>
-      {p.tag && <p className="mt-2.5 w-fit rounded-lg bg-brand px-2 py-1 text-[10px] font-black text-white">{p.tag}</p>}
-      <div className="mt-5 flex items-center justify-between border-t border-dashed border-line pt-4">
-        <div>
-          {p.oldPrice && <p className="text-[11px] font-medium text-[#b6b1aa] line-through">{faNum(p.oldPrice)}</p>}
-          <p className="text-[16px] font-black text-ink">
-            {faNum(p.price)} <span className="text-[10px] font-bold text-muted">تومان</span>
-          </p>
-        </div>
-        {qty === 0 ? (
-          <button type="button" onClick={() => c.handleAdd(p)} className="rounded-2xl bg-brand px-5 py-3 text-[12px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-95">
-            افزودن به سبد خرید
+    <div className="fixed inset-0 z-[85] bg-white md:flex md:items-center md:justify-center md:bg-ink/50 md:p-5" role="dialog" aria-modal="true" aria-label={p.name}>
+      <button type="button" aria-label="بستن" onClick={c.closeProduct} className="fade-in absolute inset-0 hidden bg-ink/50 backdrop-blur-[2px] md:block" />
+      <div className="relative flex h-full w-full flex-col bg-white md:h-auto md:max-h-[90dvh] md:max-w-[430px] md:overflow-y-auto md:rounded-[26px] md:p-4 md:shadow-2xl">
+        <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-white/95 px-4 backdrop-blur md:hidden">
+          <button type="button" onClick={c.closeProduct} aria-label="بازگشت" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f4f3f0]">
+            <ChevronLeft className="h-4 w-4 rotate-180" />
           </button>
-        ) : (
-          <QtyStepper qty={qty} onInc={() => c.handleAdd(p)} onDec={() => c.handleDec(p.id)} />
-        )}
+          <span className="flex-1 truncate text-[13px] font-black text-ink">جزئیات کالا</span>
+          <button type="button" onClick={() => c.toggleFav(p.id)} aria-label="علاقه‌مندی" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f4f3f0]">
+            <HeartIcon filled={c.isFav(p.id)} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto pb-5 md:overflow-visible md:pb-0">
+          <div className="relative mx-4 mt-4 md:mx-0 md:mt-0">
+            <ProductVisual product={p} size="lg" />
+            <button type="button" onClick={c.closeProduct} aria-label="بستن" className="absolute right-3 top-3 hidden h-9 w-9 items-center justify-center rounded-full bg-white shadow-md md:flex">
+              <X className="h-4.5 w-4.5" />
+            </button>
+            <button type="button" onClick={() => c.toggleFav(p.id)} aria-label="علاقه‌مندی" className="absolute left-3 top-3 hidden h-9 w-9 items-center justify-center rounded-full bg-white shadow-md md:flex">
+              <HeartIcon filled={c.isFav(p.id)} />
+            </button>
+          </div>
+          <div className="px-5 pt-4 md:px-1">
+            <h3 className="text-[16px] font-black leading-7 text-ink">{p.name}</h3>
+            <p className="mt-1 text-[11px] font-medium text-muted">{p.unit} · موجود در فروشگاه‌های نظرآباد</p>
+            {p.tag && <p className="mt-2.5 w-fit rounded-lg bg-brand-soft px-2 py-1 text-[10px] font-black text-brand-dark">{p.tag}</p>}
+            <div className="mt-4 hidden items-center justify-between border-t border-dashed border-line pt-4 md:flex">
+              <div>
+                {p.oldPrice && <p className="text-[11px] font-medium text-[#b6b1aa] line-through">{faNum(p.oldPrice)}</p>}
+                <p className="text-[16px] font-black text-ink">{faNum(p.price)} <span className="text-[10px] font-bold text-muted">تومان</span></p>
+              </div>
+              {addAction}
+            </div>
+          </div>
+          <section className="mt-6 md:hidden">
+            <div className="flex items-center justify-between px-4">
+              <h4 className="text-[13px] font-black text-ink">محصولات پیشنهادی</h4>
+              <span className="text-[10px] font-medium text-muted">از همین دسته</span>
+            </div>
+            <div className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-2">
+              {suggestions.map((item) => <ProductCard key={item.id} product={item} h={c.cardHandlers()} width="w-[148px]" />)}
+            </div>
+          </section>
+        </div>
+        <div className="sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-3 border-t border-line bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
+          <div>
+            {p.oldPrice && <p className="text-[10px] text-muted line-through">{faNum(p.oldPrice)}</p>}
+            <p className="text-[14px] font-black text-ink">{faNum(p.price)} <span className="text-[9px] text-muted">تومان</span></p>
+          </div>
+          {qty === 0 ? addAction : <QtyStepper qty={qty} onInc={() => c.handleAdd(p)} onDec={() => c.handleDec(p.id)} />}
+        </div>
       </div>
-    </Modal>
+    </div>
   );
 }
 
@@ -251,7 +277,7 @@ export function StorePickerSheet({ c }: { c: AppCtx }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[12px] font-black text-ink">{s.name}</span>
                 <span className="mt-0.5 block text-[10px] font-medium text-muted">
-                  تا {pd(s.minutes)} دقیقه · ارسال {faNum(s.fee)} تومان · {s.area}
+                  تا {pd(s.minutes)} دقیقه · ارسال {faNum(s.fee)} تومان با مشتری · {s.area}
                 </span>
               </span>
               {c.cart.storeId === s.id && <CheckCircle2 className="h-5 w-5 shrink-0 text-brand" />}

@@ -9,7 +9,6 @@ import {
   MapPin,
   Search,
   ShoppingCart,
-  Sparkles,
   Store,
   TicketPercent,
   UserRound,
@@ -21,12 +20,12 @@ import { ApiError, api, tokenStore } from "./api/client";
 import type { ServerState } from "./api/client";
 import type { AppCtx, Sub, View } from "./ctx";
 import type { Address, CartState, Order, Product, User } from "./data";
-import { faNum, hydrateCatalog, products, storeById } from "./data";
+import { hydrateCatalog, products, storeById } from "./data";
 import AuthPage from "./pages/Auth";
 import { AddressForm, AddressSelect } from "./pages/AddressFlow";
 import { CartBody, CartDrawer, CheckoutView, DoneView } from "./pages/CartFlow";
 import OrdersView from "./pages/Orders";
-import { AccountSheetHost, AccountView } from "./pages/Account";
+import { AccountDetailPage, AccountSheetHost, AccountView } from "./pages/Account";
 import { EasyPage, FavoritesPage, HomePage, MapPage, StoresPage } from "./pages/Home";
 import { CategoryPage, ProductModal, ReplacePrompt, SearchPage, StorePage, StorePickerSheet } from "./pages/Store";
 
@@ -53,7 +52,6 @@ export default function App() {
   const [selectedAddressId, setSelectedAddressId] = useState<number>(() => load("naz_address_id", 0));
   const [orders, setOrders] = useState<Order[]>(() => load("naz_orders", []));
   const [wallet, setWallet] = useState<number>(() => load("naz_wallet", 0));
-  const [proActive, setProActive] = useState<boolean>(() => load("naz_pro", false));
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
 
   const [pickedPin, setPickedPin] = useState<{ lat: number; lng: number } | null>(null);
@@ -69,7 +67,7 @@ export default function App() {
   const toastTimer = useRef<number | null>(null);
 
   /** last payload pushed to the server, to keep the sync effects quiet */
-  const synced = useRef({ cart: "", favs: "", addrs: "", pro: null as boolean | null, ready: false });
+  const synced = useRef({ cart: "", favs: "", addrs: "", ready: false });
   const latest = useRef({ cart, favorites, addresses });
   latest.current = { cart, favorites, addresses };
 
@@ -146,12 +144,10 @@ export default function App() {
     setAddresses(nextAddrs);
     setOrders(state.orders ?? []);
     setWallet(state.wallet ?? 0);
-    setProActive(Boolean(state.pro));
     synced.current = {
       cart: JSON.stringify({ storeId: nextCart.storeId, items: nextCart.items }),
       favs: [...nextFavs].sort((a, b) => a - b).join(","),
       addrs: addrSig(serverAddrs),
-      pro: Boolean(state.pro),
       ready: true,
     };
     save("naz_user", state.user);
@@ -164,7 +160,6 @@ export default function App() {
   useEffect(() => save("naz_address_id", selectedAddressId), [selectedAddressId]);
   useEffect(() => save("naz_orders", orders), [orders]);
   useEffect(() => save("naz_wallet", wallet), [wallet]);
-  useEffect(() => save("naz_pro", proActive), [proActive]);
 
   /* ---------------- server sync (logged-in only) ---------------- */
   const canSync = Boolean(token) && apiOnline;
@@ -197,19 +192,17 @@ export default function App() {
       .save(addresses)
       .then((res) => {
         const nextSig = addrSig(res.addresses);
-        if (nextSig === synced.current.addrs) return;
+        const sameAddress = (a: Address, b: Address) =>
+          a.title === b.title && a.address === b.address && a.detail === b.detail && a.phone === b.phone &&
+          a.type === b.type && (a.lat ?? null) === (b.lat ?? null) && (a.lng ?? null) === (b.lng ?? null);
+        const selected = addresses.find((a) => a.id === selectedAddressId);
+        const canonicalSelected = selected && res.addresses.find((a) => sameAddress(a, selected));
+        if (canonicalSelected) setSelectedAddressId(canonicalSelected.id);
         synced.current.addrs = nextSig;
-        setAddresses(res.addresses);
+        if (JSON.stringify(res.addresses) !== JSON.stringify(addresses)) setAddresses(res.addresses);
       })
       .catch(() => setApiOnline(false));
-  }, [addresses, canSync]);
-
-  useEffect(() => {
-    if (!canSync || !synced.current.ready) return;
-    if (synced.current.pro === proActive) return;
-    synced.current.pro = proActive;
-    api.pro.set(proActive).catch(() => setApiOnline(false));
-  }, [proActive, canSync]);
+  }, [addresses, canSync, selectedAddressId]);
 
   /* keep the selected address valid */
   useEffect(() => {
@@ -468,8 +461,6 @@ export default function App() {
     orders,
     wallet,
     setWallet,
-    proActive,
-    setProActive,
     productModal,
     openProduct: (p) => setProductModal(p),
     closeProduct: () => setProductModal(null),
@@ -527,6 +518,7 @@ export default function App() {
   else if (sub?.name === "category") content = <CategoryPage c={c} catId={sub.id} />;
   else if (sub?.name === "search") content = <SearchPage c={c} />;
   else if (sub?.name === "favorites") content = <FavoritesPage c={c} />;
+  else if (sub?.name === "account-detail") content = <AccountDetailPage c={c} kind={sub.id} />;
   else if (sub?.name === "map") content = <MapPage c={c} />;
   else if (sub?.name === "stores") content = <StoresPage c={c} />;
   else if (view === "easy") content = <EasyPage c={c} />;
@@ -535,16 +527,8 @@ export default function App() {
   else if (view === "cart")
     content = (
       <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-36">
-        <div className="sticky top-0 z-30 border-b border-line bg-white/92 backdrop-blur md:top-16">
-          <div className="flex items-center justify-between px-4 pt-3.5">
-            <h2 className="text-[17px] font-black text-ink">سبد خرید</h2>
-            <button type="button" onClick={() => openAddress("home")} className="inline-flex items-center gap-1 rounded-full border border-line bg-white px-2.5 py-1.5 text-[11px] font-extrabold shadow-sm">
-              <ChevronDown className="h-3.5 w-3.5" /> ارسال به {selectedAddress?.title ?? "آدرس"}
-            </button>
-          </div>
-          <p className="truncate px-4 pb-3 pt-1.5 text-[11px] font-medium text-muted">
-            شهرستان نظرآباد، {selectedAddress?.address ?? "آدرسی ثبت نشده"}، {selectedAddress?.detail ?? ""}
-          </p>
+        <div className="sticky top-0 z-30 border-b border-line bg-white/92 px-4 py-3.5 backdrop-blur md:top-16">
+          <h2 className="text-[16px] font-black text-ink">سبد خرید</h2>
         </div>
         <CartBody c={c} />
       </div>
@@ -621,9 +605,25 @@ export default function App() {
             >
               <ShoppingCart className="h-4 w-4" />
               <span className="tabular-nums">{pd(cartCount)}</span>
-              {cartCount > 0 && <span className="text-[11px] font-bold text-white/80">{faNum(payable)}</span>}
             </button>
 
+            <button
+              type="button"
+              onClick={() => openAddress("home")}
+              aria-label="تغییر آدرس"
+              className="flex h-8 max-w-[72px] items-center gap-1 rounded-lg bg-brand-soft px-2 text-[10px] font-bold text-brand-dark lg:hidden"
+            >
+              <MapPin className="h-3 w-3 shrink-0" />
+              <span className="truncate">{selectedAddress?.title ?? "آدرس"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => c.openSub({ name: "search" })}
+              aria-label="جستجو"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f4f3f0] text-ink md:hidden"
+            >
+              <Search className="h-4 w-4" />
+            </button>
             <div className="relative">
               <button
                 type="button"
@@ -660,7 +660,7 @@ export default function App() {
                         { icon: UserRound, label: "حساب کاربری", fn: () => go("account") },
                         { icon: ClipboardList, label: "سفارش‌های من", fn: () => go("orders") },
                         { icon: Wallet, label: "کیف پول", fn: () => c.setSheet("wallet") },
-                        { icon: TicketPercent, label: "کدهای تخفیف من", fn: () => c.setSheet("codes") },
+                        { icon: TicketPercent, label: "کدهای تخفیف من", fn: () => c.openSub({ name: "account-detail", id: "codes" }) },
                         { icon: Store, label: "فروشگاه‌های اطراف", fn: () => c.openSub({ name: "stores" }) },
                         { icon: Info, label: "قوانین و مقررات", fn: () => c.setSheet("rules") },
                       ] as const).map((item) => (
@@ -691,29 +691,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* mobile: address + search row */}
-        <div className="flex items-center gap-2 px-4 pb-3 md:hidden">
-          <button
-            type="button"
-            onClick={() => openAddress("home")}
-            className="flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-line bg-white px-3 py-2 text-[11px] font-extrabold text-ink"
-          >
-            <MapPin className="h-3.5 w-3.5 shrink-0 text-brand" />
-            <span className="truncate">
-              {selectedAddress?.title ?? "انتخاب آدرس"}
-              {selectedAddress ? ` · ${selectedAddress.address}` : ""}
-            </span>
-            <ChevronDown className="h-3 w-3 shrink-0 text-muted" />
-          </button>
-          <button
-            type="button"
-            onClick={() => c.openSub({ name: "search" })}
-            aria-label="جستجو"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f4f3f0] text-ink"
-          >
-            <Search className="h-4.5 w-4.5" />
-          </button>
-        </div>
       </header>
 
       {!apiOnline && (
@@ -735,7 +712,7 @@ export default function App() {
                   خرید سوپرمارکتی فوری از سوپرمارکت‌های محلی شهرستان نظرآباد — از خانه سفارش دهید و تا ۴۵ دقیقه دیگر تحویل بگیرید.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {["نظرآباد", "تنکمان", "سیدجمال‌الدین"].map((a) => (
+                  {["نظرآباد", "محمد آباد", "علی آباد", "سیدجمالدین", "تنکمان"].map((a) => (
                     <span key={a} className="rounded-full bg-brand-soft px-2.5 py-1 text-[10px] font-extrabold text-brand-dark">
                       {a}
                     </span>
@@ -749,7 +726,7 @@ export default function App() {
                     { label: "قوانین و مقررات", fn: () => c.setSheet("rules") },
                     { label: "حریم خصوصی", fn: () => c.setSheet("privacy") },
                     { label: "پشتیبانی", fn: () => c.setSheet("support") },
-                    { label: "کدهای تخفیف", fn: () => c.setSheet("codes") },
+                    { label: "کدهای تخفیف", fn: () => c.openSub({ name: "account-detail", id: "codes" }) },
                   ] as const).map((l) => (
                     <li key={l.label}>
                       <button type="button" onClick={l.fn} className="text-[12px] font-medium text-muted transition hover:text-brand">
@@ -762,14 +739,6 @@ export default function App() {
               <div>
                 <p className="text-[11px] font-medium text-muted">نسخه: ۲.۰.۰ · متصل به سرور ناز</p>
                 <p className="mt-2 text-[11px] font-medium leading-6 text-muted">© ۱۴۰۴ ناز مارکت — تمام حقوق محفوظ است.</p>
-                <button
-                  type="button"
-                  onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-[11px] font-black text-ink transition hover:border-brand hover:text-brand"
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  بازگشت به بالا
-                </button>
               </div>
             </div>
           </div>
@@ -782,7 +751,7 @@ export default function App() {
           className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
           aria-label="ناوبری اصلی"
         >
-          <div className="grid h-16 grid-cols-5">
+          <div className="grid h-14 grid-cols-5">
             {([
               { key: "home", label: "خانه", icon: Home },
               { key: "easy", label: "خرید راحت", icon: Search },
@@ -797,12 +766,12 @@ export default function App() {
                   type="button"
                   onClick={() => go(item.key)}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex flex-col items-center justify-center gap-1 text-[10px] font-extrabold transition active:scale-95 ${
+                  className={`relative flex flex-col items-center justify-center gap-0.5 text-[9px] font-semibold transition active:scale-95 ${
                     active ? "text-brand" : "text-[#a8a49e]"
                   }`}
                 >
                   <span className="relative">
-                    <item.icon className="h-5.5 w-5.5" strokeWidth={active ? 2.3 : 1.8} />
+                    <item.icon className="h-5 w-5" strokeWidth={active ? 2.2 : 1.7} />
                     {!!item.badge && (
                       <span className="pop-in absolute -left-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#eb2d20] px-1 text-[8.5px] font-black text-white">
                         {pd(item.badge)}

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  BadgeCheck,
   Check,
   Copy,
   Gift,
@@ -15,14 +14,12 @@ import {
   Phone,
   ReceiptText,
   ShieldCheck,
-  Sparkles,
   TicketPercent,
   UserRound,
   Users,
   Wallet,
 } from "lucide-react";
-import { pd } from "../components/ui";
-import { Sheet } from "../components/ui";
+import { Empty, pd, ScreenHeader, Sheet } from "../components/ui";
 import { api } from "../api/client";
 import type { AppCtx } from "../ctx";
 import type { User } from "../data";
@@ -33,15 +30,14 @@ export function AccountView({ c }: { c: AppCtx }) {
   const name = fullName || (c.isGuest ? "کاربر مهمان" : "کاربر ناز");
   const phone = c.user?.phone ? pd(c.user.phone) : "بدون شماره";
 
-  const rows: { icon: typeof Heart; label: string; desc?: string; pill?: string; pillCls?: string; sheet?: string; action?: () => void; pro?: boolean }[] = [
-    { icon: Sparkles, label: "ناز! پرو", pro: true, desc: c.proActive ? "اشتراک فعال است" : "اشتراک فعال ندارید", pill: c.proActive ? undefined : "خرید اشتراک", pillCls: "bg-[#4b4b48] text-white", sheet: "pro" },
+  const rows: { icon: typeof Heart; label: string; desc?: string; pill?: string; pillCls?: string; sheet?: string; action?: () => void }[] = [
     { icon: UserRound, label: "مشخصات حساب", desc: "نام، نام خانوادگی و رمز عبور", pill: "ویرایش", pillCls: "bg-[#f4f3f0] text-ink", sheet: "profile" },
     { icon: Users, label: "دعوت دوستان", desc: "تا ۲ میلیون تومان کد تخفیف", pill: "دعوت کردن", pillCls: "bg-peach text-brand", sheet: "invite" },
     { icon: Wallet, label: "افزایش اعتبار کیف پول", desc: `موجودی: ${faNum(c.wallet)} تومان`, sheet: "wallet" },
     { icon: Heart, label: "کالاهای مورد علاقه‌ی من", desc: `${pd(c.favorites.length)} کالا`, action: () => c.openSub({ name: "favorites" }) },
-    { icon: TicketPercent, label: "کدهای تخفیف من", pill: "جدید", pillCls: "bg-peach text-brand", sheet: "codes" },
-    { icon: MessageSquareText, label: "نظرات من", sheet: "reviews" },
-    { icon: ReceiptText, label: "لیست پرداخت‌ها", sheet: "payments" },
+    { icon: TicketPercent, label: "کدهای تخفیف من", action: () => c.openSub({ name: "account-detail", id: "codes" }) },
+    { icon: MessageSquareText, label: "نظرات من", action: () => c.openSub({ name: "account-detail", id: "reviews" }) },
+    { icon: ReceiptText, label: "لیست پرداخت‌ها", action: () => c.openSub({ name: "account-detail", id: "payments" }) },
     { icon: Headphones, label: "پشتیبانی", sheet: "support" },
     { icon: Info, label: "قوانین و مقررات", sheet: "rules" },
     { icon: ShieldCheck, label: "حریم خصوصی", sheet: "privacy" },
@@ -81,7 +77,7 @@ export function AccountView({ c }: { c: AppCtx }) {
       )}
 
       <div className="px-4 pt-3 lg:px-5">
-        <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-l from-[#ffe9dc] to-[#fff3ec] p-4">
+        <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-l from-[#eaf4ee] to-[#f5f8f5] p-4">
           <div className="absolute -left-6 -top-8 h-28 w-28 rounded-full bg-brand/10" />
           <div className="relative flex items-center gap-3">
             <span className="floaty flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-white shadow-md">
@@ -110,7 +106,6 @@ export function AccountView({ c }: { c: AppCtx }) {
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-[13.5px] font-extrabold text-ink">
                 {row.label}
-                {row.pro && <span className="rounded bg-[#0e7c86] px-1 py-px text-[8.5px] font-black italic text-white">Pro</span>}
               </span>
               {row.desc && <span className="mt-0.5 block text-[11px] font-medium text-muted">{row.desc}</span>}
             </span>
@@ -140,6 +135,18 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
     } catch { /* ignore */ }
     c.toast("کپی شد");
   };
+  const referralCode = c.user?.id ? `NAZ-${c.user.id}` : c.user?.phone ? `NAZ-${c.user.phone}` : "NAZ-NAZARABAD";
+  const referralLink = `${window.location.origin}/?ref=${encodeURIComponent(referralCode)}`;
+  const shareReferral = async () => {
+    const message = `با لینک من از ناز مارکت خرید کن؛ کد دعوت ${referralCode}: ${referralLink}`;
+    const shareApi = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
+    try {
+      if (shareApi.share) await shareApi.share({ title: "دعوت به ناز مارکت", text: message, url: referralLink });
+      else { await navigator.clipboard?.writeText(message); c.toast("لینک دعوت کپی شد"); }
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) c.toast("اشتراک‌گذاری انجام نشد");
+    }
+  };
   const topUp = async (amt: number) => {
     setTopUpBusy(amt);
     try {
@@ -158,61 +165,29 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
   };
 
   switch (sheet) {
-    case "codes":
-      return (
-        <Sheet title="کدهای تخفیف من" onClose={close}>
-          <div className="space-y-2.5">
-            {discountCodes.map((d) => (
-              <div key={d.code} className="flex items-center gap-3 rounded-3xl border border-dashed border-brand/40 bg-brand-soft/60 p-3.5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-brand shadow-sm">
-                  <TicketPercent className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-black text-ink">{d.title}</p>
-                  <p className="mt-0.5 text-[10.5px] font-medium text-muted">{d.desc}</p>
-                  <p dir="ltr" className="mt-1 text-left text-[11px] font-black tracking-wider text-brand">{d.code}</p>
-                </div>
-                <div className="flex shrink-0 flex-col gap-1.5">
-                  <button type="button" onClick={() => copy(d.code)} className="flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[10px] font-black text-ink shadow-sm">
-                    <Copy className="h-3 w-3" /> کپی
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      c.applyCode(d.code);
-                      if (c.cartCount > 0) {
-                        close();
-                        c.openSub({ name: "checkout" });
-                      } else {
-                        close();
-                        c.toast("کد ذخیره شد؛ هنگام تکمیل خرید اعمال می‌شود");
-                      }
-                    }}
-                    className="rounded-lg bg-brand px-2.5 py-1.5 text-[10px] font-black text-white"
-                  >
-                    استفاده
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Sheet>
-      );
     case "invite":
       return (
         <Sheet title="دعوت دوستان" onClose={close}>
-          <div className="rounded-3xl bg-gradient-to-l from-[#ffe9dc] to-[#fff3ec] p-5 text-center">
+          <div className="rounded-3xl bg-gradient-to-l from-[#eaf4ee] to-[#f5f8f5] p-5 text-center">
             <Gift className="mx-auto h-10 w-10 text-brand" />
             <p className="mt-3 text-[14px] font-black text-ink">با هر دعوت موفق، هر دو نفر تخفیف می‌گیرید!</p>
             <p className="mx-auto mt-1.5 max-w-64 text-[11px] font-medium leading-5 text-muted">
               کد دعوت خود را برای دوستانتان در نظرآباد بفرستید؛ بعد از اولین خرید آن‌ها، کد تخفیف به حساب شما اضافه می‌شود.
             </p>
             <div className="mx-auto mt-4 flex max-w-72 items-center gap-2 rounded-2xl bg-white p-2 shadow-sm">
-              <span dir="ltr" className="flex-1 text-[12px] font-black tracking-wider text-ink">NAZ-NAZARABAD</span>
-              <button type="button" onClick={() => copy("NAZ-NAZARABAD")} className="flex items-center gap-1 rounded-xl bg-brand px-3 py-2 text-[11px] font-black text-white">
+              <span dir="ltr" className="flex-1 text-[12px] font-black tracking-wider text-ink">{referralCode}</span>
+              <button type="button" onClick={() => copy(referralCode)} className="flex items-center gap-1 rounded-xl bg-brand-soft px-3 py-2 text-[11px] font-black text-brand-dark">
                 <Copy className="h-3.5 w-3.5" /> کپی کد
               </button>
             </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={() => copy(referralLink)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-white px-3 py-3 text-[11px] font-bold text-ink">
+              <Copy className="h-4 w-4" /> کپی لینک دعوت
+            </button>
+            <button type="button" onClick={shareReferral} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-3 py-3 text-[11px] font-black text-white">
+              <Users className="h-4 w-4" /> اشتراک‌گذاری
+            </button>
           </div>
         </Sheet>
       );
@@ -235,39 +210,6 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
               >
                 {topUpBusy === amt ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
                 {faNum(amt)}
-              </button>
-            ))}
-          </div>
-        </Sheet>
-      );
-    case "pro":
-      return (
-        <Sheet title="ناز! پرو" onClose={close}>
-          <div className="rounded-3xl bg-gradient-to-l from-[#0e7c86] to-[#0a5a61] p-5 text-white">
-            <p className="flex items-center gap-2 text-[16px] font-black">
-              ناز! پرو <span className="rounded bg-white/20 px-1.5 py-0.5 text-[9px] italic">Pro</span>
-            </p>
-            <p className="mt-1.5 text-[11px] font-medium leading-5 text-white/75">ارسال رایگان نامحدود از فروشگاه‌های پرو نظرآباد + تخفیف‌های اختصاصی هر هفته</p>
-          </div>
-          <div className="mt-3 space-y-2">
-            {[
-              { t: "اشتراک ماهانه", p: "۴۹٬۰۰۰ تومان" },
-              { t: "اشتراک سه‌ماهه", p: "۱۲۹٬۰۰۰ تومان" },
-            ].map((plan) => (
-              <button
-                key={plan.t}
-                type="button"
-                onClick={() => {
-                  c.setProActive(true);
-                  close();
-                  c.toast("اشتراک ناز پرو فعال شد");
-                }}
-                className="flex w-full items-center justify-between rounded-2xl border border-line p-3.5 text-right transition hover:border-brand active:scale-[0.99]"
-              >
-                <span className="flex items-center gap-2 text-[12px] font-black text-ink">
-                  <BadgeCheck className="h-4 w-4 text-[#0e7c86]" /> {plan.t}
-                </span>
-                <span className="text-[12px] font-black text-brand">{plan.p}</span>
               </button>
             ))}
           </div>
@@ -297,38 +239,6 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
           close={close}
         />
       );
-    case "payments":
-      return (
-        <Sheet title="لیست پرداخت‌ها" onClose={close}>
-          {c.orders.length === 0 ? (
-            <p className="py-6 text-center text-[12px] font-semibold text-muted">هنوز پرداختی ثبت نشده است.</p>
-          ) : (
-            <div className="divide-y divide-line">
-              {c.orders.map((o) => (
-                <div key={o.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <p className="text-[12px] font-black text-ink">{o.storeName}</p>
-                    <p className="mt-0.5 text-[10px] font-medium text-muted">
-                      سفارش ناز-{pd(o.id.replace("NM-", ""))} · {o.time}
-                    </p>
-                  </div>
-                  <span className="text-[12px] font-black text-ink">{faNum(o.total)} تومان</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Sheet>
-      );
-    case "reviews":
-      return (
-        <Sheet title="نظرات من" onClose={close}>
-          <p className="py-6 text-center text-[12px] font-semibold leading-6 text-muted">
-            هنوز نظری ثبت نکرده‌اید.
-            <br />
-            بعد از تحویل سفارش، می‌توانید به فروشگاه و کالاها امتیاز بدهید.
-          </p>
-        </Sheet>
-      );
     case "rules":
       return (
         <Sheet title="قوانین و مقررات" onClose={close}>
@@ -354,6 +264,48 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
   }
 }
 
+
+export function AccountDetailPage({ c, kind }: { c: AppCtx; kind: "codes" | "payments" | "reviews" }) {
+  const title = kind === "codes" ? "کدهای تخفیف من" : kind === "payments" ? "لیست پرداخت‌ها" : "نظرات من";
+  const copy = (text: string) => {
+    void navigator.clipboard?.writeText(text);
+    c.toast("کد تخفیف کپی شد");
+  };
+  return (
+    <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-24 md:pb-12">
+      <ScreenHeader title={title} onBack={() => c.closeSub()} />
+      {kind === "codes" && (
+        <div className="space-y-3 p-4">
+          {discountCodes.map((d) => (
+            <article key={d.code} className="flex items-center gap-3 rounded-3xl border border-line bg-white p-4 shadow-sm">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand"><TicketPercent className="h-5 w-5" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[12px] font-black text-ink">{d.title}</p>
+                <p className="mt-1 text-[10.5px] font-medium text-muted">{d.desc}</p>
+                <p dir="ltr" className="mt-1 text-left text-[11px] font-black tracking-wider text-brand">{d.code}</p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-1.5">
+                <button type="button" onClick={() => copy(d.code)} className="rounded-lg bg-[#f4f3f0] px-3 py-1.5 text-[10px] font-black text-ink">کپی کد</button>
+                <button type="button" onClick={() => { c.applyCode(d.code); if (c.cartCount) c.openSub({ name: "checkout" }); else c.toast("کد را هنگام تکمیل خرید اعمال کنید"); }} className="rounded-lg bg-brand px-3 py-1.5 text-[10px] font-black text-white">استفاده</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+      {kind === "payments" && (c.orders.length ? (
+        <div className="divide-y divide-line rounded-3xl border border-line bg-white p-4 sm:m-4">
+          {c.orders.map((o) => (
+            <div key={o.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+              <div><p className="text-[12px] font-black text-ink">{o.storeName}</p><p className="mt-1 text-[10px] text-muted">سفارش ناز-{pd(o.id.replace("NM-", ""))} · {o.time}</p></div>
+              <span className="shrink-0 text-[12px] font-black text-ink">{faNum(o.total)} تومان</span>
+            </div>
+          ))}
+        </div>
+      ) : <Empty icon={ReceiptText} title="پرداختی ثبت نشده" desc="پرداخت‌های سفارش‌های شما در این صفحه نمایش داده می‌شوند." />)}
+      {kind === "reviews" && <Empty icon={MessageSquareText} title="هنوز نظری ثبت نکرده‌اید" desc="پس از دریافت سفارش، می‌توانید تجربه‌ی خود را برای فروشگاه و کالاها ثبت کنید." />}
+    </div>
+  );
+}
 
 /* ---------------- profile editor ---------------- */
 function ProfileSheet({ c, close }: { c: AppCtx; close: () => void }) {

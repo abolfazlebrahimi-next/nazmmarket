@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowUp,
   BadgeCheck,
   ChevronLeft,
   CloudRainWind,
@@ -9,7 +8,6 @@ import {
   Heart,
   MapPin,
   Navigation,
-  Search,
   ShoppingBasket,
   Sparkles,
   Store,
@@ -24,7 +22,7 @@ import type { AppCtx } from "../ctx";
 import { MAP_EMBED, brands, categories, faNum, products, stores } from "../data";
 
 export function HomePage({ c }: { c: AppCtx }) {
-  const [storeFilter, setStoreFilter] = useState<"all" | "pro" | "hyper" | "date">("all");
+  const [storeFilter, setStoreFilter] = useState<"all" | "hyper" | "date">("all");
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 1000);
@@ -32,7 +30,6 @@ export function HomePage({ c }: { c: AppCtx }) {
   }, []);
 
   const filteredStores = stores.filter((s) => {
-    if (storeFilter === "pro") return s.pro;
     if (storeFilter === "hyper") return s.type === "hypermarket";
     if (storeFilter === "date") return s.tags.some((t) => t.includes("تضمین"));
     return true;
@@ -75,7 +72,7 @@ export function HomePage({ c }: { c: AppCtx }) {
           <button
             type="button"
             onClick={() => { setStoreFilter("all"); c.openSub({ name: "stores" }); }}
-            className="relative overflow-hidden rounded-3xl bg-[#fdf0e7] p-3.5 text-right transition active:scale-[0.98] md:hover:brightness-[0.98]"
+            className="relative overflow-hidden rounded-3xl bg-[#eaf4ee] p-3.5 text-right transition active:scale-[0.98] md:hover:brightness-[0.98]"
           >
             <span className="floaty block w-fit rounded-2xl bg-white p-2.5 shadow-sm">
               <ShoppingBasket className="h-7 w-7 text-brand" />
@@ -136,7 +133,7 @@ export function HomePage({ c }: { c: AppCtx }) {
       </div>
 
       {/* amazing offers */}
-      <div className="mt-5 bg-gradient-to-b from-brand to-[#ff7a33] pb-4 pt-3">
+      <div className="mx-auto mt-5 overflow-hidden bg-gradient-to-br from-[#16865b] to-[#26352e] pb-4 pt-3 md:mx-6 md:max-w-[calc(100%-3rem)] md:rounded-[28px]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 md:px-6">
           <p className="flex items-center gap-1.5 text-[15px] font-black text-white md:text-[16px]">
             <Sparkles className="h-5 w-5" /> ویژه خرید اول!
@@ -194,7 +191,6 @@ export function HomePage({ c }: { c: AppCtx }) {
         <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
           {([
             { key: "all", label: "همه فروشگاه‌ها", icon: Store },
-            { key: "pro", label: "فروشگاه‌های پرو", icon: Sparkles, pro: true },
             { key: "hyper", label: "هایپرمارکت", icon: ShoppingBasket },
             { key: "date", label: "تضمین تاریخ", icon: BadgeCheck },
           ] as const).map((f) => (
@@ -208,16 +204,13 @@ export function HomePage({ c }: { c: AppCtx }) {
               }`}
             >
               <f.icon className="h-3.5 w-3.5" /> {f.label}
-              {"pro" in f && f.pro && (
-                <span className="rounded bg-[#0e7c86] px-1 py-px text-[8px] font-black italic text-white">Pro</span>
-              )}
             </button>
           ))}
         </div>
 
-        <div className="mt-3 flex items-center justify-center gap-2 rounded-2xl bg-[#57a773] px-4 py-3 text-white shadow-md">
-          <Gift className="h-5 w-5 shrink-0" />
-          <p className="text-[11.5px] font-black md:text-[12px]">ارسال رایگان + تخفیف ۶۰٬۰۰۰ تومانی ویژه خرید اول!</p>
+        <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#dcebe2] bg-[#f1f7f3] px-3 py-2 text-[#26352e] md:inline-flex">
+          <Gift className="h-4 w-4 shrink-0 text-brand" />
+          <p className="text-[10.5px] font-bold">ارسال رایگان و تخفیف خرید اول</p>
         </div>
 
         <div className="mt-3 overflow-hidden border-y border-line bg-white md:grid md:grid-cols-2 md:rounded-[22px] md:border">
@@ -243,10 +236,11 @@ export function HomePage({ c }: { c: AppCtx }) {
           <h3 className="text-[14px] font-black text-ink">برندهای محبوب</h3>
           <ChevronLeft className="h-4.5 w-4.5 text-muted" />
         </div>
-        <div className="no-scrollbar mt-3 flex items-center gap-5 overflow-x-auto pb-1 md:flex-wrap md:gap-x-8 md:gap-y-3">
-          {brands.map((b) => (
+        <div className="no-scrollbar mt-3 overflow-hidden" aria-label="برندهای محبوب">
+          <div className="brand-marquee flex w-max items-center gap-8 py-1" dir="rtl">
+          {[...brands, ...brands].map((b, i) => (
             <button
-              key={b.name}
+              key={`${b.name}-${i}`}
               type="button"
               onClick={() => c.openSub({ name: "search" })}
               className="shrink-0 text-[15px] font-black tracking-tight opacity-80 transition hover:opacity-100"
@@ -255,6 +249,7 @@ export function HomePage({ c }: { c: AppCtx }) {
               {b.name}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -298,35 +293,14 @@ export function HomePage({ c }: { c: AppCtx }) {
         </div>
       </div>
 
-      <BackToTop />
     </div>
-  );
-}
-
-function BackToTop() {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setShow(window.scrollY > 500);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  if (!show) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      className="fade-rise fixed bottom-24 left-4 z-40 flex items-center gap-2 rounded-2xl border border-line bg-white/95 px-3.5 py-2.5 text-[11px] font-black text-ink shadow-lg backdrop-blur transition hover:border-brand hover:text-brand lg:bottom-6"
-    >
-      <ArrowUp className="h-4 w-4" /> بازگشت به بالا
-    </button>
   );
 }
 
 /* ---------------- All stores ---------------- */
 export function StoresPage({ c }: { c: AppCtx }) {
-  const [filter, setFilter] = useState<"all" | "pro" | "hyper" | "date" | "turbo">("all");
+  const [filter, setFilter] = useState<"all" | "hyper" | "date" | "turbo">("all");
   const list = stores.filter((s) => {
-    if (filter === "pro") return s.pro;
     if (filter === "hyper") return s.type === "hypermarket";
     if (filter === "date") return s.tags.some((t) => t.includes("تضمین"));
     if (filter === "turbo") return s.tags.some((t) => t.includes("توربو"));
@@ -338,7 +312,6 @@ export function StoresPage({ c }: { c: AppCtx }) {
       <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
         {([
           { key: "all", label: "همه فروشگاه‌ها", icon: Store },
-          { key: "pro", label: "فروشگاه‌های پرو", icon: Sparkles },
           { key: "hyper", label: "هایپرمارکت", icon: ShoppingBasket },
           { key: "date", label: "تضمین تاریخ", icon: BadgeCheck },
           { key: "turbo", label: "ارسال توربو", icon: Zap },
@@ -453,9 +426,16 @@ export function EasyPage({ c }: { c: AppCtx }) {
   const lastOrder = c.orders[0];
   return (
     <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-24 md:pb-12">
-      <div className="sticky top-0 z-30 border-b border-line bg-white/92 px-4 py-3.5 backdrop-blur md:top-16">
-        <h2 className="text-[16px] font-black text-ink">خرید راحت</h2>
-        <p className="mt-0.5 text-[11px] font-medium text-muted">کالاهای پرتکرار شما در نظرآباد، آماده‌ی افزودن سریع</p>
+      <div className="px-4 pt-6">
+        <h3 className="text-[14px] font-black text-ink">دسترسی سریع به دسته‌ها</h3>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {categories.slice(1, 9).map((cat) => (
+            <button key={cat.id} type="button" onClick={() => c.openSub({ name: "category", id: cat.id })} className="flex flex-col items-center gap-1.5 rounded-3xl border border-line bg-white py-3.5 transition hover:border-brand/40 active:scale-95">
+              <cat.icon className="h-6 w-6 text-brand" strokeWidth={1.7} />
+              <span className="px-1 text-center text-[9px] font-bold leading-3.5 text-ink">{cat.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
       {lastOrder && (
         <div className="px-4 pt-4">
@@ -515,23 +495,7 @@ export function EasyPage({ c }: { c: AppCtx }) {
         </div>
       </div>
       <div className="px-4 pt-6">
-        <h3 className="text-[14px] font-black text-ink">دسترسی سریع به دسته‌ها</h3>
-        <div className="mt-3 grid grid-cols-4 gap-2">
-          {categories.slice(1, 9).map((cat) => (
-            <button key={cat.id} type="button" onClick={() => c.openSub({ name: "category", id: cat.id })} className="flex flex-col items-center gap-1.5 rounded-3xl border border-line bg-white py-3.5 transition hover:border-brand/40 active:scale-95">
-              <cat.icon className="h-6 w-6 text-brand" strokeWidth={1.7} />
-              <span className="px-1 text-center text-[9px] font-bold leading-3.5 text-ink">{cat.name}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="px-4 pt-5">
-        <button type="button" onClick={() => c.openSub({ name: "search" })} className="flex w-full items-center gap-2 rounded-2xl bg-[#f4f3f0] px-3.5 py-3.5 text-[12px] font-medium text-muted transition active:scale-[0.99]">
-          <Search className="h-4.5 w-4.5" /> جستجوی سریع کالا
-        </button>
-      </div>
-      <div className="px-4 pt-6">
-        <button type="button" onClick={() => c.setSheet("codes")} className="flex w-full items-center justify-between rounded-2xl border border-dashed border-brand/40 bg-brand-soft/50 px-4 py-3.5 transition active:scale-[0.99]">
+        <button type="button" onClick={() => c.openSub({ name: "account-detail", id: "codes" })} className="flex w-full items-center justify-between rounded-2xl border border-dashed border-brand/40 bg-brand-soft/50 px-4 py-3.5 transition active:scale-[0.99]">
           <span className="flex items-center gap-2 text-[12px] font-black text-brand-dark">
             <TicketPercent className="h-4.5 w-4.5" /> کدهای تخفیف من
           </span>
