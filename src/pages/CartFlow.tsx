@@ -1,0 +1,374 @@
+import { useState } from "react";
+import {
+  Banknote,
+  Check,
+  ChevronLeft,
+  CreditCard,
+  Gift,
+  MapPin,
+  ShoppingCart,
+  Store,
+  TicketPercent,
+  Timer,
+  Trash2,
+  Wallet,
+  X,
+  Zap,
+} from "lucide-react";
+import { Empty, QtyStepper, pd } from "../components/ui";
+import type { AppCtx } from "../ctx";
+import { faNum, productById } from "../data";
+
+const fa = faNum;
+
+/* ---------------- Cart (mobile full view + desktop drawer body) ---------------- */
+export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean }) {
+  const items = Object.entries(c.cart.items)
+    .map(([id, qty]) => {
+      const p = productById(Number(id));
+      return p ? { product: p, qty } : null;
+    })
+    .filter((x): x is { product: NonNullable<ReturnType<typeof productById>>; qty: number } => x !== null);
+
+  if (c.cartCount === 0) {
+    return (
+      <Empty
+        icon={ShoppingCart}
+        title="سبد خریدی ندارید!"
+        desc="کالاهای مورد نیاز خود را از فروشگاه‌های نظرآباد به سبد اضافه کنید."
+        actionLabel="شروع خرید"
+        onAction={() => {
+          c.setCartDrawer(false);
+          c.go("home");
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className={compact ? "flex flex-1 flex-col overflow-y-auto app-scroll" : "px-4 pt-4 pb-40"}>
+      <div className={compact ? "flex-1 overflow-y-auto app-scroll px-4" : ""}>
+        <div className="rounded-[26px] border border-line bg-white p-4 shadow-[0_10px_26px_-18px_rgba(30,20,10,0.4)]">
+          <div className="flex items-start gap-3">
+            <button type="button" onClick={() => { c.clearCart(); c.toast("سبد خرید حذف شد"); }} aria-label="حذف سبد" className="order-first flex h-8 w-8 items-center justify-center rounded-full text-ink transition hover:bg-red-50 hover:text-red-500">
+              <Trash2 className="h-4.5 w-4.5" />
+            </button>
+            <div className="flex-1">
+              {c.cartStore ? (
+                <>
+                  <p className="text-[13px] font-black text-ink">{c.cartStore.name}</p>
+                  <p className="mt-0.5 text-[11px] font-medium text-muted">
+                    {pd(c.cartCount)} کالا | {fa(c.subtotal)} تومان
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-[13px] font-black text-ink">در انتظار انتخاب فروشگاه</p>
+                  <p className="mt-0.5 text-[11px] font-medium text-muted">
+                    {pd(c.cartCount)} کالا | {fa(c.subtotal)} تومان
+                  </p>
+                </>
+              )}
+            </div>
+            {c.cartStore ? (
+              <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${c.cartStore.gradient} text-[12px] font-black text-white`}>{c.cartStore.initial}</span>
+            ) : (
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f4f3f0]">
+                <Store className="h-6 w-6 text-[#a8a49e]" />
+              </span>
+            )}
+          </div>
+
+          <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar">
+            {items.map(({ product }) => (
+              <span key={product.id} className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${product.bg}`}>
+                <product.icon className={`h-7 w-7 ${product.iconColor}`} strokeWidth={1.6} />
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {c.cartStore ? (
+              <button type="button" onClick={() => { c.setCartDrawer(false); c.openSub({ name: "checkout" }); }} className="w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white transition active:scale-[0.99]">
+                ادامه فرآیند خرید
+              </button>
+            ) : (
+              <button type="button" onClick={c.openStorePicker} className="w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white transition active:scale-[0.99]">
+                جستجوی فروشگاه
+              </button>
+            )}
+            <button type="button" onClick={() => { c.setCartDrawer(false); c.go("home"); }} className="w-full rounded-2xl bg-[#f4f3f0] py-3.5 text-[13px] font-black text-ink transition active:scale-[0.99]">
+              افزودن کالا
+            </button>
+          </div>
+        </div>
+
+        {!compact && (
+          <>
+            <div className="mt-4 divide-y divide-line rounded-[26px] border border-line bg-white">
+              {items.map(({ product, qty }) => (
+                <div key={product.id} className="flex items-center gap-3 p-3.5">
+                  <span className={`flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${product.bg}`} style={{ height: 52, width: 52 }}>
+                    <product.icon className={product.iconColor} strokeWidth={1.6} style={{ height: 26, width: 26 }} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] font-extrabold text-ink">{product.name}</p>
+                    <p className="mt-0.5 text-[10px] font-medium text-muted">
+                      {product.unit} · {fa(product.price)} تومان
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <QtyStepper small qty={qty} onInc={() => c.handleAdd(product, c.cart.storeId ?? undefined)} onDec={() => c.handleDec(product.id)} />
+                    <p className="text-[11px] font-black text-ink">{fa(product.price * qty)} تومان</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 rounded-[26px] border border-line bg-white p-4">
+              <div className="flex items-center justify-between text-[12px] font-bold">
+                <span className="text-muted">جمع سبد خرید</span>
+                <span className="font-black text-ink">{fa(c.subtotal)} تومان</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[12px] font-bold">
+                <span className="text-muted">هزینه ارسال</span>
+                <span className={c.deliveryFee === 0 ? "font-black text-mint" : "text-ink"}>{c.deliveryFee === 0 ? "رایگان" : `${fa(c.deliveryFee)} تومان`}</span>
+              </div>
+              {c.deliveryFee > 0 && (
+                <p className="mt-2.5 rounded-xl bg-brand-soft px-3 py-2 text-[10px] font-bold leading-5 text-brand-dark">
+                  با {fa(400000 - c.subtotal)} تومان خرید بیشتر، ارسال رایگان می‌شود.
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Checkout (mobile + desktop two-column) ---------------- */
+export function CheckoutView({ c }: { c: AppCtx }) {
+  const [slot, setSlot] = useState("now");
+  const [payment, setPayment] = useState<"online" | "cash">("online");
+  const [codeInput, setCodeInput] = useState("");
+  const [placing, setPlacing] = useState(false);
+
+  const rows = [
+    { label: `جمع کالاها (${pd(c.cartCount)} کالا)`, value: `${fa(c.subtotal)} تومان` },
+    ...(c.discountAmount > 0 ? [{ label: "تخفیف", value: `− ${fa(c.discountAmount)} تومان`, green: true }] : []),
+    { label: "هزینه ارسال", value: c.deliveryFee === 0 ? "رایگان" : `${fa(c.deliveryFee)} تومان`, green: c.deliveryFee === 0 },
+  ];
+
+  const submit = async () => {
+    if (!c.selectedAddress) return c.toast("ابتدا آدرس تحویل را انتخاب کنید");
+    if (!c.cart.storeId) {
+      c.openStorePicker();
+      return c.toast("ابتدا فروشگاه را انتخاب کنید");
+    }
+    setPlacing(true);
+    await c.placeOrder();
+  };
+
+  return (
+    <div className="fade-rise pb-40 lg:pb-16">
+      <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white/92 px-4 py-3 backdrop-blur">
+        <button type="button" onClick={() => c.closeSub()} aria-label="بازگشت" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90">
+          <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+        </button>
+        <h2 className="flex-1 text-[15px] font-black text-ink">تکمیل خرید</h2>
+      </div>
+
+      <div className="grid gap-5 px-4 pt-4 lg:grid-cols-[1fr_370px] lg:px-6">
+        {/* right column: steps */}
+        <div className="space-y-3">
+          <div className="rounded-3xl border border-line bg-white p-4">
+            <p className="flex items-center gap-2 text-[13px] font-black text-ink">
+              <MapPin className="h-4.5 w-4.5 text-brand" /> آدرس تحویل
+            </p>
+            <button type="button" onClick={() => c.openAddress("checkout")} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-line p-3.5 text-right transition hover:border-brand/50 active:scale-[0.99]">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12px] font-black text-ink">تحویل در: {c.selectedAddress?.title ?? "انتخاب آدرس"}</span>
+                <span className="mt-0.5 block truncate text-[11px] font-medium text-muted">
+                  {c.selectedAddress ? `${c.selectedAddress.address}، ${c.selectedAddress.detail} · ${c.selectedAddress.phone}` : "برای تعیین لوکیشن دقیق روی نقشه کلیک کنید"}
+                </span>
+              </span>
+              <span className="shrink-0 text-[11px] font-black text-brand">تغییر</span>
+            </button>
+          </div>
+
+          <div className="rounded-3xl border border-line bg-white p-4">
+            <p className="flex items-center gap-2 text-[13px] font-black text-ink">
+              <Store className="h-4.5 w-4.5 text-brand" /> فروشگاه
+            </p>
+            {c.cartStore ? (
+              <div className="mt-3 flex items-center gap-3 rounded-2xl border border-line p-3.5">
+                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br ${c.cartStore.gradient} text-[12px] font-black text-white`}>{c.cartStore.initial}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-black text-ink">{c.cartStore.name}</p>
+                  <p className="mt-0.5 text-[10px] font-medium text-muted">تا {pd(c.cartStore.minutes)} دقیقه · {c.cartStore.area}</p>
+                </div>
+                <button type="button" onClick={c.openStorePicker} className="shrink-0 text-[11px] font-black text-brand">تغییر</button>
+              </div>
+            ) : (
+              <button type="button" onClick={c.openStorePicker} className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3.5 text-right">
+                <Store className="h-5 w-5 shrink-0 text-amber-600" />
+                <span className="flex-1 text-[12px] font-extrabold text-amber-800">برای تکمیل خرید، ابتدا فروشگاه را انتخاب کنید</span>
+                <ChevronLeft className="h-4 w-4 text-amber-600" />
+              </button>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-line bg-white p-4">
+            <p className="flex items-center gap-2 text-[13px] font-black text-ink">
+              <Timer className="h-4.5 w-4.5 text-brand" /> زمان تحویل
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => setSlot("now")} aria-pressed={slot === "now"} className={`rounded-2xl border p-3 text-right transition ${slot === "now" ? "border-brand bg-brand-soft" : "border-line"}`}>
+                <p className="flex items-center gap-1 text-[12px] font-black text-ink"><Zap className="h-3.5 w-3.5 text-brand" /> ارسال فوری</p>
+                <p className="mt-1 text-[10px] font-medium text-muted">تا {pd(c.cartStore?.minutes ?? 45)} دقیقه دیگر</p>
+              </button>
+              <button type="button" onClick={() => setSlot("۱۲ تا ۱۴")} aria-pressed={slot !== "now"} className={`rounded-2xl border p-3 text-right transition ${slot !== "now" ? "border-brand bg-brand-soft" : "border-line"}`}>
+                <p className="flex items-center gap-1 text-[12px] font-black text-ink"><Timer className="h-3.5 w-3.5 text-brand" /> زمان‌بندی‌شده</p>
+                <p className="mt-1 text-[10px] font-medium text-muted">انتخاب بازه تحویل</p>
+              </button>
+            </div>
+            {slot !== "now" && (
+              <div className="mt-2.5 flex gap-2">
+                {["۱۲ تا ۱۴", "۱۴ تا ۱۶", "۱۶ تا ۱۸", "۱۸ تا ۲۰"].map((s) => (
+                  <button key={s} type="button" onClick={() => setSlot(s)} className={`flex-1 rounded-xl py-2 text-[11px] font-extrabold transition ${slot === s ? "bg-ink text-white" : "bg-[#f4f3f0] text-ink"}`}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-line bg-white p-4">
+            <p className="flex items-center gap-2 text-[13px] font-black text-ink">
+              <Wallet className="h-4.5 w-4.5 text-brand" /> روش پرداخت
+            </p>
+            <div className="mt-3 space-y-2">
+              {([
+                { key: "online", label: "پرداخت آنلاین", desc: "درگاه امن بانکی", icon: CreditCard },
+                { key: "cash", label: "پرداخت در محل", desc: "کارت‌خوان هنگام تحویل", icon: Banknote },
+              ] as const).map((m) => (
+                <button key={m.key} type="button" onClick={() => setPayment(m.key)} aria-pressed={payment === m.key} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-right transition ${payment === m.key ? "border-brand bg-brand-soft" : "border-line"}`}>
+                  <m.icon className="h-5 w-5 text-brand" />
+                  <span className="flex-1">
+                    <span className="block text-[12px] font-black text-ink">{m.label}</span>
+                    <span className="text-[10px] font-medium text-muted">{m.desc}</span>
+                  </span>
+                  <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${payment === m.key ? "border-brand bg-brand" : "border-line bg-white"}`}>
+                    {payment === m.key && <Check className="h-3 w-3 text-white" strokeWidth={3.5} />}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center gap-2 rounded-2xl bg-[#f8f7f4] px-3 py-2.5">
+              <Wallet className="h-4 w-4 text-mint" />
+              <p className="text-[11px] font-bold text-ink">موجودی کیف پول: {fa(c.wallet)} تومان</p>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-line bg-white p-4">
+            <p className="flex items-center gap-2 text-[13px] font-black text-ink">
+              <TicketPercent className="h-4.5 w-4.5 text-brand" /> کد تخفیف
+            </p>
+            {c.appliedCode ? (
+              <div className="mt-3 flex items-center justify-between rounded-2xl bg-emerald-50 px-3.5 py-3">
+                <p className="text-[12px] font-black text-emerald-700">
+                  {c.appliedCode} اعمال شد · {fa(c.discountAmount)} تومان تخفیف
+                </p>
+                <button type="button" onClick={() => c.setAppliedCode(null)} aria-label="حذف کد تخفیف" className="text-emerald-700">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3 flex gap-2">
+                <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder="مثلاً NAZ60" dir="ltr" aria-label="کد تخفیف" className="min-w-0 flex-1 rounded-2xl border border-line px-3.5 py-3 text-left text-[12px] font-bold uppercase outline-none focus:border-brand" />
+                <button type="button" onClick={() => { c.applyCode(codeInput); setCodeInput(""); }} className="shrink-0 rounded-2xl bg-ink px-4 text-[12px] font-black text-white transition active:scale-95">
+                  اعمال
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* left column: summary */}
+        <div>
+          <div className="rounded-3xl border border-line bg-white p-5 lg:sticky lg:top-6">
+            <p className="text-[14px] font-black text-ink">خلاصه سفارش</p>
+            <div className="mt-3">
+              {rows.map((row) => (
+                <div key={row.label} className="flex items-center justify-between border-b border-dashed border-line py-2.5 text-[12px] font-bold">
+                  <span className="text-muted">{row.label}</span>
+                  <span className={row.green ? "font-black text-mint" : "text-ink"}>{row.value}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-3">
+                <span className="text-[13px] font-black text-ink">مبلغ قابل پرداخت</span>
+                <span className="text-[17px] font-black text-brand">{fa(c.payable)} تومان</span>
+              </div>
+            </div>
+            <button type="button" onClick={submit} disabled={placing} className="mt-5 w-full rounded-2xl bg-brand py-4 text-[14px] font-black text-white shadow-lg shadow-brand/40 transition enabled:active:scale-[0.99] disabled:opacity-60">
+              {placing ? "در حال ثبت سفارش..." : "ثبت سفارش"}
+            </button>
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-[10px] font-semibold text-muted">
+              <Gift className="h-3.5 w-3.5 text-brand" /> سفارش شما فقط در محدوده شهرستان نظرآباد تحویل می‌شود
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Done ---------------- */
+export function DoneView({ c, order }: { c: AppCtx; order: { id: string; storeName: string; addressTitle: string } }) {
+  return (
+    <div className="fade-rise flex min-h-dvh flex-col items-center justify-center px-6 py-16 text-center lg:min-h-0">
+      <div className="relative h-24 w-24">
+        <span className="absolute inset-0 rounded-full bg-emerald-100" style={{ animation: "success-ring 1.6s ease-out infinite" }} />
+        <span className="relative flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500 text-white shadow-xl">
+          <Check className="h-11 w-11" strokeWidth={3} />
+        </span>
+      </div>
+      <h2 className="mt-6 text-[19px] font-black text-ink">سفارش شما ثبت شد!</h2>
+      <p className="mx-auto mt-2 max-w-80 text-[12px] font-medium leading-6 text-muted">
+        سفارش <strong className="text-ink">{pd(order.id.replace("NM-", ""))}</strong> از {order.storeName} در حال آماده‌سازی است و تا ۴۵ دقیقه دیگر در {order.addressTitle} تحویل داده می‌شود.
+      </p>
+      <div className="mt-7 w-full max-w-xs space-y-2.5">
+        <button type="button" onClick={() => { c.closeSub(); c.go("orders"); }} className="w-full rounded-2xl bg-brand py-4 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-[0.99]">
+          پیگیری سفارش
+        </button>
+        <button type="button" onClick={() => { c.closeSub(); c.go("home"); }} className="w-full rounded-2xl bg-[#f4f3f0] py-4 text-[13px] font-black text-ink transition active:scale-[0.99]">
+          بازگشت به خانه
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Desktop cart drawer ---------------- */
+export function CartDrawer({ c }: { c: AppCtx }) {
+  return (
+    <div className="fixed inset-0 z-[75] lg:flex" role="dialog" aria-modal="true" aria-label="سبد خرید">
+      <button type="button" aria-label="بستن سبد" onClick={() => c.setCartDrawer(false)} className="fade-in absolute inset-0 bg-ink/45 backdrop-blur-[2px]" />
+      <div className="drawer-in absolute inset-y-0 left-0 flex w-full max-w-[420px] flex-col bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h3 className="text-[16px] font-black text-ink">سبد خرید</h3>
+          <div className="flex items-center gap-2">
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-brand px-2 text-[11px] font-black text-white">{pd(c.cartCount)}</span>
+            <button type="button" onClick={() => c.setCartDrawer(false)} aria-label="بستن" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90">
+              <X className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        </div>
+        <CartBody c={c} compact />
+      </div>
+    </div>
+  );
+}
+
+
