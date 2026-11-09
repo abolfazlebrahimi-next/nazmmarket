@@ -1,4 +1,3 @@
-import catalogData from "../../backend/shared/catalog.json";
 import type { LucideIcon } from "lucide-react";
 import {
   Apple,
@@ -26,11 +25,9 @@ import {
 /**
  * Catalog types + client fallback data.
  *
- * The real data lives in `backend/shared/catalog.json`, which is seeded into the
- * backend database (MySQL) on boot and served by `GET /api/catalog`.
- * The bundled copy keeps the storefront usable before the first request
- * (and when the API is unreachable). Icons are rendered client-side, so the
- * API only ships an icon *name*.
+ * Store and product records are loaded only from the MySQL-backed API.
+ * Category labels are interface metadata; no demo merchant or product rows are bundled.
+ * Icons are rendered client-side, so the API ships an icon *name*.
  */
 const ICONS: Record<string, LucideIcon> = {
   Apple,
@@ -71,6 +68,10 @@ export type Product = {
   iconColor: string;
   tag?: string;
   frequent?: boolean;
+  storeId?: number;
+  stock?: number;
+  active?: boolean;
+  imageUrl?: string;
 };
 
 export type Store = {
@@ -88,6 +89,12 @@ export type Store = {
   gradient: string;
   initial: string;
   minBasket: number;
+  photoUrl?: string;
+  logoUrl?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  hours?: string;
 };
 
 type WireProduct = Omit<Product, "icon"> & { icon?: string };
@@ -95,36 +102,37 @@ type WireCategory = { id: string; name: string; icon?: string };
 
 const withIcon = (p: WireProduct): Product => ({ ...p, icon: icon(p.icon) });
 
-/* `const` arrays mutated in place: every module that imported them sees the
-   hydrated (server) data without any refactor. */
-export const categories: Category[] = (catalogData.categories as WireCategory[]).map((c) => ({
-  ...c,
-  icon: icon(c.icon),
-}));
-
-export const products: Product[] = (catalogData.products as WireProduct[]).map(withIcon);
-export const stores: Store[] = catalogData.stores as Store[];
-export const brands: { name: string; color: string }[] = catalogData.brands;
-
-export const discountCodes = catalogData.promos.map((p) => ({
-  code: p.code,
-  title: p.title,
-  desc: p.desc,
-  amount: p.amount,
-}));
+/* Products and stores start empty and are filled only by live API responses. */
+export const categories: Category[] = [
+  { id: "all", name: "همه", icon: LayoutGrid },
+  { id: "drinks", name: "نوشیدنی", icon: CupSoda },
+  { id: "dairy", name: "لبنیات و تخم‌مرغ", icon: Milk },
+  { id: "snacks", name: "تنقلات", icon: Cookie },
+  { id: "grocery", name: "خواربار", icon: Wheat },
+  { id: "fresh", name: "میوه و سبزی", icon: Carrot },
+  { id: "protein", name: "پروتئینی", icon: Beef },
+  { id: "bakery", name: "نان و شیرینی", icon: Croissant },
+  { id: "hygiene", name: "بهداشتی", icon: SprayCan },
+  { id: "other", name: "سایر", icon: Package },
+];
+export const products: Product[] = [];
+export const stores: Store[] = [];
+export const brands: { name: string; color: string }[] = [];
+export const discountCodes: { code: string; title: string; desc: string; amount: number; storeId: number; storeName: string; kind: string }[] = [];
 
 export type CatalogPayload = {
   products?: WireProduct[];
   stores?: Store[];
   categories?: WireCategory[];
-  promos?: { code: string; title: string; desc: string; amount: number }[];
+  promos?: { code: string; title: string; desc: string; amount: number; storeId: number; storeName: string; kind: string }[];
 };
 
 /** Replaces the bundled catalog with the fresh copy served by the API. */
 export function hydrateCatalog(payload: CatalogPayload | null | undefined) {
   if (!payload) return;
-  if (payload.products?.length) products.splice(0, products.length, ...payload.products.map(withIcon));
-  if (payload.stores?.length) stores.splice(0, stores.length, ...payload.stores);
+  if (payload.products) products.splice(0, products.length, ...payload.products.map(withIcon));
+  if (payload.stores) stores.splice(0, stores.length, ...payload.stores);
+  if (payload.promos) discountCodes.splice(0, discountCodes.length, ...payload.promos);
   if (payload.categories?.length)
     categories.splice(
       0,
@@ -161,6 +169,7 @@ export type Order = {
   addressTitle: string;
   slot: string;
   payment?: "online" | "cash";
+  paymentStatus?: string;
   promoCode?: string | null;
   status: number;
   time: string;

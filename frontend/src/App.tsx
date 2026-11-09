@@ -20,7 +20,7 @@ import { ApiError, api, tokenStore } from "./api/client";
 import type { ServerState } from "./api/client";
 import type { AppCtx, Sub, View } from "./ctx";
 import type { Address, CartState, Order, Product, User } from "./data";
-import { hydrateCatalog, products, storeById } from "./data";
+import { hydrateCatalog, products, storeById, stores } from "./data";
 import AuthPage from "./pages/Auth";
 import { AddressForm, AddressSelect } from "./pages/AddressFlow";
 import { CartBody, CartDrawer, CheckoutView, DoneView } from "./pages/CartFlow";
@@ -37,7 +37,7 @@ const addrSig = (list: Address[]) =>
 
 export default function App() {
   const [token, setToken] = useState<string | null>(() => tokenStore.get());
-  const [user, setUser] = useState<User | null>(() => load<User | null>("naz_user", null));
+  const [user, setUser] = useState<User | null>(null);
   const [booting, setBooting] = useState(true);
   const [apiOnline, setApiOnline] = useState(true);
   const [, setCatalogTick] = useState(0);
@@ -50,9 +50,10 @@ export default function App() {
   const [favorites, setFavorites] = useState<number[]>(() => load("naz_favs", []));
   const [addresses, setAddresses] = useState<Address[]>(() => load<Address[]>("naz_addresses", []));
   const [selectedAddressId, setSelectedAddressId] = useState<number>(() => load("naz_address_id", 0));
-  const [orders, setOrders] = useState<Order[]>(() => load("naz_orders", []));
-  const [wallet, setWallet] = useState<number>(() => load("naz_wallet", 0));
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [wallet, setWallet] = useState<number>(0);
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<{ kind: string; amount: number; maxDiscount: number; minSubtotal: number } | null>(null);
 
   const [pickedPin, setPickedPin] = useState<{ lat: number; lng: number } | null>(null);
   const [pickedLabel, setPickedLabel] = useState("");
@@ -85,6 +86,14 @@ export default function App() {
         const catalog = await api.catalog();
         if (!alive) return;
         hydrateCatalog(catalog);
+        setCart((current) => {
+          if (!stores.some((store) => store.id === current.storeId)) return { storeId: null, items: {} };
+          const validItems = Object.fromEntries(Object.entries(current.items).filter(([id, qty]) => {
+            const product = products.find((item) => item.id === Number(id));
+            return product?.active && product.storeId === current.storeId && Number(qty) > 0;
+          }));
+          return { storeId: Object.keys(validItems).length ? current.storeId : null, items: validItems };
+        });
         setCatalogTick((t) => t + 1);
       } catch {
         if (alive) setApiOnline(false);
@@ -127,7 +136,14 @@ export default function App() {
     const localItems = Object.keys(localCart.items ?? {}).length;
 
     /* a guest cart / wishlist is carried over into the account on first login */
-    const nextCart = serverItems === 0 && localItems > 0 ? localCart : serverCart;
+    const candidateCart = serverItems === 0 && localItems > 0 ? localCart : serverCart;
+    const nextItems = stores.some((store) => store.id === candidateCart.storeId)
+      ? Object.fromEntries(Object.entries(candidateCart.items ?? {}).filter(([id, qty]) => {
+          const product = products.find((item) => item.id === Number(id));
+          return product?.active && product.storeId === candidateCart.storeId && Number(qty) > 0;
+        }))
+      : {};
+    const nextCart = { storeId: Object.keys(nextItems).length ? candidateCart.storeId : null, items: nextItems };
     const serverFavs = state.favorites ?? [];
     const nextFavs = serverFavs.length === 0 && latest.current.favorites.length > 0
       ? latest.current.favorites
@@ -153,13 +169,21 @@ export default function App() {
     save("naz_user", state.user);
   }
 
+  /* Refresh customer order status while the order screen is open. */
+  useEffect(() => {
+    if (view !== "orders" || !token) return;
+    let alive = true;
+    const refresh = () => api.orders.list().then(({ orders: latestOrders }) => { if (alive) setOrders(latestOrders); }).catch(() => { if (alive) setApiOnline(false); });
+    void refresh();
+    const timer = window.setInterval(refresh, 15000);
+    return () => { alive = false; window.clearInterval(timer); };
+  }, [view, token]);
+
   /* ---------------- local persistence ---------------- */
   useEffect(() => save("naz_cart", cart), [cart]);
   useEffect(() => save("naz_favs", favorites), [favorites]);
   useEffect(() => save("naz_addresses", addresses), [addresses]);
   useEffect(() => save("naz_address_id", selectedAddressId), [selectedAddressId]);
-  useEffect(() => save("naz_orders", orders), [orders]);
-  useEffect(() => save("naz_wallet", wallet), [wallet]);
 
   /* ---------------- server sync (logged-in only) ---------------- */
   const canSync = Boolean(token) && apiOnline;
@@ -240,12 +264,10 @@ export default function App() {
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? addresses[0];
 
   const discountAmount = useMemo(() => {
-    if (!appliedCode) return 0;
-    if (appliedCode === "NAZ60") return Math.min(60000, subtotal);
-    if (appliedCode === "NAZ10") return Math.min(Math.round(subtotal * 0.1), 50000);
-    if (appliedCode === "NAZARABAD") return subtotal >= 400000 ? 25000 : 0;
-    return 0;
-  }, [appliedCode, subtotal]);
+    if (!appliedCode || !appliedPromo || subtotal < appliedPromo.minSubtotal) return 0;
+    const raw = appliedPromo.kind === "percent" ? Math.round((subtotal * appliedPromo.amount) / 100) : appliedPromo.amount;
+    return Math.min(subtotal, appliedPromo.maxDiscount > 0 ? Math.min(raw, appliedPromo.maxDiscount) : raw);
+  }, [appliedCode, appliedPromo, subtotal]);
 
   const deliveryFee = cartCount === 0 ? 0 : subtotal >= 400000 ? 0 : (cartStore?.fee ?? 35000);
   const payable = Math.max(0, subtotal - discountAmount + deliveryFee);
@@ -273,6 +295,7 @@ export default function App() {
   const clearCart = () => {
     setCart({ storeId: null, items: {} });
     setAppliedCode(null);
+    setAppliedPromo(null);
   };
 
   const toggleFav = (id: number) => {
@@ -283,82 +306,56 @@ export default function App() {
   const applyCode = async (code: string) => {
     const code0 = code.trim().toUpperCase();
     if (!code0) return;
-    if (token && apiOnline) {
-      try {
-        const res = await api.promos.apply(code0, subtotal);
-        if (!res.applied) return showToast(res.message ?? "کد تخفیف معتبر نیست");
-        setAppliedCode(code0);
-        showToast(res.message ?? "کد تخفیف اعمال شد");
-        return;
-      } catch (err) {
-        if (err instanceof ApiError && err.status !== 0) {
-          return showToast(err.message);
-        }
+    if (!token) return showToast("برای استفاده از کد تخفیف ابتدا وارد حساب شوید.");
+    if (!apiOnline) return showToast("اتصال سرور برقرار نیست؛ کد تخفیف بررسی نشد.");
+    if (!cart.storeId) return showToast("ابتدا فروشگاه را انتخاب کنید.");
+    try {
+      const res = await api.promos.apply(code0, subtotal, cart.storeId);
+      if (!res.applied) {
+        setAppliedCode(null);
+        setAppliedPromo(null);
+        return showToast(res.message ?? "کد تخفیف معتبر نیست");
       }
+      setAppliedCode(code0);
+      setAppliedPromo(res.promo ? {
+        kind: res.promo.kind,
+        amount: Number(res.promo.amount),
+        maxDiscount: Number(res.promo.maxDiscount),
+        minSubtotal: Number(res.promo.minSubtotal),
+      } : null);
+      showToast(res.message ?? "کد تخفیف فروشگاه اعمال شد");
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "بررسی کد تخفیف ناموفق بود.");
     }
-    // offline / guest fallback
-    if (code0 === "NAZ60") setAppliedCode(code0);
-    else if (code0 === "NAZ10") setAppliedCode(code0);
-    else if (code0 === "NAZARABAD" && subtotal >= 400000) setAppliedCode(code0);
-    else return showToast("کد تخفیف معتبر نیست");
-    showToast("کد تخفیف اعمال شد");
   };
 
   const placeOrder = async (extra?: { slot?: string; payment?: "online" | "cash" }) => {
+    if (!token) return showToast("برای ثبت واقعی سفارش، ابتدا وارد حساب شوید.");
+    if (!apiOnline) return showToast("سرور در دسترس نیست؛ سفارش ثبت نشد.");
     if (!selectedAddress) return showToast("ابتدا آدرس تحویل را انتخاب کنید");
     if (!cart.storeId || cartCount === 0) {
       setStorePicker(true);
       return showToast("ابتدا فروشگاه را انتخاب کنید");
     }
-
-    if (token && apiOnline) {
-      try {
-        const { order } = await api.orders.place({
-          storeId: cart.storeId,
-          items: cart.items,
-          addressId: selectedAddress.id,
-          addressTitle: selectedAddress.title,
-          addressText: `${selectedAddress.address}، ${selectedAddress.detail}`,
-          slot: extra?.slot ?? "ارسال فوری",
-          payment: extra?.payment ?? "online",
-          promoCode: appliedCode,
-        });
-        setOrders((o) => [order, ...o]);
-        setCart({ storeId: null, items: {} });
-        setAppliedCode(null);
-        setSub({ name: "done", order });
-        return;
-      } catch (err) {
-        showToast(err instanceof ApiError ? err.message : "ثبت سفارش ناموفق بود");
-        return;
-      }
+    try {
+      const { order } = await api.orders.place({
+        storeId: cart.storeId,
+        items: cart.items,
+        addressId: selectedAddress.id,
+        addressTitle: selectedAddress.title,
+        addressText: `${selectedAddress.address}، ${selectedAddress.detail}`,
+        slot: extra?.slot ?? "ارسال فوری",
+        payment: extra?.payment ?? "cash",
+        promoCode: appliedCode,
+      });
+      setOrders((o) => [order, ...o]);
+      setCart({ storeId: null, items: {} });
+      setAppliedCode(null);
+      setAppliedPromo(null);
+      setSub({ name: "done", order });
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "ثبت سفارش ناموفق بود");
     }
-
-    const order: Order = {
-      id: `NM-${2841 + orders.length}`,
-      storeId: cart.storeId,
-      storeName: cartStore?.name ?? "فروشگاه",
-      items: Object.entries(cart.items).map(([id, qty]) => ({
-        id: Number(id),
-        name: productName(Number(id)),
-        qty,
-        price: productPrice(Number(id)),
-      })),
-      subtotal,
-      discount: discountAmount,
-      delivery: deliveryFee,
-      total: payable,
-      addressTitle: selectedAddress.title,
-      slot: extra?.slot ?? "ارسال فوری",
-      payment: extra?.payment ?? "online",
-      promoCode: appliedCode,
-      status: 1,
-      time: new Date().toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }),
-    };
-    setOrders((o) => [order, ...o]);
-    setCart({ storeId: null, items: {} });
-    setAppliedCode(null);
-    setSub({ name: "done", order });
   };
 
   const reorder = (o: Order) => {
@@ -471,11 +468,16 @@ export default function App() {
     confirmReplace: () => {
       if (!replacePrompt) return;
       setCart({ storeId: replacePrompt.storeId, items: { [replacePrompt.product.id]: 1 } });
+      setAppliedCode(null);
+      setAppliedPromo(null);
       setReplacePrompt(null);
       showToast("سبد جدید ساخته شد");
     },
     closeReplace: () => setReplacePrompt(null),
-    pickStore: (id) => setCart((cc) => ({ ...cc, storeId: id })),
+    pickStore: (id) => {
+      if (cart.storeId !== id) { setAppliedCode(null); setAppliedPromo(null); }
+      setCart((cc) => ({ ...cc, storeId: id }));
+    },
     sheet,
     setSheet,
     cartDrawer,
@@ -489,20 +491,24 @@ export default function App() {
     return (
       <AuthPage
         onAuth={(res) => {
-          const isGuest = !res.token;
-          tokenStore.set(isGuest ? null : res.token);
-          setToken(isGuest ? null : res.token);
+          tokenStore.set(res.token);
+          setToken(res.token);
           setUser(res.user);
           save("naz_user", res.user);
-          if (isGuest) {
-            showToast("حالت مهمان: اطلاعات فقط روی این دستگاه ذخیره می‌شود");
-          } else {
-            showToast(`خوش آمدید${res.user.firstName ? `، ${res.user.firstName}` : ""}!`);
-            api
-              .state()
-              .then(applyServerState)
-              .catch(() => setApiOnline(false));
-          }
+          showToast(`خوش آمدید${res.user.firstName ? `، ${res.user.firstName}` : ""}!`);
+          Promise.all([api.state(), api.catalog()]).then(([state, catalog]) => {
+            hydrateCatalog(catalog);
+            setCart((current) => {
+              if (!stores.some((store) => store.id === current.storeId)) return { storeId: null, items: {} };
+              const validItems = Object.fromEntries(Object.entries(current.items).filter(([id, qty]) => {
+                const product = products.find((item) => item.id === Number(id));
+                return product?.active && product.storeId === current.storeId && Number(qty) > 0;
+              }));
+              return { storeId: Object.keys(validItems).length ? current.storeId : null, items: validItems };
+            });
+            setCatalogTick((t) => t + 1);
+            applyServerState(state);
+          }).catch(() => setApiOnline(false));
         }}
       />
     );
@@ -834,7 +840,4 @@ function Splash() {
 /* product lookups */
 function productPrice(id: number): number {
   return products.find((p) => p.id === id)?.price ?? 0;
-}
-function productName(id: number): string {
-  return products.find((p) => p.id === id)?.name ?? "";
 }

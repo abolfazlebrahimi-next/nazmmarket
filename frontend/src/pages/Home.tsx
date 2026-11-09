@@ -1,70 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import {
   BadgeCheck,
   ChevronLeft,
-  CloudRainWind,
-  Gift,
   History,
   Heart,
   MapPin,
   Navigation,
   ShoppingBasket,
-  Sparkles,
   Store,
   Timer,
   X,
   Zap,
 } from "lucide-react";
-import { Empty, ProductCard, ScreenHeader, StoreCard, pd, pad2 } from "../components/ui";
+import { Empty, ProductCard, ScreenHeader, StoreCard, pd } from "../components/ui";
 import MapPicker from "../components/MapPicker";
 import type { AppCtx } from "../ctx";
-import { brands, categories, faNum, products, stores } from "../data";
+import { categories, faNum, products, stores } from "../data";
 
 export function HomePage({ c }: { c: AppCtx }) {
   const [storeFilter, setStoreFilter] = useState<"all" | "hyper" | "date">("all");
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(t);
-  }, []);
-
   const filteredStores = stores.filter((s) => {
     if (storeFilter === "hyper") return s.type === "hypermarket";
     if (storeFilter === "date") return s.tags.some((t) => t.includes("تضمین"));
     return true;
   });
-  const amazing = useMemo(
-    () => products.filter((p) => (p.oldPrice ? ((p.oldPrice - p.price) / p.oldPrice) * 100 : 0) >= 40),
-    [],
-  );
-
-  const midnight = new Date();
-  midnight.setHours(23, 59, 59, 999);
-  const remain = Math.max(0, Math.floor((midnight.getTime() - now) / 1000));
-  const cd = [Math.floor(remain / 3600), Math.floor((remain % 3600) / 60), remain % 60];
 
   const openStore = (id: number) => c.openSub({ name: "store", id });
   const section = "mx-auto w-full max-w-6xl px-4 md:px-6";
 
   return (
     <div className="fade-rise mx-auto min-h-dvh w-full max-w-7xl pb-4 md:pb-10">
-      {/* weather */}
-      <div className="pt-3 md:pt-4">
-        <div className={`${section}`}>
-          <div className="flex items-center gap-3 rounded-2xl bg-[#eef2f7] px-3.5 py-3 md:px-4 md:py-3.5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#3b6ea5] text-white shadow md:h-11 md:w-11">
-              <CloudRainWind className="h-5 w-5 md:h-6 md:w-6" />
-            </span>
-            <p className="flex-1 text-[11px] font-semibold leading-5 text-[#3d4b5c] md:text-[12.5px] md:leading-6">
-              <strong className="font-black">شرایط نامساعد جوی</strong> عامل افزایش موقت هزینه و تأخیر در ارسال سفارش‌های شهرستان نظرآباد است.
-            </p>
-            <span className="hidden shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-[#3d4b5c] shadow-sm lg:flex">
-              <MapPin className="h-3 w-3 text-brand" /> {c.selectedAddress?.title ?? "نظرآباد"}
-            </span>
-          </div>
-        </div>
-      </div>
-
       {/* shortcut tiles */}
       <div className={`${section} mt-3`}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -131,30 +96,6 @@ export function HomePage({ c }: { c: AppCtx }) {
         </div>
       </div>
 
-      {/* amazing offers */}
-      <div className="mx-auto mt-5 overflow-hidden bg-gradient-to-br from-[#16865b] to-[#26352e] pb-4 pt-3 md:mx-6 md:max-w-[calc(100%-3rem)] md:rounded-[28px]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 md:px-6">
-          <p className="flex items-center gap-1.5 text-[15px] font-black text-white md:text-[16px]">
-            <Sparkles className="h-5 w-5" /> ویژه خرید اول!
-          </p>
-          <div className="flex items-center gap-1.5" dir="ltr">
-            {cd.map((v, i) => (
-              <span key={i} className="flex items-center gap-1.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[13px] font-black text-brand shadow">
-                  {pd(pad2(v))}
-                </span>
-                {i < 2 && <span className="font-black text-white">:</span>}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="no-scrollbar mx-auto mt-3 flex max-w-6xl snap-x gap-2.5 overflow-x-auto px-4 pb-1 md:px-6">
-          {amazing.map((p) => (
-            <ProductCard key={p.id} product={p} h={c.cardHandlers()} width="w-[140px] sm:w-[152px] md:w-[164px]" />
-          ))}
-        </div>
-      </div>
-
       {/* stores */}
       <div className={`${section} mt-6`}>
         <div className="flex items-center justify-between">
@@ -189,13 +130,10 @@ export function HomePage({ c }: { c: AppCtx }) {
           ))}
         </div>
 
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-[#dcebe2] bg-[#f1f7f3] px-3 py-2 text-[#26352e] md:inline-flex">
-          <Gift className="h-4 w-4 shrink-0 text-brand" />
-          <p className="text-[10.5px] font-bold">ارسال رایگان و تخفیف خرید اول</p>
-        </div>
+
 
         <div className="mt-3 overflow-hidden border-y border-line bg-white md:grid md:grid-cols-2 md:rounded-[22px] md:border">
-          {filteredStores.map((s, i) => (
+          {filteredStores.length === 0 ? <div className="col-span-full p-8 text-center text-sm font-semibold text-muted">هنوز فروشگاه فعالی در این محدوده ثبت نشده است.</div> : filteredStores.map((s, i) => (
             <div key={s.id} className={i >= 4 ? "hidden md:block" : ""}>
               <StoreCard store={s} onOpen={() => openStore(s.id)} />
             </div>
@@ -211,28 +149,6 @@ export function HomePage({ c }: { c: AppCtx }) {
         </button>
       </div>
 
-      {/* brands */}
-      <div className={`${section} mt-7`}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-[14px] font-black text-ink">برندهای محبوب</h3>
-          <ChevronLeft className="h-4.5 w-4.5 text-muted" />
-        </div>
-        <div className="no-scrollbar mt-3 overflow-hidden" aria-label="برندهای محبوب">
-          <div className="brand-marquee flex w-max items-center gap-8 py-1" dir="rtl">
-          {[...brands, ...brands].map((b, i) => (
-            <button
-              key={`${b.name}-${i}`}
-              type="button"
-              onClick={() => c.openSub({ name: "search" })}
-              className="shrink-0 text-[15px] font-black tracking-tight opacity-80 transition hover:opacity-100"
-              style={{ color: b.color }}
-            >
-              {b.name}
-            </button>
-          ))}
-          </div>
-        </div>
-      </div>
 
 
 
@@ -272,7 +188,7 @@ export function StoresPage({ c }: { c: AppCtx }) {
       </div>
       <div className="px-4">
         <div className="overflow-hidden rounded-[22px] border border-line bg-white lg:grid lg:grid-cols-2">
-          {list.map((s) => (
+          {list.length === 0 ? <div className="p-10 text-center text-sm font-semibold text-muted">هنوز فروشگاه فعالی در این محدوده ثبت نشده است.</div> : list.map((s) => (
             <StoreCard key={s.id} store={s} onOpen={() => c.openSub({ name: "store", id: s.id })} />
           ))}
         </div>

@@ -54,9 +54,7 @@ export function ProductVisual({ product, size = "md" }: { product: Product; size
   const Icon = product.icon;
   return (
     <div className={`relative flex items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${product.bg} ${size === "lg" ? "h-52" : "h-24"}`}>
-      <div className="absolute -left-5 -top-6 h-20 w-20 rounded-full bg-white/25" />
-      <div className="absolute -bottom-8 -right-4 h-24 w-24 rounded-full bg-white/20" />
-      <Icon className={`${size === "lg" ? "h-24 w-24" : "h-11 w-11"} relative drop-shadow-sm ${product.iconColor}`} strokeWidth={1.4} />
+      {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="absolute inset-0 h-full w-full object-cover" loading="lazy" /> : <><div className="absolute -left-5 -top-6 h-20 w-20 rounded-full bg-white/25" /><div className="absolute -bottom-8 -right-4 h-24 w-24 rounded-full bg-white/20" /><Icon className={`${size === "lg" ? "h-24 w-24" : "h-11 w-11"} relative drop-shadow-sm ${product.iconColor}`} strokeWidth={1.4} /></>}
       {discountOf(product) > 0 && (
         <span className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-lg bg-brand px-1.5 py-1 text-[10px] font-black text-white shadow">
           <Flame className="h-3 w-3 fill-current" /> ٪{pd(discountOf(product))}
@@ -114,8 +112,8 @@ export function ProductCard({ product, h, width }: { product: Product; h: CardHa
 export function StoreCard({ store, onOpen }: { store: StoreType; onOpen: () => void }) {
   return (
     <button type="button" onClick={onOpen} className="flex w-full gap-3 border-b border-line bg-white p-4 text-right transition last:border-0 hover:bg-[#fffaf6] active:bg-brand-soft/50">
-      <span className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] bg-gradient-to-br ${store.gradient} text-base font-black text-white shadow-md`}>
-        {store.initial}
+      <span className={`relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[20px] bg-gradient-to-br ${store.gradient} text-base font-black text-white shadow-md`}>
+        {store.photoUrl ? <img src={store.photoUrl} alt={`تصویر ${store.name}`} className="absolute inset-0 h-full w-full object-cover" loading="lazy" /> : store.initial}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">

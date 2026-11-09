@@ -8,8 +8,9 @@ import { categories, faNum, products, storeById, stores } from "../data";
 export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
   const [cat, setCat] = useState("all");
   const store = storeById(storeId)!;
-  const visible = useMemo(() => (cat === "all" ? products : products.filter((p) => p.category === cat)), [cat]);
-  const storeCats = categories.filter((ct) => ct.id === "all" || products.some((p) => p.category === ct.id));
+  const storeProducts = products.filter((p) => p.storeId === storeId);
+  const visible = cat === "all" ? storeProducts : storeProducts.filter((p) => p.category === cat);
+  const storeCats = categories.filter((ct) => ct.id === "all" || storeProducts.some((p) => p.category === ct.id));
 
   return (
     <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-24 md:pb-10">
@@ -22,10 +23,10 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           </button>
         }
       />
-      <div className={`relative flex h-40 items-end bg-gradient-to-br ${store.gradient} p-4 lg:h-48`}>
+      <div className={`relative flex h-40 items-end bg-gradient-to-br ${store.gradient} bg-cover bg-center p-4 lg:h-48`} style={store.photoUrl ? { backgroundImage: `linear-gradient(0deg,rgba(20,35,28,.75),rgba(20,35,28,.12)),url(${store.photoUrl})` } : undefined}>
         <div className="absolute -left-8 -top-10 h-40 w-40 rounded-full bg-white/15" />
         <div className="relative flex items-center gap-3 text-white">
-          <span className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-white/20 text-lg font-black backdrop-blur">{store.initial}</span>
+          <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] bg-white/20 text-lg font-black backdrop-blur">{store.logoUrl ? <img src={store.logoUrl} alt={`لوگوی ${store.name}`} className="h-full w-full object-cover" /> : store.initial}</span>
           <div>
             <p className="flex items-center gap-1.5 text-[16px] font-black">
               {store.name}

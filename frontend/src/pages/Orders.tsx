@@ -5,7 +5,9 @@ import type { AppCtx } from "../ctx";
 import type { Order } from "../data";
 import { faNum } from "../data";
 
-const statusSteps = ["ثبت سفارش", "در حال آماده‌سازی", "تحویل پیک داده شد", "تحویل داده شد"];
+const statusSteps = ["ثبت سفارش", "در حال آماده‌سازی", "تکمیل سفارش"];
+const statusLabel = (status: number) => status === 0 ? "لغوشده" : status === 1 ? "در انتظار تأیید" : status === 2 ? "در حال آماده‌سازی" : "تکمیل‌شده";
+const progressFor = (status: number) => status === 1 ? 0 : status === 2 ? 1 : status === 3 ? 2 : -1;
 
 function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
   return (
@@ -17,25 +19,17 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
             سفارش ناز-{pd(o.id.replace("NM-", ""))} · ساعت {o.time} · تحویل در {o.addressTitle} ({o.slot})
           </p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${o.status >= 3 ? "bg-emerald-50 text-mint" : "bg-brand-soft text-brand"}`}>
-          {statusSteps[o.status]}
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${o.status === 3 ? "bg-emerald-50 text-mint" : o.status === 0 ? "bg-red-50 text-red-700" : "bg-brand-soft text-brand"}`}>
+          {statusLabel(o.status)}
         </span>
       </div>
 
-      <div className="mt-4 flex items-center" dir="rtl">
-        {statusSteps.map((s, i) => (
-          <div key={s} className="flex flex-1 items-center last:flex-none">
-            <div className="flex flex-col items-center gap-1.5">
-              <span className={`relative flex h-6 w-6 items-center justify-center rounded-full text-white ${i <= o.status ? "bg-mint" : "bg-[#ddd9d3]"}`}>
-                {i === o.status && i < 3 && <span className="absolute inset-0 animate-ping rounded-full bg-mint opacity-40" />}
-                {i < o.status || i === 3 ? <Check className="relative h-3 w-3" strokeWidth={3.5} /> : <span className="relative h-1.5 w-1.5 rounded-full bg-white" />}
-              </span>
-              <span className={`whitespace-nowrap text-[8.5px] font-bold sm:text-[9px] ${i <= o.status ? "text-ink" : "text-muted"}`}>{s}</span>
-            </div>
-            {i < statusSteps.length - 1 && <span className={`mx-1 mb-4 h-0.5 flex-1 rounded-full ${i < o.status ? "bg-mint" : "bg-[#eeece9]"}`} />}
-          </div>
-        ))}
-      </div>
+      {o.status > 0 && <div className="mt-4 flex items-center" dir="rtl">
+        {statusSteps.map((step, i) => {
+          const progress = progressFor(o.status);
+          return <div key={step} className="flex flex-1 items-center last:flex-none"><div className="flex flex-col items-center gap-1.5"><span className={`relative flex h-6 w-6 items-center justify-center rounded-full text-white ${i <= progress ? "bg-mint" : "bg-[#ddd9d3]"}`}>{i < progress ? <Check className="relative h-3 w-3" strokeWidth={3.5} /> : <span className="relative h-1.5 w-1.5 rounded-full bg-white" />}</span><span className={`whitespace-nowrap text-[8.5px] font-bold sm:text-[9px] ${i <= progress ? "text-ink" : "text-muted"}`}>{step}</span></div>{i < statusSteps.length - 1 && <span className={`mx-1 mb-4 h-0.5 flex-1 rounded-full ${i < progress ? "bg-mint" : "bg-[#eeece9]"}`} />}</div>;
+        })}
+      </div>}
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {o.items.slice(0, 4).map((i) => (
@@ -63,8 +57,8 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
 
 export default function OrdersView({ c }: { c: AppCtx }) {
   const [tabO, setTabO] = useState<"active" | "history">("active");
-  const active = c.orders.filter((o) => o.status < 3);
-  const history = c.orders.filter((o) => o.status >= 3);
+  const active = c.orders.filter((o) => o.status === 1 || o.status === 2);
+  const history = c.orders.filter((o) => o.status === 0 || o.status === 3);
 
   return (
     <div className="fade-rise mx-auto min-h-dvh w-full max-w-5xl pb-24 md:pb-16">

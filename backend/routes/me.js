@@ -56,16 +56,11 @@ router.put("/addresses", async (req, res) => {
   });
   res.json({ addresses: await readAddresses(req.user.id) });
 });
-router.post("/wallet/topup", async (req, res) => {
-  const amount = Math.floor(Number(req.body?.amount));
-  if (!Number.isFinite(amount) || amount < 1000 || amount > 5_000_000) return res.status(400).json({ error: { code: "invalid_amount", message: "مبلغ شارژ معتبر نیست." } });
-  await db.run("UPDATE users SET wallet = wallet + ? WHERE id = ?", [amount, req.user.id]);
-  const row = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
-  res.json({ wallet: Number(row.wallet), user: mapUser(row) });
-});
-router.patch("/pro", async (req, res) => {
-  await db.run("UPDATE users SET pro = ? WHERE id = ?", [req.body?.active ? 1 : 0, req.user.id]);
-  const row = await db.get("SELECT * FROM users WHERE id = ?", [req.user.id]);
-  res.json({ pro: Boolean(row.pro) });
-});
+router.post("/wallet/topup", (_req, res) => res.status(501).json({
+  error: { code: "payment_gateway_unavailable", message: "شارژ کیف پول تا زمان اتصال درگاه پرداخت غیرفعال است." },
+}));
+router.patch("/pro", (_req, res) => res.status(501).json({
+  error: { code: "subscription_unavailable", message: "فعال‌سازی اشتراک در این نسخه در دسترس نیست." },
+}));
+
 export default router;

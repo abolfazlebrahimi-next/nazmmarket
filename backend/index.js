@@ -6,29 +6,16 @@
 import "dotenv/config";
 import "express-async-errors";
 import express from "express";
-import { db, migrate, seed } from "./db.js";
-import { hashPassword } from "./auth.js";
-import { PORT, DEMO_ACCOUNT } from "./config.js";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { db, migrate } from "./db.js";
+import { PORT } from "./config.js";
 import authRoutes from "./routes/auth.js";
 import catalogRoutes from "./routes/catalog.js";
 import meRoutes from "./routes/me.js";
 import orderRoutes from "./routes/orders.js";
 import promoRoutes from "./routes/promos.js";
-
-async function seedDemoAccount() {
-  const exists = await db.get("SELECT id FROM users WHERE phone = ?", [DEMO_ACCOUNT.phone]);
-  if (exists) return;
-  const result = await db.run(
-    `INSERT INTO users (phone, password_hash, first_name, last_name, wallet, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [DEMO_ACCOUNT.phone, hashPassword(DEMO_ACCOUNT.password), DEMO_ACCOUNT.firstName, DEMO_ACCOUNT.lastName, 250000, new Date().toISOString()],
-  );
-  await db.run(
-    `INSERT INTO addresses (user_id, title, address, detail, phone, type)
-     VALUES (?, 'خانه', 'نظرآباد، میرزا کوچک‌خان شمالی', 'کوچه ۱', '09935377426', 'home')`,
-    [Number(result.insertId)],
-  );
-}
+import sellerRoutes from "./routes/seller.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -46,10 +33,18 @@ app.use((req, res, next) => {
 });
 
 app.get("/api/health", async (_req, res) => {
-  const [users, products] = await Promise.all([db.get("SELECT COUNT(*) AS n FROM users"), db.get("SELECT COUNT(*) AS n FROM products")]);
-  res.json({ ok: true, users: Number(users.n), products: Number(products.n), time: new Date().toISOString() });
+  const [users, products, stores, orders] = await Promise.all([
+    db.get("SELECT COUNT(*) AS n FROM users"),
+    db.get("SELECT COUNT(*) AS n FROM products WHERE seller_id IS NOT NULL AND active = 1"),
+    db.get("SELECT COUNT(*) AS n FROM stores WHERE seller_id IS NOT NULL AND is_active = 1"),
+    db.get("SELECT COUNT(*) AS n FROM orders"),
+  ]);
+  res.json({ ok: true, users: Number(users.n), products: Number(products.n), stores: Number(stores.n), orders: Number(orders.n), time: new Date().toISOString() });
 });
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+app.use("/api/uploads", express.static(path.join(__dirname, "uploads"), { maxAge: "1d", fallthrough: false }));
+app.use("/api/seller", sellerRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", catalogRoutes);
 app.use("/api/me", meRoutes);
@@ -63,6 +58,9 @@ app.use("/api", (_req, res) => {
 /* error handler — always answers with a Farsi message the UI can show */
 app.use((err, _req, res, _next) => {
   console.error("[api]", err);
+  if (err?.code === "LIMIT_FILE_SIZE") {
+    return res.status(413).json({ error: { code: "file_too_large", message: "حجم هر تصویر حداکثر ۵ مگابایت است." } });
+  }
   if (err?.type === "entity.parse.failed") {
     return res.status(400).json({ error: { code: "bad_json", message: "داده ارسالی معتبر نیست." } });
   }
@@ -72,11 +70,8 @@ app.use((err, _req, res, _next) => {
 async function start() {
   try {
     await migrate();
-    await seed();
-    await seedDemoAccount();
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`\n  ✅ ناز مارکت API روی http://localhost:${PORT} آماده است`);
-      console.log(`  👤 حساب آزمایشی: ${DEMO_ACCOUNT.phone} / ${DEMO_ACCOUNT.password}\n`);
+      console.log(`\n  ✅ ناز مارکت API روی http://localhost:${PORT} آماده است\n`);
     });
   } catch (error) {
     console.error("[api] MySQL startup failed:", error);

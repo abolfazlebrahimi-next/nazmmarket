@@ -3,7 +3,6 @@ import {
   Banknote,
   Check,
   ChevronLeft,
-  CreditCard,
   Gift,
   MapPin,
   ShoppingCart,
@@ -138,7 +137,7 @@ export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean 
 /* ---------------- Checkout (mobile + desktop two-column) ---------------- */
 export function CheckoutView({ c }: { c: AppCtx }) {
   const [slot, setSlot] = useState("now");
-  const [payment, setPayment] = useState<"online" | "cash">("online");
+  const [payment, setPayment] = useState<"online" | "cash">("cash");
   const [codeInput, setCodeInput] = useState("");
   const [placing, setPlacing] = useState(false);
 
@@ -241,8 +240,7 @@ export function CheckoutView({ c }: { c: AppCtx }) {
             </p>
             <div className="mt-3 space-y-2">
               {([
-                { key: "online", label: "پرداخت آنلاین", desc: "درگاه امن بانکی", icon: CreditCard },
-                { key: "cash", label: "پرداخت در محل", desc: "کارت‌خوان هنگام تحویل", icon: Banknote },
+                { key: "cash", label: "پرداخت در محل", desc: "پرداخت به فروشنده هنگام تحویل؛ درگاه آنلاین هنوز فعال نیست.", icon: Banknote },
               ] as const).map((m) => (
                 <button key={m.key} type="button" onClick={() => setPayment(m.key)} aria-pressed={payment === m.key} className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-right transition ${payment === m.key ? "border-brand bg-brand-soft" : "border-line"}`}>
                   <m.icon className="h-5 w-5 text-brand" />
@@ -277,7 +275,7 @@ export function CheckoutView({ c }: { c: AppCtx }) {
               </div>
             ) : (
               <div className="mt-3 flex gap-2">
-                <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder="مثلاً NAZ60" dir="ltr" aria-label="کد تخفیف" className="min-w-0 flex-1 rounded-2xl border border-line px-3.5 py-3 text-left text-[12px] font-bold uppercase outline-none focus:border-brand" />
+                <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder="کد تخفیف فروشگاه" dir="ltr" aria-label="کد تخفیف" className="min-w-0 flex-1 rounded-2xl border border-line px-3.5 py-3 text-left text-[12px] font-bold uppercase outline-none focus:border-brand" />
                 <button type="button" onClick={() => { c.applyCode(codeInput); setCodeInput(""); }} className="shrink-0 rounded-2xl bg-ink px-4 text-[12px] font-black text-white transition active:scale-95">
                   اعمال
                 </button>
@@ -327,7 +325,7 @@ export function DoneView({ c, order }: { c: AppCtx; order: { id: string; storeNa
       </div>
       <h2 className="mt-6 text-[19px] font-black text-ink">سفارش شما ثبت شد!</h2>
       <p className="mx-auto mt-2 max-w-80 text-[12px] font-medium leading-6 text-muted">
-        سفارش <strong className="text-ink">{pd(order.id.replace("NM-", ""))}</strong> از {order.storeName} در حال آماده‌سازی است و تا ۴۵ دقیقه دیگر در {order.addressTitle} تحویل داده می‌شود.
+        سفارش <strong className="text-ink">{pd(order.id.replace("NM-", ""))}</strong> در پایگاه‌داده ثبت شد و منتظر تأیید فروشگاه است. پرداخت در محل انجام می‌شود؛ زمان و ارسال پس از تأیید فروشگاه هماهنگ خواهد شد.
       </p>
       <div className="mt-7 w-full max-w-xs space-y-2.5">
         <button type="button" onClick={() => { c.closeSub(); c.go("orders"); }} className="w-full rounded-2xl bg-brand py-4 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-[0.99]">

@@ -33,11 +33,11 @@ export function AccountView({ c }: { c: AppCtx }) {
   const rows: { icon: typeof Heart; label: string; desc?: string; pill?: string; pillCls?: string; sheet?: string; action?: () => void }[] = [
     { icon: UserRound, label: "مشخصات حساب", desc: "نام، نام خانوادگی و رمز عبور", pill: "ویرایش", pillCls: "bg-[#f4f3f0] text-ink", sheet: "profile" },
     { icon: Users, label: "دعوت دوستان", desc: "اشتراک‌گذاری کد و لینک دعوت", pill: "دعوت", pillCls: "bg-brand-soft text-brand-dark", sheet: "invite" },
-    { icon: Wallet, label: "افزایش اعتبار کیف پول", desc: `موجودی: ${faNum(c.wallet)} تومان`, sheet: "wallet" },
+    { icon: Wallet, label: "کیف پول", desc: `موجودی: ${faNum(c.wallet)} تومان`, sheet: "wallet" },
     { icon: Heart, label: "کالاهای مورد علاقه‌ی من", desc: `${pd(c.favorites.length)} کالا`, action: () => c.openSub({ name: "favorites" }) },
     { icon: TicketPercent, label: "کدهای تخفیف من", action: () => c.openSub({ name: "account-detail", id: "codes" }) },
     { icon: MessageSquareText, label: "نظرات من", action: () => c.openSub({ name: "account-detail", id: "reviews" }) },
-    { icon: ReceiptText, label: "لیست پرداخت‌ها", action: () => c.openSub({ name: "account-detail", id: "payments" }) },
+    { icon: ReceiptText, label: "مبالغ سفارش‌ها", action: () => c.openSub({ name: "account-detail", id: "payments" }) },
     { icon: Headphones, label: "پشتیبانی", sheet: "support" },
     { icon: Info, label: "قوانین و مقررات", sheet: "rules" },
     { icon: ShieldCheck, label: "حریم خصوصی", sheet: "privacy" },
@@ -107,7 +107,6 @@ export function AccountView({ c }: { c: AppCtx }) {
 }
 
 export function AccountSheetHost({ c }: { c: AppCtx }) {
-  const [topUpBusy, setTopUpBusy] = useState<number | null>(null);
   const [shareFallback, setShareFallback] = useState(false);
   const sheet = c.sheet;
   if (!sheet) return null;
@@ -134,22 +133,7 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
       if (!(err instanceof DOMException && err.name === "AbortError")) setShareFallback(true);
     }
   };
-  const topUp = async (amt: number) => {
-    setTopUpBusy(amt);
-    try {
-      if (c.isGuest) {
-        c.setWallet(c.wallet + amt);
-      } else {
-        const res = await api.wallet.topUp(amt);
-        c.setWallet(res.wallet);
-      }
-      c.toast(`${faNum(amt)} تومان به کیف پول اضافه شد`);
-    } catch (err) {
-      c.toast(err instanceof Error ? err.message : "شارژ کیف پول انجام نشد");
-    } finally {
-      setTopUpBusy(null);
-    }
-  };
+
 
   switch (sheet) {
     case "invite":
@@ -198,24 +182,12 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
       return (
         <Sheet title="کیف پول ناز مارکت" onClose={close}>
           <div className="rounded-3xl bg-ink p-5 text-white">
-            <p className="text-[11px] font-bold text-white/55">موجودی فعلی</p>
+            <p className="text-[11px] font-bold text-white/55">موجودی ثبت‌شده</p>
             <p className="mt-1 text-[24px] font-black">{faNum(c.wallet)} تومان</p>
           </div>
-          <p className="mt-4 text-[12px] font-black text-ink">افزایش اعتبار</p>
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {[50000, 100000, 200000].map((amt) => (
-              <button
-                key={amt}
-                type="button"
-                disabled={topUpBusy === amt}
-                onClick={() => topUp(amt)}
-                className="flex items-center justify-center gap-1.5 rounded-2xl border border-line py-3 text-[12px] font-black text-ink transition hover:border-brand hover:text-brand active:scale-95 disabled:opacity-60"
-              >
-                {topUpBusy === amt ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-                {faNum(amt)}
-              </button>
-            ))}
-          </div>
+          <p className="mt-4 rounded-2xl bg-[#f4f3f0] p-3 text-[11px] font-medium leading-5 text-muted">
+            افزایش اعتبار کیف پول تا زمان اتصال درگاه پرداخت غیرفعال است. این موجودی برای پرداخت سفارش‌ها استفاده نمی‌شود.
+          </p>
         </Sheet>
       );
     case "support":
@@ -272,7 +244,7 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
 
 
 export function AccountDetailPage({ c, kind }: { c: AppCtx; kind: "codes" | "payments" | "reviews" }) {
-  const title = kind === "codes" ? "کدهای تخفیف من" : kind === "payments" ? "لیست پرداخت‌ها" : "نظرات من";
+  const title = kind === "codes" ? "کدهای تخفیف من" : kind === "payments" ? "مبالغ سفارش‌ها" : "نظرات من";
   const copy = (text: string) => {
     void navigator.clipboard?.writeText(text);
     c.toast("کد تخفیف کپی شد");
@@ -282,17 +254,17 @@ export function AccountDetailPage({ c, kind }: { c: AppCtx; kind: "codes" | "pay
       <ScreenHeader title={title} onBack={() => c.closeSub()} />
       {kind === "codes" && (
         <div className="space-y-3 p-4">
-          {discountCodes.map((d) => (
+          {discountCodes.length === 0 ? <Empty icon={TicketPercent} title="کد تخفیف فعالی ندارید" desc="کدهای معتبر فروشگاه پس از تعریف و فعال‌سازی توسط فروشنده، اینجا نمایش داده می‌شوند." /> : discountCodes.map((d) => (
             <article key={d.code} className="flex items-center gap-3 rounded-3xl border border-line bg-white p-4 shadow-sm">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand"><TicketPercent className="h-5 w-5" /></span>
               <div className="min-w-0 flex-1">
                 <p className="text-[12px] font-black text-ink">{d.title}</p>
-                <p className="mt-1 text-[10.5px] font-medium text-muted">{d.desc}</p>
-                <p dir="ltr" className="mt-1 text-left text-[11px] font-black tracking-wider text-brand">{d.code}</p>
+                <p className="mt-1 text-[10.5px] font-medium text-muted">{d.desc} · ویژهٔ {d.storeName}</p>
+                <p dir="ltr" className="mt-1 text-left text-[11px] font-black tracking-wider text-brand">{d.code} · {d.kind === "percent" ? `${d.amount}٪` : `${faNum(d.amount)} تومان`}</p>
               </div>
               <div className="flex shrink-0 flex-col gap-1.5">
                 <button type="button" onClick={() => copy(d.code)} className="rounded-lg bg-[#f4f3f0] px-3 py-1.5 text-[10px] font-black text-ink">کپی کد</button>
-                <button type="button" onClick={() => { c.applyCode(d.code); if (c.cartCount) c.openSub({ name: "checkout" }); else c.toast("کد را هنگام تکمیل خرید اعمال کنید"); }} className="rounded-lg bg-brand px-3 py-1.5 text-[10px] font-black text-white">استفاده</button>
+                <button type="button" onClick={() => { c.openSub({ name: "store", id: d.storeId }); c.toast("پس از افزودن کالا، کد را در مرحلهٔ تسویه وارد کنید."); }} className="rounded-lg bg-brand px-3 py-1.5 text-[10px] font-black text-white">فروشگاه</button>
               </div>
             </article>
           ))}
@@ -308,7 +280,7 @@ export function AccountDetailPage({ c, kind }: { c: AppCtx; kind: "codes" | "pay
                   <p className="truncate text-[12px] font-black text-ink">{o.storeName}</p>
                   <p className="mt-1 text-[10px] font-medium text-muted">سفارش ناز-{pd(o.id.replace("NM-", ""))} · {o.time}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-[#f4f3f0] px-2 py-1 text-[9px] font-bold text-muted">{o.payment === "cash" ? "پرداخت در محل" : "پرداخت آنلاین"}</span>
+                <span className="shrink-0 rounded-full bg-[#f4f3f0] px-2 py-1 text-[9px] font-bold text-muted">{o.payment === "cash" ? "پرداخت در محل · ثبت‌نشده" : "درگاه پرداخت متصل نیست"}</span>
               </div>
               <div className="mx-4 flex items-center justify-between border-t border-line py-3">
                 <span className="text-[10px] font-bold text-muted">مبلغ سفارش</span>

@@ -85,7 +85,7 @@ export type CatalogResponse = {
   stores: StoreType[];
   categories: { id: string; name: string; icon?: string }[];
   brands?: { name: string; color: string }[];
-  promos: { code: string; title: string; desc: string; amount: number }[];
+  promos: { code: string; title: string; desc: string; amount: number; storeId: number; storeName: string; kind: string }[];
 };
 
 export type AuthResponse = { token: string; user: User; addresses: Address[] };
@@ -151,10 +151,10 @@ export const api = {
   },
 
   promos: {
-    apply: (code: string, subtotal: number) =>
-      request<{ applied: boolean; amount: number; message?: string }>("/promos/apply", {
+    apply: (code: string, subtotal: number, storeId: number) =>
+      request<{ applied: boolean; amount: number; message?: string; promo?: { code: string; kind: string; amount: number; minSubtotal: number; maxDiscount: number } }>("/promos/apply", {
         method: "POST",
-        body: { code, subtotal },
+        body: { code, subtotal, storeId },
       }),
     list: () => request<{ promos: { code: string; title: string; desc: string; amount: number }[] }>("/promos"),
   },

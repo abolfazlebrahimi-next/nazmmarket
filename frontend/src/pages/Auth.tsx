@@ -9,11 +9,10 @@ import {
   Lock,
   Phone,
   ShieldCheck,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 import { ApiError, api, tokenStore } from "../api/client";
-import { Wordmark, pd, toEn } from "../components/ui";
+import { Wordmark, toEn } from "../components/ui";
 import type { User } from "../data";
 
 type Mode = "login" | "register";
@@ -63,13 +62,6 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
     }
   };
 
-  const fillDemo = () => {
-    setMode("login");
-    setPhone("09123456789");
-    setPassword("123456");
-    setError("");
-  };
-
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(120%_120%_at_100%_0%,#eaf4ee_0%,#fafcfb_45%,#edf1ee_100%)] px-4 py-8 sm:px-6">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-[30px] border border-line bg-white shadow-[0_30px_80px_-40px_rgba(40,25,10,0.45)] lg:grid-cols-[0.85fr_1fr]">
@@ -88,7 +80,7 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
               </span>
             </h2>
             <ul className="mt-7 space-y-3 text-[12.5px] font-semibold text-white/90">
-              {["ثبت سفارش از چند فروشگاه محلی", "تحویل سریع در نظرآباد و بیجارآباد", "پرداخت آنلاین یا در محل"].map((t) => (
+              {["ثبت سفارش از فروشگاه‌های محلی", "مشاهده کالاهای ثبت‌شده توسط فروشنده", "پرداخت در محل؛ درگاه آنلاین فعال نیست"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
                     <Check className="h-3 w-3" strokeWidth={3} />
@@ -107,13 +99,7 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
         <section className="p-6 sm:p-9">
           <div className="flex items-center justify-between">
             <Wordmark size="text-[22px]" />
-            <button
-              type="button"
-              onClick={fillDemo}
-              className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1.5 text-[10px] font-black text-brand-dark transition hover:brightness-95"
-            >
-              <Sparkles className="h-3 w-3" /> ورود آزمایشی
-            </button>
+
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-1 rounded-2xl bg-[#f4f3f0] p-1" role="tablist" aria-label="ورود یا ثبت‌نام">
@@ -255,23 +241,6 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
             با ورود یا ثبت‌نام، <span className="font-black text-ink">قوانین و مقررات</span> ناز مارکت را می‌پذیرید.
           </p>
 
-          <div className="mt-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-line" />
-            <span className="text-[10px] font-bold text-muted">یا</span>
-            <span className="h-px flex-1 bg-line" />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onAuth({ token: "", user: { phone: "", firstName: "کاربر", lastName: "مهمان" }, addresses: [] })}
-            className="mt-4 w-full rounded-2xl border border-line py-3 text-[12px] font-black text-ink transition hover:border-brand/50 hover:text-brand active:scale-[0.99]"
-          >
-            ادامه به عنوان مهمان
-          </button>
-
-          <p className="mt-3 text-center text-[10px] font-medium text-muted">
-            ورود آزمایشی: {pd("09123456789")} · رمز {pd("123456")}
-          </p>
         </section>
       </div>
     </div>
