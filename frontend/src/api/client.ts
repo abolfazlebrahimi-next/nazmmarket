@@ -98,6 +98,7 @@ export type ServerState = {
   orders: Order[];
   wallet: number;
   pro: boolean;
+  firstOrderEligible: boolean;
 };
 
 /* ------------------------------------------------------------------ */
@@ -146,6 +147,7 @@ export const api = {
       slot?: string;
       payment?: "online" | "cash";
       promoCode?: string | null;
+      firstOrderProductId?: number | null;
     }) => request<{ order: Order }>("/orders", { method: "POST", body: payload }),
     list: () => request<{ orders: Order[] }>("/orders"),
   },

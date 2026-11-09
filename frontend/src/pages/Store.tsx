@@ -23,10 +23,9 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           </button>
         }
       />
-      <div className={`relative flex h-40 items-end bg-gradient-to-br ${store.gradient} bg-cover bg-center p-4 lg:h-48`} style={store.photoUrl ? { backgroundImage: `linear-gradient(0deg,rgba(20,35,28,.75),rgba(20,35,28,.12)),url(${store.photoUrl})` } : undefined}>
-        <div className="absolute -left-8 -top-10 h-40 w-40 rounded-full bg-white/15" />
+      <div className={`relative flex h-32 items-end bg-gradient-to-br ${store.gradient} p-4 lg:h-36`}>
         <div className="relative flex items-center gap-3 text-white">
-          <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] bg-white/20 text-lg font-black backdrop-blur">{store.logoUrl ? <img src={store.logoUrl} alt={`لوگوی ${store.name}`} className="h-full w-full object-cover" /> : store.initial}</span>
+          <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] bg-white text-lg font-black text-brand shadow-md">{store.logoUrl ? <img src={store.logoUrl} alt={`لوگوی ${store.name}`} className="h-full w-full object-contain p-1" /> : store.initial}</span>
           <div>
             <p className="flex items-center gap-1.5 text-[16px] font-black">
               {store.name}

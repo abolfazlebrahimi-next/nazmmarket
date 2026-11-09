@@ -51,6 +51,8 @@ export default function App() {
   const [addresses, setAddresses] = useState<Address[]>(() => load<Address[]>("naz_addresses", []));
   const [selectedAddressId, setSelectedAddressId] = useState<number>(() => load("naz_address_id", 0));
   const [orders, setOrders] = useState<Order[]>([]);
+  const [firstOrderEligible, setFirstOrderEligible] = useState(false);
+  const [firstOrderProductId, setFirstOrderProductId] = useState<number | null>(null);
   const [wallet, setWallet] = useState<number>(0);
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [appliedPromo, setAppliedPromo] = useState<{ kind: string; amount: number; maxDiscount: number; minSubtotal: number } | null>(null);
@@ -159,6 +161,8 @@ export default function App() {
     setFavorites(nextFavs);
     setAddresses(nextAddrs);
     setOrders(state.orders ?? []);
+    setFirstOrderEligible(Boolean(state.firstOrderEligible));
+    setFirstOrderProductId(null);
     setWallet(state.wallet ?? 0);
     synced.current = {
       cart: JSON.stringify({ storeId: nextCart.storeId, items: nextCart.items }),
@@ -263,11 +267,19 @@ export default function App() {
   const cartStore = storeById(cart.storeId) ?? null;
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? addresses[0];
 
+  const firstOrderDiscount = useMemo(() => {
+    if (!firstOrderEligible || !firstOrderProductId || (cart.items[firstOrderProductId] ?? 0) < 1) return 0;
+    const product = products.find((p) => p.id === firstOrderProductId);
+    return product?.category === "drinks" ? Math.floor(product.price / 2) : 0;
+  }, [firstOrderEligible, firstOrderProductId, cart]);
   const discountAmount = useMemo(() => {
-    if (!appliedCode || !appliedPromo || subtotal < appliedPromo.minSubtotal) return 0;
-    const raw = appliedPromo.kind === "percent" ? Math.round((subtotal * appliedPromo.amount) / 100) : appliedPromo.amount;
-    return Math.min(subtotal, appliedPromo.maxDiscount > 0 ? Math.min(raw, appliedPromo.maxDiscount) : raw);
-  }, [appliedCode, appliedPromo, subtotal]);
+    let sellerDiscount = 0;
+    if (appliedCode && appliedPromo && subtotal >= appliedPromo.minSubtotal) {
+      const raw = appliedPromo.kind === "percent" ? Math.round((subtotal * appliedPromo.amount) / 100) : appliedPromo.amount;
+      sellerDiscount = Math.min(subtotal, appliedPromo.maxDiscount > 0 ? Math.min(raw, appliedPromo.maxDiscount) : raw);
+    }
+    return Math.min(subtotal, sellerDiscount + firstOrderDiscount);
+  }, [appliedCode, appliedPromo, subtotal, firstOrderDiscount]);
 
   const deliveryFee = cartCount === 0 ? 0 : subtotal >= 400000 ? 0 : (cartStore?.fee ?? 35000);
   const payable = Math.max(0, subtotal - discountAmount + deliveryFee);
@@ -281,21 +293,25 @@ export default function App() {
       return;
     }
     setCart((c) => ({ storeId: c.storeId ?? fromStoreId ?? null, items: { ...c.items, [p.id]: (c.items[p.id] ?? 0) + 1 } }));
+    if (firstOrderEligible && !firstOrderProductId && p.category === "drinks") setFirstOrderProductId(p.id);
     if (cartCount === 0) showToast(`${p.name} به سبد اضافه شد`);
   };
 
-  const handleDec = (id: number) =>
+  const handleDec = (id: number) => {
+    if (firstOrderProductId === id && qtyOf(id) <= 1) setFirstOrderProductId(null);
     setCart((c) => {
       const items = { ...c.items };
       if ((items[id] ?? 0) <= 1) delete items[id];
       else items[id] -= 1;
       return { storeId: Object.keys(items).length === 0 ? null : c.storeId, items };
     });
+  };
 
   const clearCart = () => {
     setCart({ storeId: null, items: {} });
     setAppliedCode(null);
     setAppliedPromo(null);
+    setFirstOrderProductId(null);
   };
 
   const toggleFav = (id: number) => {
@@ -347,8 +363,11 @@ export default function App() {
         slot: extra?.slot ?? "ارسال فوری",
         payment: extra?.payment ?? "cash",
         promoCode: appliedCode,
+        firstOrderProductId: firstOrderEligible ? firstOrderProductId : null,
       });
       setOrders((o) => [order, ...o]);
+      setFirstOrderEligible(false);
+      setFirstOrderProductId(null);
       setCart({ storeId: null, items: {} });
       setAppliedCode(null);
       setAppliedPromo(null);
@@ -456,6 +475,10 @@ export default function App() {
     placeOrder,
     reorder,
     orders,
+    firstOrderEligible,
+    firstOrderProductId,
+    setFirstOrderProductId,
+    firstOrderDiscount,
     wallet,
     setWallet,
     productModal,
@@ -468,6 +491,7 @@ export default function App() {
     confirmReplace: () => {
       if (!replacePrompt) return;
       setCart({ storeId: replacePrompt.storeId, items: { [replacePrompt.product.id]: 1 } });
+      setFirstOrderProductId(firstOrderEligible && replacePrompt.product.category === "drinks" ? replacePrompt.product.id : null);
       setAppliedCode(null);
       setAppliedPromo(null);
       setReplacePrompt(null);
@@ -475,7 +499,7 @@ export default function App() {
     },
     closeReplace: () => setReplacePrompt(null),
     pickStore: (id) => {
-      if (cart.storeId !== id) { setAppliedCode(null); setAppliedPromo(null); }
+      if (cart.storeId !== id) { setAppliedCode(null); setAppliedPromo(null); setFirstOrderProductId(null); }
       setCart((cc) => ({ ...cc, storeId: id }));
     },
     sheet,

@@ -10,7 +10,7 @@ const allProducts = async (category, q, storeId) => {
   return (await db.all(`SELECT * FROM products WHERE ${where.join(" AND ")} ORDER BY sort_order ASC, id DESC`, values)).map(mapProduct);
 };
 const allStores = async (q, type) => {
-  const where = ["seller_id IS NOT NULL", "is_active = 1", "photo_url IS NOT NULL"];
+  const where = ["seller_id IS NOT NULL", "is_active = 1", "logo_url IS NOT NULL"];
   const values = [];
   if (q) { where.push("(name LIKE ? OR area LIKE ? OR address LIKE ?)"); values.push(`%${q.trim()}%`, `%${q.trim()}%`, `%${q.trim()}%`); }
   if (type) { where.push("type = ?"); values.push(type); }

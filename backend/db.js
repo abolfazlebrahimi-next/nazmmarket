@@ -100,6 +100,22 @@ export async function migrate() {
       token CHAR(64) NOT NULL PRIMARY KEY, seller_id BIGINT UNSIGNED NOT NULL, created_at VARCHAR(32) NOT NULL,
       KEY idx_seller_sessions_owner (seller_id), CONSTRAINT fk_seller_sessions_owner FOREIGN KEY (seller_id) REFERENCES seller_accounts(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS courier_accounts (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, phone VARCHAR(20) NOT NULL UNIQUE,
+      password_hash VARCHAR(255) NOT NULL, full_name VARCHAR(120) NOT NULL,
+      vehicle VARCHAR(40) NOT NULL DEFAULT 'motorcycle', active TINYINT(1) NOT NULL DEFAULT 0,
+      created_at VARCHAR(32) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS courier_sessions (
+      token CHAR(64) NOT NULL PRIMARY KEY, courier_id BIGINT UNSIGNED NOT NULL, created_at VARCHAR(32) NOT NULL,
+      KEY idx_courier_sessions_owner (courier_id),
+      CONSTRAINT fk_courier_sessions_owner FOREIGN KEY (courier_id) REFERENCES courier_accounts(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS schema_migrations (
+      migration_key VARCHAR(120) NOT NULL PRIMARY KEY, applied_at VARCHAR(32) NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+
+
     `CREATE TABLE IF NOT EXISTS addresses (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL,
       title VARCHAR(60) NOT NULL, address VARCHAR(255) NOT NULL, detail VARCHAR(255) NOT NULL DEFAULT '',
@@ -169,8 +185,20 @@ export async function migrate() {
       CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
       CONSTRAINT fk_orders_store FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS order_deliveries (
+      order_id VARCHAR(40) NOT NULL PRIMARY KEY, courier_id BIGINT UNSIGNED NOT NULL,
+      claimed_at VARCHAR(32) NOT NULL, completed_at VARCHAR(32) NULL, KEY idx_order_deliveries_courier (courier_id),
+      CONSTRAINT fk_order_deliveries_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+      CONSTRAINT fk_order_deliveries_owner FOREIGN KEY (courier_id) REFERENCES courier_accounts(id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   ];
   for (const sql of schema) await db.run(sql);
+
+  // The previous app used status 3 for completed orders; preserve those records as completed before reusing 3 for courier handoff.
+  await db.transaction(async (tx) => {
+    const marker = await tx.run("INSERT IGNORE INTO schema_migrations (migration_key, applied_at) VALUES (?, ?)", ["order-status-courier-handoff-v1", new Date().toISOString()]);
+    if (marker.affectedRows) await tx.run("UPDATE orders SET status=4 WHERE status=3");
+  });
 
   // Upgrade databases created by earlier versions in-place; all existing data remains untouched.
   for (const [column, definition] of [

@@ -16,6 +16,7 @@ import meRoutes from "./routes/me.js";
 import orderRoutes from "./routes/orders.js";
 import promoRoutes from "./routes/promos.js";
 import sellerRoutes from "./routes/seller.js";
+import courierRoutes from "./routes/courier.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -45,6 +46,7 @@ app.get("/api/health", async (_req, res) => {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use("/api/uploads", express.static(path.join(__dirname, "uploads"), { maxAge: "1d", fallthrough: false }));
 app.use("/api/seller", sellerRoutes);
+app.use("/api/courier", courierRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", catalogRoutes);
 app.use("/api/me", meRoutes);

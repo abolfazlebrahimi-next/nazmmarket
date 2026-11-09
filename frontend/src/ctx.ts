@@ -85,6 +85,10 @@ export interface AppCtx {
   placeOrder(extra?: { slot?: string; payment?: "online" | "cash" }): Promise<void>;
   reorder(o: Order): void;
   orders: Order[];
+  firstOrderEligible: boolean;
+  firstOrderProductId: number | null;
+  setFirstOrderProductId(id: number | null): void;
+  firstOrderDiscount: number;
 
   // account extras
   wallet: number;

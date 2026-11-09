@@ -29,7 +29,7 @@ router.post("/orders", async (req, res) => {
       const product = await db.get("SELECT * FROM products WHERE id=? AND store_id=? AND seller_id=? AND active=1", [productId, storeId, storeRow.seller_id]);
       if (!product) return res.status(400).json({ error: { code: "product_unavailable", message: "یکی از کالاها دیگر در این فروشگاه موجود نیست." } });
       if (Number(product.stock) < qty) return res.status(409).json({ error: { code: "out_of_stock", message: `موجودی «${product.name}» کافی نیست.` } });
-      items.push({ id: Number(product.id), name: product.name, qty, price: Number(product.price) });
+      items.push({ id: Number(product.id), name: product.name, category: product.category, qty, price: Number(product.price) });
     }
     const subtotal = items.reduce((sum, item) => sum + item.price * item.qty, 0);
     if (!Number.isSafeInteger(subtotal)) return res.status(400).json({ error: { code: "basket_too_large", message: "مبلغ سبد خرید معتبر نیست." } });
@@ -41,9 +41,8 @@ router.post("/orders", async (req, res) => {
     ) : null;
     if (promoCode && !promo) return res.status(400).json({ error: { code: "invalid_promo", message: "کد تخفیف معتبر نیست." } });
     if (promo && subtotal < Number(promo.min_subtotal)) return res.status(400).json({ error: { code: "minimum_not_met", message: "مبلغ سبد خرید به حداقل استفاده از کد تخفیف نرسیده است." } });
-    const discount = promo ? computeDiscount({ ...promo, amount: Number(promo.amount), min_subtotal: Number(promo.min_subtotal), max_discount: Number(promo.max_discount) }, subtotal) : 0;
-    const delivery = computeDelivery(mapStore(storeRow), subtotal);
-    const total = Math.max(0, subtotal - discount + delivery);
+    const sellerDiscount = promo ? computeDiscount({ ...promo, amount: Number(promo.amount), min_subtotal: Number(promo.min_subtotal), max_discount: Number(promo.max_discount) }, subtotal) : 0;
+    const firstOrderProductId = body.firstOrderProductId == null ? null : Number(body.firstOrderProductId);
     const addressId = Number(body.addressId);
     const addressRow = Number.isInteger(addressId) ? await db.get("SELECT * FROM addresses WHERE id=? AND user_id=?", [addressId, req.user.id]) : null;
     const addressTitle = String(body.addressTitle ?? addressRow?.title ?? "آدرس انتخابی").slice(0, 60);
@@ -54,6 +53,21 @@ router.post("/orders", async (req, res) => {
     const payment = "cash", id = `NM-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
     const createdAt = new Date().toISOString(), slot = String(body.slot ?? "ارسال فوری").slice(0, 60);
     const row = await db.transaction(async (tx) => {
+      // Serialize simultaneous first orders for this account so the one-time offer cannot be redeemed twice.
+      await tx.get("SELECT id FROM users WHERE id=? FOR UPDATE", [req.user.id]);
+      const priorOrder = await tx.get("SELECT id FROM orders WHERE user_id=? AND status<>0 LIMIT 1", [req.user.id]);
+      let firstOrderDiscount = 0;
+      if (firstOrderProductId != null) {
+        if (priorOrder) throw error(409, "first_offer_used", "تخفیف اولین خرید قبلاً استفاده شده است.");
+        const eligibleItem = items.find((item) => item.id === firstOrderProductId && item.category === "drinks");
+        if (!eligibleItem) throw error(400, "first_offer_invalid", "تخفیف خرید اول فقط برای یک نوشیدنی داخل همین سبد قابل استفاده است.");
+        firstOrderDiscount = Math.floor(eligibleItem.price / 2);
+        eligibleItem.discountedQty = 1;
+        eligibleItem.unitDiscount = firstOrderDiscount;
+      }
+      const discount = Math.min(subtotal, sellerDiscount + firstOrderDiscount);
+      const delivery = computeDelivery(mapStore(storeRow), subtotal);
+      const total = Math.max(0, subtotal - discount + delivery);
       for (const item of items) {
         const stockUpdate = await tx.run("UPDATE products SET stock=stock-? WHERE id=? AND store_id=? AND seller_id=? AND active=1 AND stock>=?", [item.qty, item.id, storeId, storeRow.seller_id, item.qty]);
         if (!stockUpdate.affectedRows) throw error(409, "out_of_stock", `موجودی «${item.name}» تغییر کرده؛ سبد را دوباره بررسی کنید.`);

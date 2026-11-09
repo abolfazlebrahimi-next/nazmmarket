@@ -14,7 +14,7 @@ const readFavorites = async (id) => (await db.all("SELECT product_id FROM favori
 const readOrders = async (id) => (await db.all("SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC, id DESC", [id])).map(mapOrder);
 router.get("/state", async (req, res) => {
   const [cart, favorites, addresses, orders] = await Promise.all([readCart(req.user.id), readFavorites(req.user.id), readAddresses(req.user.id), readOrders(req.user.id)]);
-  res.json({ user: req.user, cart, favorites, addresses, orders, wallet: req.user.wallet, pro: req.user.pro });
+  res.json({ user: req.user, cart, favorites, addresses, orders, wallet: req.user.wallet, pro: req.user.pro, firstOrderEligible: !orders.some((order) => order.status !== 0) });
 });
 router.put("/cart", async (req, res) => {
   const body = req.body ?? {}, candidate = Number(body.storeId);

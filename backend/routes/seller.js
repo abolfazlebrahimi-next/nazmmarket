@@ -26,8 +26,8 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024, files: 2 },
   fileFilter: (_req, file, done) => done(null, imageTypes.has(file.mimetype)),
 });
-const registrationImages = upload.fields([{ name: "storePhoto", maxCount: 1 }, { name: "logo", maxCount: 1 }]);
-const storeImages = upload.fields([{ name: "storePhoto", maxCount: 1 }, { name: "logo", maxCount: 1 }]);
+const registrationImages = upload.fields([{ name: "logo", maxCount: 1 }]);
+const storeImages = upload.fields([{ name: "logo", maxCount: 1 }]);
 const oneProductImage = upload.single("image");
 const fail = (res, status, code, message) => res.status(status).json({ error: { code, message } });
 const text = (value, max = 255) => String(value ?? "").trim().slice(0, max);
@@ -73,11 +73,11 @@ async function registerSeller(req, res, next) {
     if (!validIranianNationalId(nationalId)) return reject(res, 400, "invalid_national_id", "کد ملی واردشده معتبر نیست.");
     if (!validateIban(iban)) return reject(res, 400, "invalid_iban", "شماره شبا باید با IR و ۲۴ رقم وارد شود.");
     if (!storeCategories.has(category)) return reject(res, 400, "invalid_category", "دسته‌بندی فروشگاه را انتخاب کنید.");
-    if (!files.storePhoto?.[0]) return reject(res, 400, "store_photo_required", "بارگذاری عکس واقعی فروشگاه الزامی است.");
+    if (!files.logo?.[0]) return reject(res, 400, "store_logo_required", "بارگذاری لوگوی مربع فروشگاه الزامی است.");
     if (await db.get("SELECT id FROM seller_accounts WHERE phone = ?", [phone])) return reject(res, 409, "phone_taken", "با این شماره قبلاً حساب فروشنده ساخته شده است.");
 
     const encNationalId = encryptSellerValue(nationalId), encIban = encryptSellerValue(iban);
-    const storePhoto = publicFile(files.storePhoto[0]), logoUrl = publicFile(files.logo?.[0]);
+    const logoUrl = publicFile(files.logo[0]);
     const lat = body.lat == null || body.lat === "" ? null : Number(body.lat);
     const lng = body.lng == null || body.lng === "" ? null : Number(body.lng);
     if ((lat !== null && (!Number.isFinite(lat) || Math.abs(lat) > 90)) || (lng !== null && (!Number.isFinite(lng) || Math.abs(lng) > 180))) return reject(400, "invalid_location", "موقعیت جغرافیایی معتبر نیست.");
@@ -93,8 +93,8 @@ async function registerSeller(req, res, next) {
       await tx.run(
         `INSERT INTO stores (id, name, type, pro, is_new, rating, minutes, fee, area, tags, off_text, gradient, initial, min_basket,
           seller_id, category, address, lat, lng, photo_url, logo_url, hours, is_active)
-         VALUES (?, ?, ?, 0, 1, NULL, 45, 35000, ?, '[]', NULL, 'from-[#16865b] to-[#26352e]', ?, 100000, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-        [storeId, shopName, type, address.slice(0, 180), ownerName.slice(0, 1), sellerId, category, address, lat, lng, storePhoto, logoUrl, text(body.hours, 160)],
+         VALUES (?, ?, ?, 0, 1, NULL, 45, 35000, ?, '[]', NULL, 'from-[#16865b] to-[#26352e]', ?, 100000, ?, ?, ?, ?, ?, NULL, ?, ?, 1)`,
+        [storeId, shopName, type, address.slice(0, 180), ownerName.slice(0, 1), sellerId, category, address, lat, lng, logoUrl, text(body.hours, 160)],
       );
       await tx.run("INSERT INTO seller_sessions (token, seller_id, created_at) VALUES (?, ?, ?)", [sessionToken, sellerId, createdAt]);
       const account = await tx.get("SELECT * FROM seller_accounts WHERE id = ?", [sellerId]);
@@ -134,9 +134,9 @@ router.get("/dashboard", async (req, res) => {
   const [productCount, activeProducts, pendingOrders, allOrders, sales] = await Promise.all([
     db.get("SELECT COUNT(*) AS n FROM products WHERE seller_id = ?", [req.seller.id]),
     db.get("SELECT COUNT(*) AS n FROM products WHERE seller_id = ? AND active = 1", [req.seller.id]),
-    db.get("SELECT COUNT(*) AS n FROM orders WHERE store_id = ? AND status = 1", [store.id]),
+    db.get("SELECT COUNT(*) AS n FROM orders WHERE store_id = ? AND status IN (1,2)", [store.id]),
     db.get("SELECT COUNT(*) AS n FROM orders WHERE store_id = ?", [store.id]),
-    db.get("SELECT COALESCE(SUM(total), 0) AS n FROM orders WHERE store_id = ? AND status = 3", [store.id]),
+    db.get("SELECT COALESCE(SUM(total), 0) AS n FROM orders WHERE store_id = ? AND status = 4", [store.id]),
   ]);
   res.json({ store: mapStore(store), stats: { products: Number(productCount.n), activeProducts: Number(activeProducts.n), pendingOrders: Number(pendingOrders.n), orders: Number(allOrders.n), sales: Number(sales.n) } });
 });
@@ -159,8 +159,8 @@ async function updateStore(req, res, next) {
     if (!Number.isSafeInteger(fee) || fee < 0 || !Number.isSafeInteger(minBasket) || minBasket < 0) return fail(res, 400, "invalid_store_pricing", "هزینه ارسال و حداقل سبد باید عدد معتبر و نامنفی باشند.");
     await db.run(
       `UPDATE stores SET name=?, type=?, category=?, area=?, address=?, lat=?, lng=?, hours=?, fee=?, min_basket=?,
-       photo_url=COALESCE(?, photo_url), logo_url=COALESCE(?, logo_url) WHERE id=? AND seller_id=?`,
-      [name, category === "hypermarket" ? "hypermarket" : "supermarket", category, address.slice(0, 180), address, lat, lng, text(b.hours, 160), fee, minBasket, publicFile(files.storePhoto?.[0]), publicFile(files.logo?.[0]), store.id, req.seller.id],
+       logo_url=COALESCE(?, logo_url) WHERE id=? AND seller_id=?`,
+      [name, category === "hypermarket" ? "hypermarket" : "supermarket", category, address.slice(0, 180), address, lat, lng, text(b.hours, 160), fee, minBasket, publicFile(files.logo?.[0]), store.id, req.seller.id],
     );
     const updated = await sellerStore(req.seller.id);
     res.json({ store: mapStore(updated) });
@@ -259,7 +259,7 @@ router.get("/orders", async (req, res) => {
 });
 router.patch("/orders/:id/status", async (req, res) => {
   const store = await sellerStore(req.seller.id), next = Number(req.body?.status);
-  if (![2, 3].includes(next)) return fail(res, 400, "invalid_status", "وضعیت درخواستی معتبر نیست.");
+  if (![2, 3].includes(next)) return fail(res, 400, "invalid_status", "فروشنده فقط می‌تواند سفارش را آماده‌سازی یا به پیک تحویل دهد.");
   const result = await db.run("UPDATE orders SET status = ? WHERE id = ? AND store_id = ? AND status = ?", [next, req.params.id, store?.id ?? 0, next - 1]);
   if (!result.affectedRows) return fail(res, 409, "order_status_conflict", "سفارش پیدا نشد یا وضعیت آن تغییر کرده است.");
   const row = await db.get("SELECT * FROM orders WHERE id = ?", [req.params.id]);

@@ -101,7 +101,7 @@ export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12px] font-extrabold text-ink">{product.name}</p>
                     <p className="mt-0.5 text-[10px] font-medium text-muted">
-                      {product.unit} · {fa(product.price)} تومان
+                      {product.unit} · {fa(product.price)} تومان{c.firstOrderEligible && c.firstOrderProductId === product.id && c.firstOrderDiscount > 0 ? <span className="mr-1 font-black text-mint">· یک عدد ۵۰٪ تخفیف</span> : null}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -116,6 +116,8 @@ export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean 
                 <span className="text-muted">جمع سبد خرید</span>
                 <span className="font-black text-ink">{fa(c.subtotal)} تومان</span>
               </div>
+              {c.discountAmount > 0 && <div className="mt-2 flex items-center justify-between text-[12px] font-bold"><span className="text-mint">{c.firstOrderDiscount > 0 ? "تخفیف خرید اول نوشیدنی + کد فروشگاه" : "تخفیف فروشگاه"}</span><span className="font-black text-mint">− {fa(c.discountAmount)} تومان</span></div>}
+              {c.firstOrderEligible && c.firstOrderDiscount === 0 && <p className="mt-2 rounded-xl bg-brand-soft px-3 py-2 text-[10px] font-bold leading-5 text-brand-dark">با افزودن نوشیدنی، یک واحد از همان نوشیدنی در اولین سفارش شما ۵۰٪ تخفیف می‌گیرد.</p>}
               <div className="mt-2 flex items-center justify-between text-[12px] font-bold">
                 <span className="text-muted">هزینه ارسال</span>
                 <span className={c.deliveryFee === 0 ? "font-black text-mint" : "text-ink"}>{c.deliveryFee === 0 ? "رایگان" : `${fa(c.deliveryFee)} تومان`}</span>
