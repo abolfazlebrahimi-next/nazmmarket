@@ -1,5 +1,5 @@
 /**
- * ناز مارکت — Node.js backend (Express + SQLite).
+ * ناز مارکت — Node.js backend (Express + MySQL).
  *
  *   npm run dev:api     →  http://localhost:4000
  *   npm run dev         →  Vite on :5173 with /api proxied to this server
@@ -8,6 +8,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import "dotenv/config";
+import "express-async-errors";
 import express from "express";
 import { db, migrate, seed } from "./db.js";
 import { hashPassword } from "./auth.js";
@@ -21,30 +23,19 @@ import promoRoutes from "./routes/promos.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dirname, "..", "dist");
 
-migrate();
-seed();
-seedDemoAccount();
-
-function seedDemoAccount() {
-  const exists = db.prepare("SELECT id FROM users WHERE phone = ?").get(DEMO_ACCOUNT.phone);
+async function seedDemoAccount() {
+  const exists = await db.get("SELECT id FROM users WHERE phone = ?", [DEMO_ACCOUNT.phone]);
   if (exists) return;
-  const info = db
-    .prepare(
-      `INSERT INTO users (phone, password_hash, first_name, last_name, wallet, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
-      DEMO_ACCOUNT.phone,
-      hashPassword(DEMO_ACCOUNT.password),
-      DEMO_ACCOUNT.firstName,
-      DEMO_ACCOUNT.lastName,
-      250000,
-      new Date().toISOString(),
-    );
-  db.prepare(
+  const result = await db.run(
+    `INSERT INTO users (phone, password_hash, first_name, last_name, wallet, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [DEMO_ACCOUNT.phone, hashPassword(DEMO_ACCOUNT.password), DEMO_ACCOUNT.firstName, DEMO_ACCOUNT.lastName, 250000, new Date().toISOString()],
+  );
+  await db.run(
     `INSERT INTO addresses (user_id, title, address, detail, phone, type)
      VALUES (?, 'خانه', 'نظرآباد، میرزا کوچک‌خان شمالی', 'کوچه ۱', '09935377426', 'home')`,
-  ).run(Number(info.lastInsertRowid));
+    [Number(result.insertId)],
+  );
 }
 
 const app = express();
@@ -62,10 +53,9 @@ app.use((req, res, next) => {
   next();
 });
 
-app.get("/api/health", (_req, res) => {
-  const users = db.prepare("SELECT COUNT(*) AS n FROM users").get();
-  const products = db.prepare("SELECT COUNT(*) AS n FROM products").get();
-  res.json({ ok: true, users: users.n, products: products.n, time: new Date().toISOString() });
+app.get("/api/health", async (_req, res) => {
+  const [users, products] = await Promise.all([db.get("SELECT COUNT(*) AS n FROM users"), db.get("SELECT COUNT(*) AS n FROM products")]);
+  res.json({ ok: true, users: Number(users.n), products: Number(products.n), time: new Date().toISOString() });
 });
 
 app.use("/api/auth", authRoutes);
@@ -93,7 +83,18 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: { code: "server_error", message: "خطای غیرمنتظره در سرور؛ دوباره تلاش کنید." } });
 });
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`\n  ✅ ناز مارکت API روی http://localhost:${PORT} آماده است`);
-  console.log(`  👤 حساب آزمایشی: ${DEMO_ACCOUNT.phone} / ${DEMO_ACCOUNT.password}\n`);
-});
+async function start() {
+  try {
+    await migrate();
+    await seed();
+    await seedDemoAccount();
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`\n  ✅ ناز مارکت API روی http://localhost:${PORT} آماده است`);
+      console.log(`  👤 حساب آزمایشی: ${DEMO_ACCOUNT.phone} / ${DEMO_ACCOUNT.password}\n`);
+    });
+  } catch (error) {
+    console.error("[api] MySQL startup failed:", error);
+    process.exitCode = 1;
+  }
+}
+start();

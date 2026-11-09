@@ -27,7 +27,7 @@ import {
  * Catalog types + client fallback data.
  *
  * The real data lives in `shared/catalog.json`, which is seeded into the
- * backend database (SQLite) on boot and served by `GET /api/catalog`.
+ * backend database (MySQL) on boot and served by `GET /api/catalog`.
  * The bundled copy keeps the storefront usable before the first request
  * (and when the API is unreachable). Icons are rendered client-side, so the
  * API only ships an icon *name*.

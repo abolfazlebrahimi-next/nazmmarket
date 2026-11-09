@@ -641,7 +641,7 @@ export default function App() {
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                  <div className="dropdown-in fixed inset-x-3 top-[7.5rem] z-[70] w-auto rounded-2xl border border-line bg-white p-2 shadow-2xl md:absolute md:inset-x-auto md:left-0 md:top-12 md:w-64">
+                  <div className="dropdown-in fixed inset-x-3 top-[4.75rem] z-[70] w-auto rounded-2xl border border-line bg-white p-2 shadow-2xl md:absolute md:inset-x-auto md:left-0 md:top-12 md:w-64">
                     <div className="flex items-center gap-3 rounded-xl bg-[#faf9f6] p-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[13px] font-black text-brand">
                         {(user.firstName || "م").slice(0, 1)}
@@ -712,7 +712,7 @@ export default function App() {
                   خرید سوپرمارکتی فوری از سوپرمارکت‌های محلی شهرستان نظرآباد — از خانه سفارش دهید و تا ۴۵ دقیقه دیگر تحویل بگیرید.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {["نظرآباد", "محمد آباد", "علی آباد", "سیدجمالدین", "تنکمان"].map((a) => (
+                  {["نظرآباد", "محمد آباد", "علی آباد", "سیدجمالدین", "بیجارآباد"].map((a) => (
                     <span key={a} className="rounded-full bg-brand-soft px-2.5 py-1 text-[10px] font-extrabold text-brand-dark">
                       {a}
                     </span>
@@ -721,7 +721,7 @@ export default function App() {
               </div>
               <div>
                 <p className="text-[12px] font-black text-ink">ناز مارکت</p>
-                <ul className="mt-3 space-y-2.5">
+                <ul className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2.5">
                   {([
                     { label: "قوانین و مقررات", fn: () => c.setSheet("rules") },
                     { label: "حریم خصوصی", fn: () => c.setSheet("privacy") },
@@ -766,7 +766,7 @@ export default function App() {
                   type="button"
                   onClick={() => go(item.key)}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex flex-col items-center justify-center gap-0.5 text-[9px] font-semibold transition active:scale-95 ${
+                  className={`relative flex flex-col items-center justify-center gap-0.5 text-[8px] leading-none font-medium transition active:scale-95 ${
                     active ? "text-brand" : "text-[#a8a49e]"
                   }`}
                 >

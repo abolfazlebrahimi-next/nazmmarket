@@ -18,7 +18,7 @@ import {
 import { Empty, ProductCard, ScreenHeader, StoreCard, pd, pad2 } from "../components/ui";
 import MapPicker from "../components/MapPicker";
 import type { AppCtx } from "../ctx";
-import { MAP_EMBED, brands, categories, faNum, products, stores } from "../data";
+import { brands, categories, faNum, products, stores } from "../data";
 
 export function HomePage({ c }: { c: AppCtx }) {
   const [storeFilter, setStoreFilter] = useState<"all" | "hyper" | "date">("all");
@@ -234,45 +234,7 @@ export function HomePage({ c }: { c: AppCtx }) {
         </div>
       </div>
 
-      {/* coverage map */}
-      <div className={`${section} pt-6`}>
-        <div className="overflow-hidden rounded-[26px] border border-line bg-white shadow-[0_10px_26px_-18px_rgba(30,20,10,0.45)]">
-          <div className="flex items-center justify-between gap-3 p-4 pb-3">
-            <div>
-              <p className="flex items-center gap-1.5 text-[13.5px] font-black text-ink md:text-[14px]">
-                <MapPin className="h-4.5 w-4.5 text-brand" /> محدوده‌ی فعال: شهرستان نظرآباد
-              </p>
-              <p className="mt-1 text-[11px] font-medium leading-5 text-muted">
-                شهر نظرآباد، تنکمان، سیدجمال‌الدین و روستاهای اطراف
-              </p>
-            </div>
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-mint">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute h-full w-full animate-ping rounded-full bg-emerald-500 opacity-70" />
-                <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              فعال
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => c.openSub({ name: "map" })}
-            className="relative block h-44 w-full md:h-56"
-            aria-label="مشاهده نقشه نظرآباد"
-          >
-            <iframe
-              title="نقشه شهرستان نظرآباد"
-              src={MAP_EMBED}
-              className="pointer-events-none h-full w-full border-0"
-              loading="lazy"
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-            <span className="absolute inset-x-0 bottom-3 mx-auto w-fit rounded-full bg-ink/85 px-3.5 py-2 text-[11px] font-black text-white backdrop-blur">
-              مشاهده نقشه و انتخاب لوکیشن دقیق
-            </span>
-          </button>
-        </div>
-      </div>
+
 
     </div>
   );
@@ -378,7 +340,7 @@ export function MapPage({ c }: { c: AppCtx }) {
             <Navigation className="h-4.5 w-4.5 text-brand" /> مناطق تحت پوشش ارسال
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {["شهر نظرآباد", "تنکمان", "سیدجمال‌الدین", "محله الغدیر", "خیابان شهید مطهری", "شهرک صنعتی"].map((a) => (
+            {["شهر نظرآباد", "بیجارآباد", "سیدجمال‌الدین", "محله الغدیر", "خیابان شهید مطهری", "شهرک صنعتی"].map((a) => (
               <span key={a} className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1.5 text-[10px] font-extrabold text-brand-dark">
                 <MapPin className="h-3 w-3" /> {a}
               </span>

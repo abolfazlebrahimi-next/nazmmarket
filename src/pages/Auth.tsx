@@ -88,7 +88,7 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
               </span>
             </h2>
             <ul className="mt-7 space-y-3 text-[12.5px] font-semibold text-white/90">
-              {["ثبت سفارش از چند فروشگاه محلی", "تحویل سریع در نظرآباد و تنکمان", "پرداخت آنلاین یا در محل"].map((t) => (
+              {["ثبت سفارش از چند فروشگاه محلی", "تحویل سریع در نظرآباد و بیجارآباد", "پرداخت آنلاین یا در محل"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
                     <Check className="h-3 w-3" strokeWidth={3} />
