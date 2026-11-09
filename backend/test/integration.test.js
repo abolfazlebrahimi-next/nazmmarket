@@ -8,6 +8,7 @@ import app from "../app.js";
 import { db, pool, migrate } from "../db.js";
 import { hashPassword } from "../auth.js";
 import { privateDir } from "../private-documents.js";
+import { uploadDir } from "../storage-paths.js";
 
 // Refuses to touch a live database. CI creates an isolated MySQL 8 database.
 const enabled =
@@ -128,8 +129,7 @@ test(
       for (const p of bank.products) {
         createdPublic.push(p.image_url);
         const meta = await sharp(
-          new URL("../uploads/" + path.basename(p.image_url), import.meta.url)
-            .pathname,
+          path.join(uploadDir, path.basename(p.image_url)),
         ).metadata();
         assert.equal(meta.width, meta.height);
       }

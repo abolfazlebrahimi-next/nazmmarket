@@ -2,8 +2,8 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { normalizeImage } from "./images.js";
-export const privateDir = new URL("./private-uploads/", import.meta.url)
-  .pathname;
+import { privateDir } from "./storage-paths.js";
+export { privateDir } from "./storage-paths.js";
 export function documentKey() {
   const key = process.env.SELLER_PII_KEY || "";
   if (!/^[a-f\d]{64}$/i.test(key))

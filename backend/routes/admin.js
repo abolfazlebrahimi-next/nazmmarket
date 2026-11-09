@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { readDocument } from "../private-documents.js";
 import multer from "multer";
+import { uploadDir } from "../storage-paths.js";
 import { db, mapOrder } from "../db.js";
 import { bearerToken, loginThrottle, verifyPassword } from "../auth.js";
 import { normalizeImage } from "../images.js";
@@ -186,10 +187,10 @@ router.get("/dashboard", async (_req, res) => {
     courierReport,
   });
 });
-fs.mkdirSync(new URL("../uploads/", import.meta.url), { recursive: true });
+fs.mkdirSync(uploadDir, { recursive: true });
 const upload = multer({
   storage: multer.diskStorage({
-    destination: new URL("../uploads/", import.meta.url).pathname,
+    destination: uploadDir,
     filename: (_r, _f, cb) => cb(null, crypto.randomUUID() + ".jpg"),
   }),
   limits: { fileSize: 5 * 1024 * 1024, files: 1 },
