@@ -14,7 +14,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { Empty, QtyStepper, pd } from "../components/ui";
+import { Empty, QtyStepper, ProductVisual, pd } from "../components/ui";
 import type { AppCtx } from "../ctx";
 import { faNum, productById } from "../data";
 
@@ -96,7 +96,7 @@ export function CartBody({ c, compact = false }: { c: AppCtx; compact?: boolean 
               {items.map(({ product, qty }) => (
                 <div key={product.id} className="flex items-center gap-3 p-3.5">
                   <span className={`flex shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${product.bg}`} style={{ height: 52, width: 52 }}>
-                    <product.icon className={product.iconColor} strokeWidth={1.6} style={{ height: 26, width: 26 }} />
+                    <ProductVisual product={product}/>
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[12px] font-extrabold text-ink">{product.name}</p>

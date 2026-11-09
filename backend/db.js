@@ -7,9 +7,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import mysql from "mysql2/promise";
+import crypto from "node:crypto";
+import { normalizeImage } from "./images.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, "shared", "catalog.json"), "utf8"));
+const catalog = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "shared", "catalog.json"), "utf8"),
+);
 
 export const pool = mysql.createPool({
   host: process.env.MYSQL_HOST ?? "127.0.0.1",
@@ -41,12 +45,14 @@ export const db = {
   async transaction(work) {
     const connection = await pool.getConnection();
     const tx = {
-      all: async (sql, values = []) => (await connection.execute(sql, values))[0],
+      all: async (sql, values = []) =>
+        (await connection.execute(sql, values))[0],
       get: async (sql, values = []) => {
         const [rows] = await connection.execute(sql, values);
         return rows[0] ?? null;
       },
-      run: async (sql, values = []) => (await connection.execute(sql, values))[0],
+      run: async (sql, values = []) =>
+        (await connection.execute(sql, values))[0],
     };
     try {
       await connection.beginTransaction();
@@ -68,18 +74,28 @@ async function ensureColumn(table, column, definition) {
     `SELECT 1 AS found FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
     [table, column],
   );
-  if (!found) await db.run(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+  if (!found)
+    await db.run(
+      `ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`,
+    );
 }
 async function ensureIndex(table, indexName, columns, unique = false) {
   const found = await db.get(
     `SELECT 1 AS found FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?`,
     [table, indexName],
   );
-  if (!found) await db.run(`CREATE ${unique ? "UNIQUE " : ""}INDEX \`${indexName}\` ON \`${table}\` (${columns})`);
+  if (!found)
+    await db.run(
+      `CREATE ${unique ? "UNIQUE " : ""}INDEX \`${indexName}\` ON \`${table}\` (${columns})`,
+    );
 }
 
 export async function migrate() {
   const schema = [
+    `CREATE TABLE IF NOT EXISTS order_events (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id VARCHAR(40) NOT NULL, status INT NOT NULL, actor_role VARCHAR(20) NOT NULL, actor_id BIGINT UNSIGNED NULL, created_at VARCHAR(32) NOT NULL, KEY idx_order_events (order_id,id)) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS first_offer_redemptions (user_id BIGINT UNSIGNED PRIMARY KEY, order_id VARCHAR(40) NOT NULL, product_id INT UNSIGNED NOT NULL, discount BIGINT NOT NULL, created_at VARCHAR(32) NOT NULL) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS admin_sessions (token CHAR(64) PRIMARY KEY, expires_at VARCHAR(32) NOT NULL) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS master_products (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(180) NOT NULL, category VARCHAR(80) NOT NULL, unit VARCHAR(120) NOT NULL DEFAULT '', image_url VARCHAR(512) NOT NULL, active TINYINT NOT NULL DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS users (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       phone VARCHAR(20) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL,
@@ -114,7 +130,6 @@ export async function migrate() {
     `CREATE TABLE IF NOT EXISTS schema_migrations (
       migration_key VARCHAR(120) NOT NULL PRIMARY KEY, applied_at VARCHAR(32) NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
-
 
     `CREATE TABLE IF NOT EXISTS addresses (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL,
@@ -196,26 +211,143 @@ export async function migrate() {
 
   // The previous app used status 3 for completed orders; preserve those records as completed before reusing 3 for courier handoff.
   await db.transaction(async (tx) => {
-    const marker = await tx.run("INSERT IGNORE INTO schema_migrations (migration_key, applied_at) VALUES (?, ?)", ["order-status-courier-handoff-v1", new Date().toISOString()]);
-    if (marker.affectedRows) await tx.run("UPDATE orders SET status=4 WHERE status=3");
+    const marker = await tx.run(
+      "INSERT IGNORE INTO schema_migrations (migration_key, applied_at) VALUES (?, ?)",
+      ["order-status-courier-handoff-v1", new Date().toISOString()],
+    );
+    if (marker.affectedRows)
+      await tx.run("UPDATE orders SET status=4 WHERE status=3");
   });
 
+  await db.transaction(async (tx) => {
+    const marker = await tx.run(
+      "INSERT IGNORE INTO schema_migrations (migration_key,applied_at) VALUES ('order-five-stages-v1',?)",
+      [new Date().toISOString()],
+    );
+    if (marker.affectedRows) {
+      await tx.run("UPDATE orders SET status=5 WHERE status=4");
+      await tx.run(
+        "UPDATE orders o JOIN order_deliveries d ON d.order_id=o.id SET o.status=4 WHERE o.status=3 AND d.completed_at IS NULL",
+      );
+      await tx.run(
+        "INSERT INTO order_events (order_id,status,actor_role,actor_id,created_at) SELECT id,status,'migration',NULL,created_at FROM orders",
+      );
+    }
+  });
   // Upgrade databases created by earlier versions in-place; all existing data remains untouched.
   for (const [column, definition] of [
-    ["seller_id", "BIGINT UNSIGNED NULL"], ["category", "VARCHAR(80) NOT NULL DEFAULT 'supermarket'"],
-    ["address", "VARCHAR(500) NOT NULL DEFAULT ''"], ["lat", "DOUBLE NULL"], ["lng", "DOUBLE NULL"],
-    ["photo_url", "VARCHAR(512) NULL"], ["logo_url", "VARCHAR(512) NULL"], ["hours", "VARCHAR(160) NOT NULL DEFAULT ''"],
+    ["seller_id", "BIGINT UNSIGNED NULL"],
+    ["category", "VARCHAR(80) NOT NULL DEFAULT 'supermarket'"],
+    ["address", "VARCHAR(500) NOT NULL DEFAULT ''"],
+    ["lat", "DOUBLE NULL"],
+    ["lng", "DOUBLE NULL"],
+    ["photo_url", "VARCHAR(512) NULL"],
+    ["logo_url", "VARCHAR(512) NULL"],
+    ["hours", "VARCHAR(160) NOT NULL DEFAULT ''"],
     ["is_active", "TINYINT(1) NOT NULL DEFAULT 0"],
-  ]) await ensureColumn("stores", column, definition);
+  ])
+    await ensureColumn("stores", column, definition);
   for (const [column, definition] of [
-    ["seller_id", "BIGINT UNSIGNED NULL"], ["store_id", "INT UNSIGNED NULL"], ["stock", "INT UNSIGNED NOT NULL DEFAULT 0"],
-    ["image_url", "VARCHAR(512) NULL"], ["active", "TINYINT(1) NOT NULL DEFAULT 1"], ["created_at", "VARCHAR(32) NULL"],
-  ]) await ensureColumn("products", column, definition);
-  await ensureColumn("orders", "payment_status", "VARCHAR(20) NOT NULL DEFAULT 'unpaid'");
+    ["seller_id", "BIGINT UNSIGNED NULL"],
+    ["store_id", "INT UNSIGNED NULL"],
+    ["stock", "INT UNSIGNED NOT NULL DEFAULT 0"],
+    ["image_url", "VARCHAR(512) NULL"],
+    ["active", "TINYINT(1) NOT NULL DEFAULT 1"],
+    ["created_at", "VARCHAR(32) NULL"],
+  ])
+    await ensureColumn("products", column, definition);
+  await ensureColumn("products", "master_product_id", "INT UNSIGNED NULL");
+  await ensureIndex(
+    "products",
+    "uq_store_master",
+    "store_id, master_product_id",
+    true,
+  );
+  for (const [column, definition] of Object.entries({
+    plate: "VARCHAR(40) NULL",
+    motor_photo: "VARCHAR(255) NULL",
+    national_photo: "VARCHAR(255) NULL",
+    license_photo: "VARCHAR(255) NULL",
+    plate_photo: "VARCHAR(255) NULL",
+    vehicle_info: "VARCHAR(255) NOT NULL DEFAULT ''",
+    verification_status: "VARCHAR(20) NOT NULL DEFAULT 'unsubmitted'",
+    rejection_reason: "VARCHAR(500) NOT NULL DEFAULT ''",
+  }))
+    await ensureColumn("courier_accounts", column, definition);
+  for (const [column, definition] of Object.entries({
+    description: "TEXT NULL",
+    base_price: "BIGINT NOT NULL DEFAULT 0",
+    stock: "INT UNSIGNED NOT NULL DEFAULT 0",
+    max_discount: "INT NOT NULL DEFAULT 90",
+    image_normalized: "TINYINT NOT NULL DEFAULT 0",
+  }))
+    await ensureColumn("master_products", column, definition);
+  // Preserve real existing products in the central bank once, without importing demo rows.
+  await db.transaction(async (tx) => {
+    const rows = await tx.all(
+      "SELECT id,name,category,unit,image_url,stock,price,active FROM products WHERE seller_id IS NOT NULL AND master_product_id IS NULL AND image_url IS NOT NULL FOR UPDATE",
+    );
+    for (const p of rows) {
+      const result = await tx.run(
+        "INSERT INTO master_products (name,category,unit,image_url,active,base_price,stock) VALUES (?,?,?,?,?,?,?)",
+        [p.name, p.category, p.unit, p.image_url, p.active, p.price, p.stock],
+      );
+      await tx.run("UPDATE products SET master_product_id=? WHERE id=?", [
+        result.insertId,
+        p.id,
+      ]);
+    }
+  });
+  const oldImages = await db.all(
+    "SELECT id,image_url FROM master_products WHERE image_normalized=0",
+  );
+  for (const product of oldImages) {
+    if (!product.image_url.startsWith("/api/uploads/")) continue;
+    const filename = crypto.randomUUID() + ".jpg",
+      destination = path.join(__dirname, "uploads", filename);
+    try {
+      await fs.promises.copyFile(
+        path.join(__dirname, "uploads", path.basename(product.image_url)),
+        destination,
+      );
+      await normalizeImage({ path: destination }, true);
+      await db.transaction(async (tx) => {
+        await tx.run(
+          "UPDATE master_products SET image_url=?,image_normalized=1 WHERE id=?",
+          [`/api/uploads/${filename}`, product.id],
+        );
+        await tx.run(
+          "UPDATE products SET image_url=? WHERE master_product_id=?",
+          [`/api/uploads/${filename}`, product.id],
+        );
+      });
+    } catch (error) {
+      await fs.promises.unlink(destination).catch(() => {});
+      console.warn(
+        "[migration] Cannot normalize existing product image",
+        product.id,
+        error.code || "invalid image",
+      );
+    }
+  }
+  await ensureColumn(
+    "orders",
+    "payment_status",
+    "VARCHAR(20) NOT NULL DEFAULT 'unpaid'",
+  );
   await ensureIndex("stores", "uq_stores_seller", "seller_id", true);
-  await ensureIndex("products", "idx_products_seller_store", "seller_id, store_id, active");
-  for (const [name, table] of [["store", "stores"], ["product", "products"]]) {
-    const maximum = await db.get(`SELECT COALESCE(MAX(id), 0) AS n FROM \`${table}\``);
+  await ensureIndex(
+    "products",
+    "idx_products_seller_store",
+    "seller_id, store_id, active",
+  );
+  for (const [name, table] of [
+    ["store", "stores"],
+    ["product", "products"],
+  ]) {
+    const maximum = await db.get(
+      `SELECT COALESCE(MAX(id), 0) AS n FROM \`${table}\``,
+    );
     await db.run(
       `INSERT INTO seller_sequences (seq_name, next_id) VALUES (?, ?)
        ON DUPLICATE KEY UPDATE next_id = GREATEST(next_id, VALUES(next_id))`,
@@ -225,64 +357,124 @@ export async function migrate() {
 }
 
 export async function allocateId(tx, name) {
-  const row = await tx.get("SELECT next_id FROM seller_sequences WHERE seq_name = ? FOR UPDATE", [name]);
-  if (!row) throw new Error(`Missing ${name} id sequence; restart the API to migrate the database.`);
+  const row = await tx.get(
+    "SELECT next_id FROM seller_sequences WHERE seq_name = ? FOR UPDATE",
+    [name],
+  );
+  if (!row)
+    throw new Error(
+      `Missing ${name} id sequence; restart the API to migrate the database.`,
+    );
   const id = Number(row.next_id);
-  await tx.run("UPDATE seller_sequences SET next_id = next_id + 1 WHERE seq_name = ?", [name]);
+  await tx.run(
+    "UPDATE seller_sequences SET next_id = next_id + 1 WHERE seq_name = ?",
+    [name],
+  );
   return id;
 }
 
 const parseJson = (value, fallback) => {
   if (value == null) return fallback;
   if (typeof value !== "string") return value;
-  try { return JSON.parse(value); } catch { return fallback; }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
 };
 
 export const mapProduct = (r) => ({
-  id: Number(r.id), name: r.name, category: r.category, price: Number(r.price),
+  id: Number(r.id),
+  name: r.name,
+  category: r.category,
+  price: Number(r.price),
   ...(r.old_price != null ? { oldPrice: Number(r.old_price) } : {}),
-  unit: r.unit, icon: r.icon, bg: r.bg, iconColor: r.icon_color,
-  ...(r.tag ? { tag: r.tag } : {}), ...(r.frequent ? { frequent: true } : {}),
+  description: r.description ?? "",
+  unit: r.unit,
+  icon: r.icon,
+  bg: r.bg,
+  iconColor: r.icon_color,
+  ...(r.tag ? { tag: r.tag } : {}),
+  ...(r.frequent ? { frequent: true } : {}),
   ...(r.store_id != null ? { storeId: Number(r.store_id) } : {}),
-  ...(r.image_url ? { imageUrl: r.image_url } : {}), stock: Number(r.stock ?? 0), active: Boolean(r.active),
+  ...(r.image_url ? { imageUrl: r.image_url } : {}),
+  stock: Number(r.stock ?? 0),
+  active: Boolean(r.active),
 });
 
 export const mapStore = (r) => ({
-  id: Number(r.id), name: r.name, type: r.type, category: r.category ?? r.type,
-  ...(r.pro ? { pro: true } : {}), ...(r.is_new ? { isNew: true } : {}),
+  id: Number(r.id),
+  name: r.name,
+  type: r.type,
+  category: r.category ?? r.type,
+  ...(r.pro ? { pro: true } : {}),
+  ...(r.is_new ? { isNew: true } : {}),
   ...(r.rating != null ? { rating: Number(r.rating) } : {}),
-  minutes: Number(r.minutes), fee: Number(r.fee), area: r.area,
-  tags: parseJson(r.tags, []), ...(r.off_text ? { offText: r.off_text } : {}),
-  gradient: r.gradient, initial: r.initial, minBasket: Number(r.min_basket),
-  ...(r.photo_url ? { photoUrl: r.photo_url } : {}), ...(r.logo_url ? { logoUrl: r.logo_url } : {}),
-  address: r.address ?? r.area, ...(r.lat != null ? { lat: Number(r.lat), lng: Number(r.lng) } : {}),
-  hours: r.hours ?? "", isActive: Boolean(r.is_active),
+  minutes: Number(r.minutes),
+  fee: Number(r.fee),
+  area: r.area,
+  tags: parseJson(r.tags, []),
+  ...(r.off_text ? { offText: r.off_text } : {}),
+  gradient: r.gradient,
+  initial: r.initial,
+  minBasket: Number(r.min_basket),
+  ...(r.logo_url ? { logoUrl: r.logo_url } : {}),
+  address: r.address ?? r.area,
+  ...(r.lat != null ? { lat: Number(r.lat), lng: Number(r.lng) } : {}),
+  hours: r.hours ?? "",
+  isActive: Boolean(r.is_active),
 });
 
 export const mapPromo = (r) => ({
   ...(r.id != null ? { id: Number(r.id) } : {}),
-  code: r.code, title: r.title, desc: r.description, amount: Number(r.amount), kind: r.kind,
-  minSubtotal: Number(r.min_subtotal), maxDiscount: Number(r.max_discount), active: Boolean(r.active),
+  code: r.code,
+  title: r.title,
+  desc: r.description,
+  amount: Number(r.amount),
+  kind: r.kind,
+  minSubtotal: Number(r.min_subtotal),
+  maxDiscount: Number(r.max_discount),
+  active: Boolean(r.active),
   ...(r.expires_at ? { expiresAt: r.expires_at } : {}),
 });
 
 export const mapUser = (r) => ({
-  id: Number(r.id), phone: r.phone, firstName: r.first_name, lastName: r.last_name,
-  wallet: Number(r.wallet), pro: Boolean(r.pro), createdAt: r.created_at,
+  id: Number(r.id),
+  phone: r.phone,
+  firstName: r.first_name,
+  lastName: r.last_name,
+  wallet: Number(r.wallet),
+  pro: Boolean(r.pro),
+  createdAt: r.created_at,
 });
 
 export const mapAddress = (r) => ({
-  id: Number(r.id), title: r.title, address: r.address, detail: r.detail,
-  phone: r.phone, type: r.type,
+  id: Number(r.id),
+  title: r.title,
+  address: r.address,
+  detail: r.detail,
+  phone: r.phone,
+  type: r.type,
   ...(r.lat != null ? { lat: Number(r.lat), lng: Number(r.lng) } : {}),
 });
 
 export const mapOrder = (r) => ({
-  id: r.id, storeId: r.store_id == null ? null : Number(r.store_id), storeName: r.store_name,
-  items: parseJson(r.items, []), subtotal: Number(r.subtotal), discount: Number(r.discount),
-  delivery: Number(r.delivery), total: Number(r.total), addressTitle: r.address_title,
-  slot: r.slot, payment: r.payment, promoCode: r.promo_code, status: Number(r.status),
-  time: r.time, createdAt: r.created_at, paymentStatus: r.payment_status ?? "unpaid",
+  id: r.id,
+  storeId: r.store_id == null ? null : Number(r.store_id),
+  storeName: r.store_name,
+  items: parseJson(r.items, []),
+  subtotal: Number(r.subtotal),
+  discount: Number(r.discount),
+  delivery: Number(r.delivery),
+  total: Number(r.total),
+  addressTitle: r.address_title,
+  slot: r.slot,
+  payment: r.payment,
+  promoCode: r.promo_code,
+  status: Number(r.status),
+  time: r.time,
+  createdAt: r.created_at,
+  paymentStatus: r.payment_status ?? "unpaid",
 });
 
 export { catalog };

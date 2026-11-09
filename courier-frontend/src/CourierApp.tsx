@@ -1,24 +1,60 @@
 import { useCallback, useEffect, useState } from "react";
-import { Bike, CheckCircle2, Clock3, LogOut, MapPin, PackageCheck, Phone, RefreshCw, ShieldCheck, Store } from "lucide-react";
+import {
+  Bike,
+  CheckCircle2,
+  Clock3,
+  LogOut,
+  MapPin,
+  PackageCheck,
+  Phone,
+  RefreshCw,
+  ShieldCheck,
+  Store,
+} from "lucide-react";
 
-type Courier = { id: number; fullName: string; phone: string; vehicle: string };
+type Courier = {
+  id: number;
+  fullName: string;
+  phone: string;
+  vehicle: string;
+  active: boolean;
+  verificationStatus: string;
+  rejectionReason: string;
+};
 type DeliveryOrder = {
-  id: string; storeName: string; storeAddress: string; storeArea: string; addressTitle: string; addressText: string;
-  customerPhone: string; total: number; time: string; status: number; claimedByMe: boolean; items: { id: number; name: string; qty: number }[];
+  id: string;
+  storeName: string;
+  storeAddress: string;
+  storeArea: string;
+  addressTitle: string;
+  addressText: string;
+  customerPhone: string;
+  total: number;
+  time: string;
+  status: number;
+  claimedByMe: boolean;
+  items: { id: number; name: string; qty: number }[];
 };
 type ApiError = Error & { status?: number };
 const TOKEN_KEY = "naz_courier_token";
 const money = (n: number) => new Intl.NumberFormat("fa-IR").format(n);
 
-async function request<T>(path: string, init: RequestInit = {}, auth = true): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  auth = true,
+): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body) headers.set("Content-Type", "application/json");
+  if (init.body && !(init.body instanceof FormData))
+    headers.set("Content-Type", "application/json");
   const token = sessionStorage.getItem(TOKEN_KEY);
   if (auth && token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`/api/courier${path}`, { ...init, headers });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const error = new Error(data?.error?.message ?? "درخواست انجام نشد") as ApiError;
+    const error = new Error(
+      data?.error?.message ?? "درخواست انجام نشد",
+    ) as ApiError;
     error.status = response.status;
     throw error;
   }
@@ -27,6 +63,7 @@ async function request<T>(path: string, init: RequestInit = {}, auth = true): Pr
 
 export default function CourierApp() {
   const [courier, setCourier] = useState<Courier | null>(null);
+  const [filter, setFilter] = useState("active");
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [mode, setMode] = useState<"login" | "register">("login");
   const [busy, setBusy] = useState(false);
@@ -42,7 +79,10 @@ export default function CourierApp() {
       setError("");
     } catch (e) {
       const err = e as ApiError;
-      if (err.status === 401) { sessionStorage.removeItem(TOKEN_KEY); setCourier(null); }
+      if (err.status === 401) {
+        sessionStorage.removeItem(TOKEN_KEY);
+        setCourier(null);
+      }
       setError(err.message);
     }
   }, []);
@@ -50,67 +90,402 @@ export default function CourierApp() {
   useEffect(() => {
     const token = sessionStorage.getItem(TOKEN_KEY);
     if (!token) return;
-    request<{ courier: Courier }>("/auth/me").then((data) => setCourier(data.courier)).catch(() => sessionStorage.removeItem(TOKEN_KEY));
+    request<{ courier: Courier }>("/auth/me")
+      .then((data) => setCourier(data.courier))
+      .catch(() => sessionStorage.removeItem(TOKEN_KEY));
   }, []);
-  useEffect(() => { if (courier) void loadOrders(); }, [courier, loadOrders]);
+  useEffect(() => {
+    if (courier?.active && courier.verificationStatus === "approved")
+      void loadOrders();
+  }, [courier, loadOrders]);
 
   const submitAuth = async (event: React.FormEvent) => {
-    event.preventDefault(); setBusy(true); setNotice(""); setError("");
+    event.preventDefault();
+    setBusy(true);
+    setNotice("");
+    setError("");
     try {
       if (mode === "register") {
-        const result = await request<{ message: string }>("/auth/register", { method: "POST", body: JSON.stringify({ ...form, vehicle: "motorcycle" }) }, false);
-        setNotice(result.message); setMode("login");
+        const result = await request<{ message: string }>(
+          "/auth/register",
+          {
+            method: "POST",
+            body: JSON.stringify({ ...form, vehicle: "motorcycle" }),
+          },
+          false,
+        );
+        setNotice(result.message);
+        setMode("login");
       } else {
-        const result = await request<{ token: string; courier: Courier }>("/auth/login", { method: "POST", body: JSON.stringify(form) }, false);
-        sessionStorage.setItem(TOKEN_KEY, result.token); setCourier(result.courier);
+        const result = await request<{ token: string; courier: Courier }>(
+          "/auth/login",
+          { method: "POST", body: JSON.stringify(form) },
+          false,
+        );
+        sessionStorage.setItem(TOKEN_KEY, result.token);
+        setCourier(result.courier);
       }
-    } catch (e) { setError((e as Error).message); }
-    finally { setBusy(false); }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const mutateOrder = async (order: DeliveryOrder, action: "claim" | "complete") => {
-    setBusy(true); setError("");
+  const mutateOrder = async (
+    order: DeliveryOrder,
+    action: "claim" | "complete",
+  ) => {
+    if (
+      action === "complete" &&
+      !window.confirm("آیا سفارش را به مشتری تحویل داده‌اید؟")
+    )
+      return;
+    setBusy(true);
+    setError("");
     try {
-      await request(action === "claim" ? `/orders/${encodeURIComponent(order.id)}/claim` : `/orders/${encodeURIComponent(order.id)}/complete`, { method: "POST" });
-      setNotice(action === "claim" ? "سفارش به شما واگذار شد؛ برای تکمیل، تحویل به مشتری را ثبت کنید." : "تحویل سفارش با موفقیت ثبت شد.");
+      await request(
+        action === "claim"
+          ? `/orders/${encodeURIComponent(order.id)}/claim`
+          : `/orders/${encodeURIComponent(order.id)}/complete`,
+        { method: "POST" },
+      );
+      setNotice(
+        action === "claim"
+          ? "سفارش به شما واگذار شد؛ برای تکمیل، تحویل به مشتری را ثبت کنید."
+          : "تحویل سفارش با موفقیت ثبت شد.",
+      );
       await loadOrders();
-    } catch (e) { setError((e as Error).message); await loadOrders(); }
-    finally { setBusy(false); }
+    } catch (e) {
+      setError((e as Error).message);
+      await loadOrders();
+    } finally {
+      setBusy(false);
+    }
   };
 
+  useEffect(() => {
+    if (!courier?.active || courier.verificationStatus !== "approved") return;
+    const id = setInterval(() => void loadOrders(), 30000);
+    return () => clearInterval(id);
+  }, [courier, loadOrders]);
+  const visibleOrders = orders.filter((o) =>
+    filter === "history" ? o.status === 5 : o.status !== 5,
+  );
   const logout = async () => {
-    try { await request("/auth/logout", { method: "POST" }); } catch { /* local session still gets cleared */ }
-    sessionStorage.removeItem(TOKEN_KEY); setCourier(null); setOrders([]);
+    try {
+      await request("/auth/logout", { method: "POST" });
+    } catch {
+      /* local session still gets cleared */
+    }
+    sessionStorage.removeItem(TOKEN_KEY);
+    setCourier(null);
+    setOrders([]);
   };
 
-  return <main className="app-shell">
-    <header className="topbar"><div className="brand"><span className="brand-icon"><Bike size={23}/></span><span><b>نازمارکت</b><small>پنل مستقل پیک موتوری</small></span></div>{courier && <button className="logout" onClick={logout}><LogOut size={17}/> خروج</button>}</header>
-    {!courier ? <section className="auth-card">
-      <div className="hero-icon"><Bike size={30}/></div><h1>{mode === "login" ? "ورود پیک" : "ثبت‌نام پیک موتوری"}</h1>
-      <p className="muted">دریافت و تکمیل سفارش فقط با حساب پیک تأییدشده امکان‌پذیر است.</p>
-      <form onSubmit={submitAuth} className="auth-form">
-        {mode === "register" && <label>نام و نام خانوادگی<input required maxLength={120} autoComplete="name" value={form.fullName} onChange={e=>setForm({...form,fullName:e.target.value})}/></label>}
-        <label>شماره موبایل<input required inputMode="tel" autoComplete="tel" placeholder="09xxxxxxxxx" value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/></label>
-        <label>رمز عبور<input required minLength={mode === "register" ? 10 : 1} type="password" autoComplete={mode === "register" ? "new-password" : "current-password"} value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/>{mode === "register" && <small>حداقل ۱۰ نویسه</small>}</label>
-        <button className="primary" disabled={busy}>{busy ? "لطفاً صبر کنید…" : mode === "login" ? "ورود امن" : "ارسال درخواست عضویت"}</button>
-      </form>
-      <button className="switch" onClick={()=>{setMode(mode === "login" ? "register" : "login");setError("");setNotice("");}}>{mode === "login" ? "حساب ندارید؟ ثبت‌نام پیک" : "قبلاً ثبت‌نام کرده‌اید؟ ورود"}</button>
-      <div className="approval"><ShieldCheck size={17}/> حساب‌های تازه پس از بررسی مدیریت فعال می‌شوند.</div>
-      {notice && <p className="notice">{notice}</p>}{error && <p className="error">{error}</p>}
-    </section> : <>
-      <section className="welcome"><div><p className="eyebrow">خوش آمدید</p><h1>{courier.fullName}</h1><p>{courier.phone} · پیک موتوری</p></div><button className="refresh" onClick={()=>void loadOrders()} aria-label="به‌روزرسانی"><RefreshCw size={18}/></button></section>
-      {notice && <p className="notice banner">{notice}</p>}{error && <p className="error banner">{error}</p>}
-      <div className="section-title"><div><h2>سفارش‌های آمادهٔ تحویل</h2><p>ابتدا سفارش را دریافت کنید؛ سپس تحویل به مشتری را ثبت کنید.</p></div><span className="count">{money(orders.length)}</span></div>
-      {orders.length === 0 ? <div className="empty"><Clock3 size={28}/><b>فعلاً سفارشی آماده نیست</b><span>با آماده‌شدن سفارش فروشگاه، اینجا نمایش داده می‌شود.</span></div> : <div className="orders">{orders.map(order=><article className="order-card" key={order.id}>
-        <div className="order-top"><div><span className="order-id">سفارش {order.id}</span><small><Clock3 size={13}/>{order.time}</small></div><span className={`badge ${order.status === 4 ? "done" : order.claimedByMe ? "mine" : "ready"}`}>{order.status === 4 ? "تکمیل‌شده" : order.claimedByMe ? "نزد شما" : "آمادهٔ دریافت"}</span></div>
-        <div className="store-line"><Store size={16}/><b>{order.storeName}</b></div><div className="address"><MapPin size={17}/><div><b>{order.addressTitle}</b><span>{order.addressText}</span></div></div>
-        <div className="items">{order.items.map(item=><span key={item.id}>{item.name} × {money(item.qty)}</span>)}</div>
-        <div className="contact-row"><a href={`tel:${order.customerPhone}`}><Phone size={15}/> تماس با مشتری</a><b>{money(order.total)} تومان</b></div>
-        {order.status === 3 && !order.claimedByMe && <button disabled={busy} className="primary action" onClick={()=>void mutateOrder(order,"claim")}><PackageCheck size={18}/> دریافت این سفارش</button>}
-        {order.status === 3 && order.claimedByMe && <button disabled={busy} className="complete action" onClick={()=>void mutateOrder(order,"complete")}><CheckCircle2 size={18}/> ثبت تحویل به مشتری</button>}
-        {order.status === 4 && <div className="completed"><CheckCircle2 size={16}/> تحویل نهایی ثبت شد</div>}
-      </article>)}</div>}
-    </>}
-    <footer>وضعیت نهایی سفارش تنها پس از ورود پیک تأییدشده ثبت می‌شود.</footer>
-  </main>;
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-icon">
+            <Bike size={23} />
+          </span>
+          <span>
+            <b>نازمارکت</b>
+            <small>پنل مستقل پیک موتوری</small>
+          </span>
+        </div>
+        {courier && (
+          <button className="logout" onClick={logout}>
+            <LogOut size={17} /> خروج
+          </button>
+        )}
+      </header>
+      {!courier ? (
+        <section className="auth-card">
+          <div className="hero-icon">
+            <Bike size={30} />
+          </div>
+          <h1>{mode === "login" ? "ورود پیک" : "ثبت‌نام پیک موتوری"}</h1>
+          <p className="muted">
+            دریافت و تکمیل سفارش فقط با حساب پیک تأییدشده امکان‌پذیر است.
+          </p>
+          <form onSubmit={submitAuth} className="auth-form">
+            {mode === "register" && (
+              <label>
+                نام و نام خانوادگی
+                <input
+                  required
+                  maxLength={120}
+                  autoComplete="name"
+                  value={form.fullName}
+                  onChange={(e) =>
+                    setForm({ ...form, fullName: e.target.value })
+                  }
+                />
+              </label>
+            )}
+            <label>
+              شماره موبایل
+              <input
+                required
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="09xxxxxxxxx"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </label>
+            <label>
+              رمز عبور
+              <input
+                required
+                minLength={mode === "register" ? 10 : 1}
+                type="password"
+                autoComplete={
+                  mode === "register" ? "new-password" : "current-password"
+                }
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+              {mode === "register" && <small>حداقل ۱۰ نویسه</small>}
+            </label>
+            <button className="primary" disabled={busy}>
+              {busy
+                ? "لطفاً صبر کنید…"
+                : mode === "login"
+                  ? "ورود امن"
+                  : "ارسال درخواست عضویت"}
+            </button>
+          </form>
+          <button
+            className="switch"
+            onClick={() => {
+              setMode(mode === "login" ? "register" : "login");
+              setError("");
+              setNotice("");
+            }}
+          >
+            {mode === "login"
+              ? "حساب ندارید؟ ثبت‌نام پیک"
+              : "قبلاً ثبت‌نام کرده‌اید؟ ورود"}
+          </button>
+          <div className="approval">
+            <ShieldCheck size={17} /> حساب‌های تازه پس از بررسی مدیریت فعال
+            می‌شوند.
+          </div>
+          {notice && <p className="notice">{notice}</p>}
+          {error && <p className="error">{error}</p>}
+        </section>
+      ) : !courier.active || courier.verificationStatus !== "approved" ? (
+        <section className="auth-card">
+          <ShieldCheck size={36} />
+          <h1>احراز هویت پیک موتوری</h1>
+          <p className="muted">
+            برای دریافت سفارش، مدارک باید توسط مدیریت تأیید شود.
+          </p>
+          {courier.verificationStatus === "pending" ? (
+            <p className="notice">
+              مدارک ارسال شده و در انتظار بررسی مدیریت است.
+            </p>
+          ) : (
+            <>
+              <p className="error">{courier.rejectionReason}</p>
+              <form
+                className="auth-form"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const body = new FormData(e.currentTarget);
+                  setBusy(true);
+                  try {
+                    const result = await request<{ courier: Courier }>(
+                      "/verification",
+                      { method: "POST", body },
+                    );
+                    setCourier(result.courier);
+                    setError("");
+                  } catch (err) {
+                    setError((err as Error).message);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                <label>
+                  مدل و رنگ موتور
+                  <input name="vehicleInfo" required maxLength={255} />
+                </label>
+                <label>
+                  پلاک موتور
+                  <input name="plate" required maxLength={40} />
+                </label>
+                {[
+                  ["motor", "عکس موتور با پلاک خوانا"],
+                  ["national", "عکس کارت ملی"],
+                  ["license", "عکس گواهینامه موتور"],
+                  ["platePhoto", "عکس پلاک موتور"],
+                ].map(([name, label]) => (
+                  <label key={name}>
+                    {label}
+                    <input
+                      name={name}
+                      type="file"
+                      required
+                      accept="image/jpeg,image/png,image/webp"
+                    />
+                  </label>
+                ))}
+                <button className="primary" disabled={busy}>
+                  ارسال امن مدارک برای مدیریت
+                </button>
+              </form>
+            </>
+          )}
+          {error && <p className="error">{error}</p>}
+          <button
+            className="refresh"
+            onClick={async () => {
+              try {
+                setCourier(
+                  (await request<{ courier: Courier }>("/auth/me")).courier,
+                );
+              } catch (err) {
+                setError((err as Error).message);
+              }
+            }}
+          >
+            بررسی مجدد وضعیت
+          </button>
+        </section>
+      ) : (
+        <>
+          <section className="welcome">
+            <div>
+              <p className="eyebrow">خوش آمدید</p>
+              <h1>{courier.fullName}</h1>
+              <p>{courier.phone} · پیک موتوری</p>
+            </div>
+            <button
+              className="refresh"
+              onClick={() => void loadOrders()}
+              aria-label="به‌روزرسانی"
+            >
+              <RefreshCw size={18} />
+            </button>
+          </section>
+          {notice && <p className="notice banner">{notice}</p>}
+          {error && <p className="error banner">{error}</p>}
+          <div className="courier-tabs">
+            <button
+              className={filter === "active" ? "active" : ""}
+              onClick={() => setFilter("active")}
+            >
+              سفارش‌های جاری
+            </button>
+            <button
+              className={filter === "history" ? "active" : ""}
+              onClick={() => setFilter("history")}
+            >
+              تحویل‌شده‌ها
+            </button>
+          </div>
+          <div className="section-title">
+            <div>
+              <h2>سفارش‌های آمادهٔ تحویل</h2>
+              <p>ابتدا سفارش را دریافت کنید؛ سپس تحویل به مشتری را ثبت کنید.</p>
+            </div>
+            <span className="count">{money(visibleOrders.length)}</span>
+          </div>
+          {visibleOrders.length === 0 ? (
+            <div className="empty">
+              <Clock3 size={28} />
+              <b>فعلاً سفارشی آماده نیست</b>
+              <span>با آماده‌شدن سفارش فروشگاه، اینجا نمایش داده می‌شود.</span>
+            </div>
+          ) : (
+            <div className="orders">
+              {visibleOrders.map((order) => (
+                <article className="order-card" key={order.id}>
+                  <div className="order-top">
+                    <div>
+                      <span className="order-id">سفارش {order.id}</span>
+                      <small>
+                        <Clock3 size={13} />
+                        {order.time}
+                      </small>
+                    </div>
+                    <span
+                      className={`badge ${order.status === 5 ? "done" : order.claimedByMe ? "mine" : "ready"}`}
+                    >
+                      {order.status === 5
+                        ? "تکمیل‌شده"
+                        : order.claimedByMe
+                          ? "نزد شما"
+                          : "آمادهٔ دریافت"}
+                    </span>
+                  </div>
+                  <div className="store-line">
+                    <Store size={16} />
+                    <b>{order.storeName}</b>
+                  </div>
+                  <div className="pickup-address">
+                    <strong>محل دریافت از فروشگاه</strong>
+                    <span>
+                      {order.storeAddress} · {order.storeArea}
+                    </span>
+                  </div>
+                  <div className="address">
+                    <MapPin size={17} />
+                    <div>
+                      <b>{order.addressTitle}</b>
+                      <span>{order.addressText}</span>
+                    </div>
+                  </div>
+                  <div className="items">
+                    {order.items.map((item) => (
+                      <span key={item.id}>
+                        {item.name} × {money(item.qty)}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="contact-row">
+                    <a href={`tel:${order.customerPhone}`}>
+                      <Phone size={15} /> تماس با مشتری
+                    </a>
+                    <b>{money(order.total)} تومان</b>
+                  </div>
+                  {order.status === 3 && !order.claimedByMe && (
+                    <button
+                      disabled={busy}
+                      className="primary action"
+                      onClick={() => void mutateOrder(order, "claim")}
+                    >
+                      <PackageCheck size={18} /> دریافت این سفارش
+                    </button>
+                  )}
+                  {order.status === 4 && order.claimedByMe && (
+                    <button
+                      disabled={busy}
+                      className="complete action"
+                      onClick={() => void mutateOrder(order, "complete")}
+                    >
+                      <CheckCircle2 size={18} /> ثبت تحویل به مشتری
+                    </button>
+                  )}
+                  {order.status === 5 && (
+                    <div className="completed">
+                      <CheckCircle2 size={16} /> تحویل نهایی ثبت شد
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      <footer>
+        وضعیت نهایی سفارش تنها پس از ورود پیک تأییدشده ثبت می‌شود.
+      </footer>
+    </main>
+  );
 }

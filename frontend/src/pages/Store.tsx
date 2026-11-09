@@ -208,6 +208,7 @@ export function ProductModal({ c }: { c: AppCtx }) {
           <div className="px-5 pt-4 md:px-1">
             <h3 className="text-[16px] font-black leading-7 text-ink">{p.name}</h3>
             <p className="mt-1 text-[11px] font-medium text-muted">{p.unit} · موجود در فروشگاه‌های نظرآباد</p>
+            {p.description&&<p className="mt-3 whitespace-pre-wrap text-[12px] leading-7 text-muted">{p.description}</p>}
             {p.tag && <p className="mt-2.5 w-fit rounded-lg bg-brand-soft px-2 py-1 text-[10px] font-black text-brand-dark">{p.tag}</p>}
             <div className="mt-4 hidden items-center justify-between border-t border-dashed border-line pt-4 md:flex">
               <div>

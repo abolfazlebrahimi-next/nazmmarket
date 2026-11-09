@@ -150,6 +150,7 @@ export const api = {
       firstOrderProductId?: number | null;
     }) => request<{ order: Order }>("/orders", { method: "POST", body: payload }),
     list: () => request<{ orders: Order[] }>("/orders"),
+    events: (id: string) => request<{events: {status:number;actor_role:string;created_at:string}[]}>(`/orders/${encodeURIComponent(id)}/events`),
   },
 
   promos: {

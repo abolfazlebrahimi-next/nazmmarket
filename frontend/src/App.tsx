@@ -267,6 +267,12 @@ export default function App() {
   const cartStore = storeById(cart.storeId) ?? null;
   const selectedAddress = addresses.find((a) => a.id === selectedAddressId) ?? addresses[0];
 
+  useEffect(()=>{
+    if(!firstOrderEligible)return;
+    if(firstOrderProductId&&(cart.items[firstOrderProductId]??0)>0)return;
+    const candidate=products.find(p=>p.category==='drinks'&&(cart.items[p.id]??0)>0);
+    setFirstOrderProductId(candidate?.id??null);
+  },[cart,firstOrderEligible,firstOrderProductId]);
   const firstOrderDiscount = useMemo(() => {
     if (!firstOrderEligible || !firstOrderProductId || (cart.items[firstOrderProductId] ?? 0) < 1) return 0;
     const product = products.find((p) => p.id === firstOrderProductId);
@@ -288,6 +294,7 @@ export default function App() {
   const qtyOf = (id: number) => cart.items[id] ?? 0;
 
   const handleAdd = (p: Product, fromStoreId?: number) => {
+    fromStoreId = fromStoreId ?? p.storeId;
     if (cartCount > 0 && fromStoreId && cart.storeId && fromStoreId !== cart.storeId) {
       setReplacePrompt({ product: p, storeId: fromStoreId });
       return;
