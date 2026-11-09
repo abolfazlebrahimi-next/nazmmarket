@@ -55,6 +55,7 @@ jobs:
   windows-backend:
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         node: [22, 24]
     steps:
@@ -66,5 +67,13 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
         working-directory: backend
-      - run: npm test
+      - name: Test Windows backend
         working-directory: backend
+        shell: pwsh
+        run: |
+          npm test 2>&1 | Tee-Object -Variable testOutput
+          if ($LASTEXITCODE -ne 0) {
+            $details = ($testOutput -join "`n").Replace('%', '%25').Replace("`r", '%0D').Replace("`n", '%0A')
+            Write-Output "::error::$details"
+            exit 1
+          }
