@@ -159,7 +159,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
     <div className="fixed inset-0 z-[80] flex items-end justify-center lg:items-center lg:p-6" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" aria-label="بستن" onClick={onClose} className="fade-in absolute inset-0 bg-ink/45 backdrop-blur-[2px]" />
       <div className="sheet-up relative max-h-[86dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[26px] bg-white px-5 pb-8 pt-3 app-scroll lg:max-w-lg lg:rounded-[24px]">
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line lg:hidden" />
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-line md:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-base font-black text-ink">{title}</h3>
           <button type="button" onClick={onClose} aria-label="بستن" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f4f3f0] text-ink">
@@ -183,7 +183,7 @@ export function Modal({ onClose, children, label }: { onClose: () => void; child
 
 export function ScreenHeader({ title, onBack, end }: { title: string; onBack: () => void; end?: ReactNode }) {
   return (
-    <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white/92 px-4 py-3 backdrop-blur lg:top-[72px]">
+    <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white/92 px-4 py-3 backdrop-blur md:top-16">
       <button type="button" onClick={onBack} aria-label="بازگشت" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] text-ink transition active:scale-90">
         <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M9 6l6 6-6 6" />

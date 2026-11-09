@@ -167,11 +167,12 @@ export function CheckoutView({ c }: { c: AppCtx }) {
       return c.toast("ابتدا فروشگاه را انتخاب کنید");
     }
     setPlacing(true);
-    await c.placeOrder();
+    await c.placeOrder({ slot: slot === "now" ? "ارسال فوری" : slot, payment });
+    setPlacing(false);
   };
 
   return (
-    <div className="fade-rise pb-40 lg:pb-16">
+    <div className="fade-rise pb-36 md:pb-16">
       <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white/92 px-4 py-3 backdrop-blur">
         <button type="button" onClick={() => c.closeSub()} aria-label="بازگشت" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90">
           <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>

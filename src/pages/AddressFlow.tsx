@@ -149,7 +149,6 @@ export function AddressForm({ c }: { c: AppCtx }) {
       lat: c.pickedPin?.lat,
       lng: c.pickedPin?.lng,
     };
-    await import("../api/client").then(({ api }) => api.addresses.save(a));
     setSaving(false);
     c.setAddresses([...c.addresses, a]);
     c.setSelectedAddressId(a.id);

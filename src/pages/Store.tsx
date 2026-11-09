@@ -12,7 +12,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
   const storeCats = categories.filter((ct) => ct.id === "all" || products.some((p) => p.category === ct.id));
 
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-28 lg:pb-10">
+    <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-24 md:pb-10">
       <ScreenHeader
         title={store.name}
         onBack={() => c.closeSub()}
@@ -47,7 +47,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           </span>
         ))}
       </div>
-      <div className="no-scrollbar sticky top-[53px] z-20 flex gap-2 overflow-x-auto border-b border-line bg-white/95 px-4 py-2.5 backdrop-blur lg:top-[125px]">
+      <div className="no-scrollbar sticky top-[53px] z-20 flex gap-2 overflow-x-auto border-b border-line bg-white/95 px-4 py-2.5 backdrop-blur md:top-[124px]">
         {storeCats.map((ct) => (
           <button
             key={ct.id}
@@ -66,7 +66,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
         ))}
       </div>
       {c.cartCount > 0 && (
-        <div className="fixed inset-x-0 bottom-[76px] z-40 mx-auto w-full max-w-[430px] px-4">
+        <div className="fixed inset-x-0 bottom-[80px] md:bottom-6 z-40 mx-auto w-full max-w-[430px] px-4">
           <button type="button" onClick={() => c.go("cart")} className="flex w-full items-center justify-between rounded-2xl bg-ink px-4 py-3.5 text-white shadow-2xl transition active:scale-[0.99]">
             <span className="flex items-center gap-2 text-[12px] font-black">
               <span className="flex h-6 min-w-6 items-center justify-center rounded-lg bg-brand px-1 text-[11px]">{pd(c.cartCount)}</span>
@@ -85,7 +85,7 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
   const cat = categories.find((ct) => ct.id === catId);
   const list = products.filter((p) => p.category === catId);
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-28 lg:pb-10">
+    <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-24 md:pb-10">
       <ScreenHeader title={cat?.name ?? ""} onBack={() => c.closeSub()} />
       <div className="grid grid-cols-2 gap-2.5 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {list.map((p) => (
@@ -110,8 +110,8 @@ export function SearchPage({ c }: { c: AppCtx }) {
   }, [q]);
 
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-28 lg:pb-10">
-      <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white px-4 py-3 lg:top-[72px]">
+    <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-24 md:pb-10">
+      <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white px-4 py-3 md:top-16">
         <button type="button" onClick={() => c.closeSub()} aria-label="بازگشت" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90">
           <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
         </button>
@@ -227,7 +227,7 @@ export function StorePickerSheet({ c }: { c: AppCtx }) {
     <div className="fixed inset-0 z-[84] flex items-end justify-center lg:items-center lg:p-6" role="dialog" aria-modal="true" aria-label="انتخاب فروشگاه">
       <button type="button" aria-label="بستن" onClick={c.closeStorePicker} className="fade-in absolute inset-0 bg-ink/45 backdrop-blur-[2px]" />
       <div className="sheet-up relative max-h-[86dvh] w-full max-w-[430px] overflow-y-auto rounded-t-[26px] bg-white px-5 pb-8 pt-3 app-scroll lg:max-w-lg lg:rounded-[24px]">
-        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line lg:hidden" />
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line md:hidden" />
         <div className="mb-1 flex items-center justify-between">
           <h3 className="text-base font-black text-ink">انتخاب فروشگاه</h3>
           <button type="button" onClick={c.closeStorePicker} aria-label="بستن" className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f4f3f0]">

@@ -1,12 +1,15 @@
 import { useState } from "react";
 import {
   BadgeCheck,
+  Check,
   Copy,
   Gift,
   Headphones,
   Heart,
   Info,
   LoaderCircle,
+  Lock,
+  LogIn,
   LogOut,
   MessageSquareText,
   Phone,
@@ -14,7 +17,6 @@ import {
   ShieldCheck,
   Sparkles,
   TicketPercent,
-  UserCheck,
   UserRound,
   Users,
   Wallet,
@@ -23,16 +25,18 @@ import { pd } from "../components/ui";
 import { Sheet } from "../components/ui";
 import { api } from "../api/client";
 import type { AppCtx } from "../ctx";
+import type { User } from "../data";
 import { discountCodes, faNum } from "../data";
 
 export function AccountView({ c }: { c: AppCtx }) {
-  const name = c.user && c.user.firstName ? `${c.user.firstName} ${c.user.lastName}` : "کاربر مهمان";
-  const phone = c.user?.phone ? pd(c.user.phone) : "۰۹۹۳۵۳۷۷۴۲۶";
+  const fullName = [c.user?.firstName, c.user?.lastName].filter(Boolean).join(" ");
+  const name = fullName || (c.isGuest ? "کاربر مهمان" : "کاربر ناز");
+  const phone = c.user?.phone ? pd(c.user.phone) : "بدون شماره";
 
   const rows: { icon: typeof Heart; label: string; desc?: string; pill?: string; pillCls?: string; sheet?: string; action?: () => void; pro?: boolean }[] = [
     { icon: Sparkles, label: "ناز! پرو", pro: true, desc: c.proActive ? "اشتراک فعال است" : "اشتراک فعال ندارید", pill: c.proActive ? undefined : "خرید اشتراک", pillCls: "bg-[#4b4b48] text-white", sheet: "pro" },
+    { icon: UserRound, label: "مشخصات حساب", desc: "نام، نام خانوادگی و رمز عبور", pill: "ویرایش", pillCls: "bg-[#f4f3f0] text-ink", sheet: "profile" },
     { icon: Users, label: "دعوت دوستان", desc: "تا ۲ میلیون تومان کد تخفیف", pill: "دعوت کردن", pillCls: "bg-peach text-brand", sheet: "invite" },
-    { icon: UserCheck, label: "احراز هویت", pill: "تایید هویت", pillCls: "bg-brand text-white", sheet: "verify" },
     { icon: Wallet, label: "افزایش اعتبار کیف پول", desc: `موجودی: ${faNum(c.wallet)} تومان`, sheet: "wallet" },
     { icon: Heart, label: "کالاهای مورد علاقه‌ی من", desc: `${pd(c.favorites.length)} کالا`, action: () => c.openSub({ name: "favorites" }) },
     { icon: TicketPercent, label: "کدهای تخفیف من", pill: "جدید", pillCls: "bg-peach text-brand", sheet: "codes" },
@@ -44,10 +48,10 @@ export function AccountView({ c }: { c: AppCtx }) {
   ];
 
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-32 lg:pb-16">
+    <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-24 md:pb-16">
       <div className="border-b border-line bg-white px-5 pb-2 pt-5">
         <h2 className="text-[17px] font-black text-ink">حساب کاربری</h2>
-        <button type="button" onClick={() => c.toast("ویرایش پروفایل با اتصال بک‌اند فعال می‌شود")} className="mt-3 flex w-full items-center gap-3 pb-3 text-right transition hover:opacity-80">
+        <button type="button" onClick={() => c.setSheet("profile")} aria-label="ویرایش پروفایل" className="mt-3 flex w-full items-center gap-3 pb-3 text-right transition hover:opacity-80">
           <span className="flex shrink-0 items-center justify-center rounded-full border-2 border-line bg-brand-soft text-brand" style={{ height: 52, width: 52 }}>
             <UserRound className="h-6 w-6" />
           </span>
@@ -57,6 +61,24 @@ export function AccountView({ c }: { c: AppCtx }) {
           </span>
         </button>
       </div>
+
+      {c.isGuest && (
+        <div className="px-4 pt-3 lg:px-5">
+          <div className="flex items-center gap-3 rounded-2xl border border-brand/25 bg-brand-soft/70 p-3.5">
+            <LogIn className="h-5 w-5 shrink-0 text-brand" />
+            <p className="flex-1 text-[11px] font-bold leading-5 text-brand-dark">
+              در حالت مهمان هستید؛ سفارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.
+            </p>
+            <button
+              type="button"
+              onClick={c.logout}
+              className="shrink-0 rounded-xl bg-brand px-3 py-2 text-[11px] font-black text-white"
+            >
+              ورود / ثبت‌نام
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 pt-3 lg:px-5">
         <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-l from-[#ffe9dc] to-[#fff3ec] p-4">
@@ -97,10 +119,12 @@ export function AccountView({ c }: { c: AppCtx }) {
         ))}
         <button type="button" onClick={c.logout} className="flex w-full items-center gap-3 px-4 py-4 text-right transition hover:bg-red-50/60">
           <LogOut className="shrink-0 text-ink" strokeWidth={1.8} style={{ height: 22, width: 22 }} />
-          <span className="flex-1 text-[13.5px] font-extrabold text-ink">خروج</span>
+          <span className="flex-1 text-[13.5px] font-extrabold text-ink">{c.isGuest ? "ورود به حساب" : "خروج"}</span>
         </button>
       </div>
-      <p className="px-4 pt-4 text-[10px] font-medium text-muted lg:px-5">نسخه: ۱.۴۰۴.۳۸-at · متصل به: نسخه نمایشی (آماده اتصال بک‌اند)</p>
+      <p className="px-4 pt-4 text-[10px] font-medium text-muted lg:px-5">
+        نسخه ۲.۰.۰ · {c.isGuest ? "حالت مهمان (ذخیره روی این دستگاه)" : "حساب متصل به سرور ناز مارکت"}
+      </p>
     </div>
   );
 }
@@ -118,10 +142,19 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
   };
   const topUp = async (amt: number) => {
     setTopUpBusy(amt);
-    await api.wallet.topUp(amt);
-    setTopUpBusy(null);
-    c.setWallet(c.wallet + amt);
-    c.toast(`${faNum(amt)} تومان به کیف پول اضافه شد`);
+    try {
+      if (c.isGuest) {
+        c.setWallet(c.wallet + amt);
+      } else {
+        const res = await api.wallet.topUp(amt);
+        c.setWallet(res.wallet);
+      }
+      c.toast(`${faNum(amt)} تومان به کیف پول اضافه شد`);
+    } catch (err) {
+      c.toast(err instanceof Error ? err.message : "شارژ کیف پول انجام نشد");
+    } finally {
+      setTopUpBusy(null);
+    }
   };
 
   switch (sheet) {
@@ -257,17 +290,12 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
           </div>
         </Sheet>
       );
-    case "verify":
+    case "profile":
       return (
-        <Sheet title="احراز هویت" onClose={close}>
-          <p className="text-[12px] font-semibold leading-6 text-muted">
-            برای خرید برخی کالاهای خاص، احراز هویت با کد ملی الزامی است. اطلاعات شما نزد ناز مارکت محفوظ است.
-            (اتصال به سرویس احراز هویت در فاز بک‌اند انجام می‌شود.)
-          </p>
-          <button type="button" onClick={() => { close(); c.toast("احراز هویت شما تایید شد"); }} className="mt-4 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white">
-            شروع احراز هویت
-          </button>
-        </Sheet>
+        <ProfileSheet
+          c={c}
+          close={close}
+        />
       );
     case "payments":
       return (
@@ -324,4 +352,101 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
     default:
       return null;
   }
+}
+
+
+/* ---------------- profile editor ---------------- */
+function ProfileSheet({ c, close }: { c: AppCtx; close: () => void }) {
+  const [first, setFirst] = useState(c.user?.firstName ?? "");
+  const [last, setLast] = useState(c.user?.lastName ?? "");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const save = async () => {
+    setError("");
+    if (password && password.length < 6) {
+      return setError("رمز عبور جدید باید حداقل ۶ کاراکتر باشد.");
+    }
+    setBusy(true);
+    try {
+      if (c.isGuest || !c.user) {
+        c.updateUser({ ...(c.user ?? { phone: "", firstName: "", lastName: "" }), firstName: first.trim(), lastName: last.trim() } as User);
+      } else {
+        const res = await api.auth.updateProfile({
+          firstName: first.trim(),
+          lastName: last.trim(),
+          ...(password ? { password } : {}),
+        });
+        c.updateUser(res.user);
+      }
+      c.toast("اطلاعات حساب ذخیره شد");
+      close();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ذخیره اطلاعات انجام نشد.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Sheet title="مشخصات حساب" onClose={close}>
+      <div className="rounded-2xl bg-[#f8f7f4] px-3.5 py-3">
+        <p className="text-[10.5px] font-bold text-muted">شماره موبایل (نام کاربری)</p>
+        <p className="mt-1 text-[13px] font-black text-ink" dir="ltr" style={{ textAlign: "right" }}>
+          {c.user?.phone ? pd(c.user.phone) : "حساب مهمان"}
+        </p>
+      </div>
+
+      <div className="mt-3 space-y-2.5">
+        <input
+          value={first}
+          onChange={(e) => setFirst(e.target.value)}
+          placeholder="نام"
+          aria-label="نام"
+          className="w-full rounded-2xl border border-line px-4 py-3 text-[13px] font-bold outline-none transition focus:border-brand"
+        />
+        <input
+          value={last}
+          onChange={(e) => setLast(e.target.value)}
+          placeholder="نام خانوادگی"
+          aria-label="نام خانوادگی"
+          className="w-full rounded-2xl border border-line px-4 py-3 text-[13px] font-bold outline-none transition focus:border-brand"
+        />
+        {!c.isGuest && (
+          <label className="block">
+            <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-black text-ink">
+              <Lock className="h-3.5 w-3.5 text-muted" /> رمز عبور جدید (اختیاری)
+            </span>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="خالی بگذارید تا تغییر نکند"
+              aria-label="رمز عبور جدید"
+              dir="ltr"
+              className="w-full rounded-2xl border border-line px-4 py-3 text-left text-[13px] font-bold outline-none transition focus:border-brand"
+            />
+          </label>
+        )}
+        {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-[11px] font-bold text-red-700">{error}</p>}
+      </div>
+
+      <button
+        type="button"
+        onClick={save}
+        disabled={busy}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white transition active:scale-[0.99] disabled:opacity-60"
+      >
+        {busy ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" strokeWidth={3} />}
+        ذخیره تغییرات
+      </button>
+
+      {c.isGuest && (
+        <button type="button" onClick={() => { close(); c.logout(); }} className="mt-2 w-full rounded-2xl bg-[#f4f3f0] py-3 text-[12px] font-black text-ink">
+          ورود / ثبت‌نام برای ذخیره دائمی
+        </button>
+      )}
+    </Sheet>
+  );
 }

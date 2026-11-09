@@ -1,124 +1,171 @@
-import { products, stores } from "../data";
 import type { Address, CartState, Order, Product, Store as StoreType, User } from "../data";
 
 /**
- * ------------------------------------------------------------------
- * API client — contract for the nazmarket backend.
- *
- * Every function below mirrors an HTTP endpoint the backend should
- * expose. Right now they resolve against local mock data so the UI
- * is fully functional; when the backend is ready, replace each body
- * with a real `request(...)` call — the signatures are final.
- * ------------------------------------------------------------------
+ * HTTP client for the nazmarket Node.js backend (see /server).
+ * Dev: Vite proxies `/api` → http://localhost:4000. Prod: same origin.
  */
-export const API_BASE = (import.meta as { env?: Record<string, string> }).env?.VITE_API_URL ?? "/api";
+const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+export const API_BASE = env?.VITE_API_URL ?? "/api";
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    ...options,
-  });
-  if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
-  return (await res.json()) as T;
+const TOKEN_KEY = "naz_token";
+
+export const tokenStore = {
+  get(): string | null {
+    try {
+      return localStorage.getItem(TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  },
+  set(token: string | null) {
+    try {
+      if (token) localStorage.setItem(TOKEN_KEY, token);
+      else localStorage.removeItem(TOKEN_KEY);
+    } catch {
+      /* ignore */
+    }
+  },
+};
+
+export class ApiError extends Error {
+  status: number;
+  code: string;
+  constructor(message: string, status = 0, code = "error") {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+  }
 }
 
-// kept for the backend migration — all mock functions below can be
-// replaced one by one with request() calls.
-void request;
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+type Options = { method?: string; body?: unknown; auth?: boolean };
+
+async function request<T>(path: string, options: Options = {}): Promise<T> {
+  const { method = "GET", body, auth = true } = options;
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = tokenStore.get();
+  if (auth && token) headers.Authorization = `Bearer ${token}`;
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError("ارتباط با سرور برقرار نشد. اتصال اینترنت یا سرور را بررسی کنید.", 0, "network");
+  }
+
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!res.ok) {
+    const err = (data as { error?: { message?: string; code?: string } })?.error;
+    throw new ApiError(err?.message ?? "خطایی رخ داد؛ دوباره تلاش کنید.", res.status, err?.code ?? "error");
+  }
+
+  return (data ?? {}) as T;
+}
+
+/* ------------------------------------------------------------------ */
+/* wire types                                                          */
+/* ------------------------------------------------------------------ */
+
+type WireProduct = Omit<Product, "icon"> & { icon?: string };
+export type CatalogResponse = {
+  products: WireProduct[];
+  stores: StoreType[];
+  categories: { id: string; name: string; icon?: string }[];
+  brands?: { name: string; color: string }[];
+  promos: { code: string; title: string; desc: string; amount: number }[];
+};
+
+export type AuthResponse = { token: string; user: User; addresses: Address[] };
+
+export type ServerState = {
+  user: User;
+  cart: CartState;
+  favorites: number[];
+  addresses: Address[];
+  orders: Order[];
+  wallet: number;
+  pro: boolean;
+};
+
+/* ------------------------------------------------------------------ */
+/* endpoints                                                           */
+/* ------------------------------------------------------------------ */
 
 export const api = {
-  /* POST /auth/otp  |  POST /auth/otp/verify  |  POST /auth/profile */
   auth: {
-    sendOtp: async (phone: string): Promise<{ sent: boolean; phone: string }> => {
-      await wait(500);
-      return { sent: true, phone: phone };
-    },
-    verifyOtp: async (_phone: string, code: string): Promise<{ valid: boolean; token: string }> => {
-      await wait(700);
-      // demo mode: any 6-digit code is accepted
-      return { valid: code.length === 6, token: "demo-token" };
-    },
-    completeProfile: async (u: User): Promise<{ id: string; user: User }> => {
-      await wait(400);
-      return { id: "u_demo", user: u };
-    },
+    register: (payload: { phone: string; password: string; firstName?: string; lastName?: string }) =>
+      request<AuthResponse>("/auth/register", { method: "POST", body: payload, auth: false }),
+    login: (phone: string, password: string) =>
+      request<AuthResponse>("/auth/login", { method: "POST", body: { phone, password }, auth: false }),
+    logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+    me: () => request<{ user: User }>("/auth/me"),
+    updateProfile: (patch: { firstName?: string; lastName?: string; password?: string }) =>
+      request<{ user: User }>("/auth/profile", { method: "PATCH", body: patch }),
   },
 
-  /* GET /stores  |  GET /stores/:id/products */
-  catalog: {
-    stores: async (): Promise<StoreType[]> => {
-      await wait(150);
-      return stores;
-    },
-    products: async (category?: string): Promise<Product[]> => {
-      await wait(150);
-      return category && category !== "all" ? products.filter((p) => p.category === category) : products;
-    },
-  },
+  /** Catalog can be fetched without a session. */
+  catalog: () => request<CatalogResponse>("/catalog", { auth: false }),
+  search: (q: string) =>
+    request<{ stores: StoreType[]; products: WireProduct[] }>(`/search?q=${encodeURIComponent(q)}`, { auth: false }),
 
-  /* GET /search?q= */
-  search: {
-    query: async (q: string): Promise<{ stores: StoreType[]; products: Product[] }> => {
-      await wait(120);
-      const t = q.trim();
-      return {
-        stores: t ? stores.filter((s) => s.name.includes(t) || s.area.includes(t)) : [],
-        products: t ? products.filter((p) => p.name.includes(t)) : [],
-      };
-    },
-  },
+  state: () => request<ServerState>("/me/state"),
 
-  /* PUT /cart */
   cart: {
-    save: async (cart: CartState): Promise<CartState> => {
-      try {
-        localStorage.setItem("naz_cart", JSON.stringify(cart));
-      } catch { /* ignore */ }
-      return cart;
-    },
+    save: (cart: CartState) => request<{ cart: CartState }>("/me/cart", { method: "PUT", body: cart }),
   },
 
-  /* POST /orders  |  GET /orders  |  GET /orders/:id */
-  orders: {
-    place: async (payload: Order): Promise<{ status: "accepted"; order: Order }> => {
-      await wait(750);
-      return { status: "accepted", order: payload };
-    },
-    list: async (): Promise<Order[]> => {
-      try {
-        return JSON.parse(localStorage.getItem("naz_orders") ?? "[]") as Order[];
-      } catch {
-        return [];
-      }
-    },
+  favorites: {
+    save: (ids: number[]) => request<{ favorites: number[] }>("/me/favorites", { method: "PUT", body: { ids } }),
   },
 
-  /* POST /addresses  |  GET /addresses */
   addresses: {
-    save: async (a: Address): Promise<Address> => {
-      await wait(250);
-      return a;
-    },
+    save: (addresses: Address[]) =>
+      request<{ addresses: Address[] }>("/me/addresses", { method: "PUT", body: { addresses } }),
   },
 
-  /* POST /promos/apply */
+  orders: {
+    place: (payload: {
+      storeId: number;
+      items: Record<number, number>;
+      addressId?: number;
+      addressTitle?: string;
+      addressText?: string;
+      slot?: string;
+      payment?: "online" | "cash";
+      promoCode?: string | null;
+    }) => request<{ order: Order }>("/orders", { method: "POST", body: payload }),
+    list: () => request<{ orders: Order[] }>("/orders"),
+  },
+
   promos: {
-    apply: async (code: string, subtotal: number): Promise<{ applied: boolean; amount: number }> => {
-      await wait(300);
-      if (code === "NAZ60") return { applied: true, amount: Math.min(60000, subtotal) };
-      if (code === "NAZ10") return { applied: true, amount: Math.min(Math.round(subtotal * 0.1), 50000) };
-      if (code === "NAZARABAD") return { applied: subtotal >= 400000, amount: subtotal >= 400000 ? 25000 : 0 };
-      return { applied: false, amount: 0 };
-    },
+    apply: (code: string, subtotal: number) =>
+      request<{ applied: boolean; amount: number; message?: string }>("/promos/apply", {
+        method: "POST",
+        body: { code, subtotal },
+      }),
+    list: () => request<{ promos: { code: string; title: string; desc: string; amount: number }[] }>("/promos"),
   },
 
-  /* POST /wallet/topup */
   wallet: {
-    topUp: async (amount: number): Promise<{ amount: number }> => {
-      await wait(450);
-      return { amount };
-    },
+    topUp: (amount: number) => request<{ wallet: number; user: User }>("/me/wallet/topup", { method: "POST", body: { amount } }),
   },
+
+  pro: {
+    set: (active: boolean) => request<{ pro: boolean }>("/me/pro", { method: "PATCH", body: { active } }),
+  },
+
+  health: () => request<{ ok: boolean }>("/health", { auth: false }),
 };

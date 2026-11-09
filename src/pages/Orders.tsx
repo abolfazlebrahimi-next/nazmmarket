@@ -67,8 +67,8 @@ export default function OrdersView({ c }: { c: AppCtx }) {
   const history = c.orders.filter((o) => o.status >= 3);
 
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-5xl pb-32 lg:pb-16">
-      <div className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur lg:top-[72px]">
+    <div className="fade-rise mx-auto min-h-dvh w-full max-w-5xl pb-24 md:pb-16">
+      <div className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur md:top-16">
         <div className="flex items-end justify-between px-5 pt-4">
           <div className="flex gap-6">
             {([

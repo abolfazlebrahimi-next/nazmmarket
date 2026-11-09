@@ -33,7 +33,11 @@ export interface CardHandlers {
  */
 export interface AppCtx {
   user: User | null;
+  /** true when the visitor chose "ادامه به عنوان مهمان" (no server session) */
+  isGuest: boolean;
   logout(): void;
+  /** keeps the header/account views in sync after a profile edit */
+  updateUser(u: User): void;
 
   view: View;
   go(v: View): void;
@@ -77,7 +81,7 @@ export interface AppCtx {
   deliveryFee: number;
   payable: number;
   applyCode(c: string): void;
-  placeOrder(): Promise<void>;
+  placeOrder(extra?: { slot?: string; payment?: "online" | "cash" }): Promise<void>;
   reorder(o: Order): void;
   orders: Order[];
 
