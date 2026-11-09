@@ -1,31 +1,63 @@
 # ناز مارکت
 
-فروشگاه مشتری ناز مارکت با React/Vite و API مبتنی بر Node.js، Express و MySQL.
+ساختار پروژه به دو برنامهٔ مستقل تقسیم شده است:
 
-## اجرای محلی در Windows
+```text
+nazmmarket/
+├── backend/    # Node.js + Express + MySQL
+├── frontend/   # React + Vite
+└── README.md
+```
 
-1. MySQL Server را نصب و اجرا کنید و یک‌بار دیتابیس را بسازید:
+هر بخش وابستگی‌ها و دستور اجرای مستقل دارد. برای کار روزانه، دو پنجرهٔ ترمینال باز کنید و در هرکدام وارد فولدر مربوطه شوید.
 
-   ```sql
-   CREATE DATABASE nazmarket CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-   ```
+## ۱) آماده‌سازی MySQL
 
-2. در PowerShell، از پوشه پروژه:
+MySQL Server را نصب و اجرا کنید و دیتابیس را یک بار بسازید:
 
-   ```powershell
-   Copy-Item .env.example .env
-   npm install
-   ```
+```sql
+CREATE DATABASE nazmarket CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
-3. مقادیر `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER` و `MYSQL_PASSWORD` را در `.env` مطابق نصب خود تنظیم کنید.
-4. اجرای توسعه (API و وب):
+در PowerShell از ریشهٔ پروژه:
 
-   ```powershell
-   npm run dev
-   ```
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
 
-   یا فقط API را اجرا کنید: `npm run dev:api` (پورت پیش‌فرض ۴۰۰۰).
+مقادیر اتصال MySQL را در `backend/.env` وارد کنید.
 
-در اولین اجرا، API جداول را ایجاد می‌کند، کالاها/فروشگاه‌های نمونه را از `shared/catalog.json` وارد می‌کند و حساب آزمایشی را می‌سازد. حساب پیش‌فرض از `DEMO_PHONE` و `DEMO_PASSWORD` در `.env` خوانده می‌شود. پیش از انتشار عمومی، رمز آزمایشی را عوض کنید.
+## ۲) اجرای بک‌اند
 
-برای بررسی ایستا و ساخت نسخه وب: `npm run typecheck` و `npm run build`.
+در ترمینال اول:
+
+```powershell
+cd backend
+npm install
+npm run dev
+```
+
+API روی `http://localhost:4000` اجرا می‌شود. اولین اجرا جداول را ایجاد می‌کند، کالاها/فروشگاه‌های نمونه را از `backend/shared/catalog.json` وارد می‌کند و حساب آزمایشی را می‌سازد.
+
+## ۳) اجرای فرانت‌اند
+
+در ترمینال دوم، از ریشهٔ پروژه:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+آدرس توسعهٔ Vite در ترمینال نمایش داده می‌شود (پیش‌فرض `http://localhost:5173`). درخواست‌های `/api` از طریق proxy به بک‌اند روی پورت ۴۰۰۰ می‌روند. برای آدرس API متفاوت، متغیر `API_PROXY_TARGET` را هنگام اجرای Vite تنظیم کنید.
+
+## ساخت و بررسی
+
+از فولدر `frontend`:
+
+```powershell
+npm run typecheck
+npm run build
+```
+
+برای اجرای نسخهٔ ساخته‌شده با Vite: `npm run preview` در فولدر `frontend`.

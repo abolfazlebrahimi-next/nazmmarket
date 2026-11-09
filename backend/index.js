@@ -1,13 +1,8 @@
 /**
  * ناز مارکت — Node.js backend (Express + MySQL).
  *
- *   npm run dev:api     →  http://localhost:4000
- *   npm run dev         →  Vite on :5173 with /api proxied to this server
- *   npm start           →  serves the built SPA from ./dist + the API
+ *   npm run dev         →  http://localhost:4000 (run inside backend/)
  */
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import "dotenv/config";
 import "express-async-errors";
 import express from "express";
@@ -19,9 +14,6 @@ import catalogRoutes from "./routes/catalog.js";
 import meRoutes from "./routes/me.js";
 import orderRoutes from "./routes/orders.js";
 import promoRoutes from "./routes/promos.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DIST = path.join(__dirname, "..", "dist");
 
 async function seedDemoAccount() {
   const exists = await db.get("SELECT id FROM users WHERE phone = ?", [DEMO_ACCOUNT.phone]);
@@ -67,12 +59,6 @@ app.use("/api/promos", promoRoutes);
 app.use("/api", (_req, res) => {
   res.status(404).json({ error: { code: "not_found", message: "این مسیر در API وجود ندارد." } });
 });
-
-/* production: serve the built single-file SPA */
-if (fs.existsSync(path.join(DIST, "index.html"))) {
-  app.use(express.static(DIST, { index: false, maxAge: "1h" }));
-  app.get("*", (_req, res) => res.sendFile(path.join(DIST, "index.html")));
-}
 
 /* error handler — always answers with a Farsi message the UI can show */
 app.use((err, _req, res, _next) => {

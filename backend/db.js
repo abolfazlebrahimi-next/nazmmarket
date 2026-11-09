@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import mysql from "mysql2/promise";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "shared", "catalog.json"), "utf8"));
+const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, "shared", "catalog.json"), "utf8"));
 
 export const pool = mysql.createPool({
   host: process.env.MYSQL_HOST ?? "127.0.0.1",

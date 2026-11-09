@@ -20,6 +20,7 @@ export default defineConfig({
   },
   server: {
     host: true,
+    fs: { allow: [path.resolve(__dirname, "..")] },
     port: 5173,
     strictPort: false,
     // the preview host (*.e2b.app) must be allowed to load the dev server

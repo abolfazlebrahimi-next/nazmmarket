@@ -1,4 +1,4 @@
-import catalogData from "../shared/catalog.json";
+import catalogData from "../../backend/shared/catalog.json";
 import type { LucideIcon } from "lucide-react";
 import {
   Apple,
@@ -26,7 +26,7 @@ import {
 /**
  * Catalog types + client fallback data.
  *
- * The real data lives in `shared/catalog.json`, which is seeded into the
+ * The real data lives in `backend/shared/catalog.json`, which is seeded into the
  * backend database (MySQL) on boot and served by `GET /api/catalog`.
  * The bundled copy keeps the storefront usable before the first request
  * (and when the API is unreachable). Icons are rendered client-side, so the
