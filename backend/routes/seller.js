@@ -104,8 +104,8 @@ async function registerSeller(req, res, next) {
     res.status(201).json({ token: sessionToken, seller: sellerPayload(result.account, result.store) });
   } catch (error) {
     removeFiles(files);
-    if (error?.code === "ER_DUP_ENTRY") return reject(res, 409, "phone_taken", "این شماره یا فروشگاه قبلاً ثبت شده است.");
-    if (error?.code === "seller_encryption_not_configured") return reject(res, 503, error.code, error.message);
+    if (error?.code === "ER_DUP_ENTRY") return fail(res, 409, "phone_taken", "این شماره یا فروشگاه قبلاً ثبت شده است.");
+    if (error?.code === "seller_encryption_not_configured") return fail(res, 503, error.code, error.message);
     next(error);
   }
 }
