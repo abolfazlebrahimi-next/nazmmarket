@@ -190,7 +190,7 @@ export function AddressForm({ c }: { c: AppCtx }) {
   };
 
   return (
-    <div className="min-h-dvh bg-white lg:min-h-0">
+    <div className="min-h-full bg-white lg:min-h-0">
       <div className="flex items-center gap-2 border-b border-line px-4 py-3">
         <button type="button" onClick={() => c.openSub({ name: "address" })} aria-label="بازگشت" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90">
           <X className="h-4.5 w-4.5" />
@@ -199,7 +199,7 @@ export function AddressForm({ c }: { c: AppCtx }) {
       </div>
 
       <div className="mx-auto max-w-2xl px-5 pb-10 pt-4">
-        <div className="overflow-hidden rounded-3xl border border-line">
+        <div className="relative rounded-3xl border border-line">
           <MapPicker
             marker={c.pickedPin}
             onPick={(p) => {

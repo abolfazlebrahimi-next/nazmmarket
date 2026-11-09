@@ -32,7 +32,7 @@ export function AccountView({ c }: { c: AppCtx }) {
 
   const rows: { icon: typeof Heart; label: string; desc?: string; pill?: string; pillCls?: string; sheet?: string; action?: () => void }[] = [
     { icon: UserRound, label: "مشخصات حساب", desc: "نام، نام خانوادگی و رمز عبور", pill: "ویرایش", pillCls: "bg-[#f4f3f0] text-ink", sheet: "profile" },
-    { icon: Users, label: "دعوت دوستان", desc: "تا ۲ میلیون تومان کد تخفیف", pill: "دعوت کردن", pillCls: "bg-peach text-brand", sheet: "invite" },
+    { icon: Users, label: "دعوت دوستان", desc: "اشتراک‌گذاری کد و لینک دعوت", pill: "دعوت", pillCls: "bg-brand-soft text-brand-dark", sheet: "invite" },
     { icon: Wallet, label: "افزایش اعتبار کیف پول", desc: `موجودی: ${faNum(c.wallet)} تومان`, sheet: "wallet" },
     { icon: Heart, label: "کالاهای مورد علاقه‌ی من", desc: `${pd(c.favorites.length)} کالا`, action: () => c.openSub({ name: "favorites" }) },
     { icon: TicketPercent, label: "کدهای تخفیف من", action: () => c.openSub({ name: "account-detail", id: "codes" }) },
@@ -76,24 +76,6 @@ export function AccountView({ c }: { c: AppCtx }) {
         </div>
       )}
 
-      <div className="px-4 pt-3 lg:px-5">
-        <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-l from-[#eaf4ee] to-[#f5f8f5] p-4">
-          <div className="absolute -left-6 -top-8 h-28 w-28 rounded-full bg-brand/10" />
-          <div className="relative flex items-center gap-3">
-            <span className="floaty flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-white shadow-md">
-              <Gift className="h-7 w-7 text-brand" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-black leading-6 text-ink">تا ۲ میلیون تومان تخفیف بگیرید!</p>
-              <p className="text-[11px] font-medium text-muted">ویژه دعوت از دوستان</p>
-              <button type="button" onClick={() => c.setSheet("invite")} className="mt-2.5 rounded-xl bg-brand px-5 py-2.5 text-[12px] font-black text-white shadow-md transition active:scale-95">
-                دعوت کردن
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="mt-3 border-y border-line bg-white lg:mx-4 lg:rounded-[24px] lg:border">
         {rows.map((row) => (
           <button
@@ -126,6 +108,7 @@ export function AccountView({ c }: { c: AppCtx }) {
 
 export function AccountSheetHost({ c }: { c: AppCtx }) {
   const [topUpBusy, setTopUpBusy] = useState<number | null>(null);
+  const [shareFallback, setShareFallback] = useState(false);
   const sheet = c.sheet;
   if (!sheet) return null;
   const close = () => c.setSheet(null);
@@ -137,14 +120,18 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
   };
   const referralCode = c.user?.id ? `NAZ-${c.user.id}` : c.user?.phone ? `NAZ-${c.user.phone}` : "NAZ-NAZARABAD";
   const referralLink = `${window.location.origin}/?ref=${encodeURIComponent(referralCode)}`;
+  const referralMessage = `با لینک من از ناز مارکت خرید کن؛ کد دعوت ${referralCode}: ${referralLink}`;
   const shareReferral = async () => {
-    const message = `با لینک من از ناز مارکت خرید کن؛ کد دعوت ${referralCode}: ${referralLink}`;
     const shareApi = navigator as Navigator & { share?: (data: { title?: string; text?: string; url?: string }) => Promise<void> };
     try {
-      if (shareApi.share) await shareApi.share({ title: "دعوت به ناز مارکت", text: message, url: referralLink });
-      else { await navigator.clipboard?.writeText(message); c.toast("لینک دعوت کپی شد"); }
+      if (shareApi.share && window.isSecureContext) {
+        await shareApi.share({ title: "دعوت به ناز مارکت", text: referralMessage, url: referralLink });
+        setShareFallback(false);
+      } else {
+        setShareFallback(true);
+      }
     } catch (err) {
-      if (!(err instanceof DOMException && err.name === "AbortError")) c.toast("اشتراک‌گذاری انجام نشد");
+      if (!(err instanceof DOMException && err.name === "AbortError")) setShareFallback(true);
     }
   };
   const topUp = async (amt: number) => {
@@ -189,6 +176,22 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
               <Users className="h-4 w-4" /> اشتراک‌گذاری
             </button>
           </div>
+          {shareFallback && (
+            <div className="mt-3 rounded-2xl border border-line bg-[#f8faf8] p-3">
+              <p className="mb-2 text-[10px] font-bold text-muted">ارسال با یکی از برنامه‌ها</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: "واتساپ", href: `https://wa.me/?text=${encodeURIComponent(referralMessage)}` },
+                  { label: "تلگرام", href: `https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${encodeURIComponent(`کد دعوت من ${referralCode}`)}` },
+                  { label: "پیامک", href: `sms:?body=${encodeURIComponent(referralMessage)}` },
+                ].map((app) => (
+                  <a key={app.label} href={app.href} target={app.label === "پیامک" ? undefined : "_blank"} rel="noreferrer" className="rounded-xl bg-white px-2 py-2.5 text-center text-[11px] font-black text-brand-dark shadow-sm">
+                    {app.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </Sheet>
       );
     case "wallet":
@@ -220,11 +223,14 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
         <Sheet title="پشتیبانی ناز مارکت" onClose={close}>
           <div className="space-y-2.5 text-[12px] font-semibold leading-6 text-muted">
             <p>تیم پشتیبانی ناز مارکت هر روز از ساعت ۷ صبح تا ۱۲ شب پاسخ‌گوی شماست.</p>
-            <a href="tel:02645321000" className="flex items-center gap-3 rounded-2xl border border-line p-3.5 text-ink">
-              <Phone className="h-5 w-5 shrink-0 text-brand" />
-              <span className="font-black">۰۲۶ - ۴۵۳۲ ۱۰۰</span>
-              <span className="text-[10px] font-medium text-muted">(پیش‌شماره البرز)</span>
-            </a>
+            <p>برای ارتباط مستقیم با پشتیبانی با یکی از شماره‌های زیر تماس بگیرید:</p>
+            {["09935377426", "09905312639"].map((number) => (
+              <a key={number} href={`tel:${number}`} className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3.5 text-ink transition hover:border-brand/40">
+                <Phone className="h-5 w-5 shrink-0 text-brand" />
+                <span className="flex-1 text-left font-black" dir="ltr">{pd(number)}</span>
+                <span className="text-[10px] font-bold text-brand">تماس</span>
+              </a>
+            ))}
             <button type="button" onClick={() => c.toast("گفت‌وگوی آنلاین با اتصال بک‌اند فعال می‌شود")} className="flex w-full items-center gap-3 rounded-2xl border border-line p-3.5 text-ink">
               <MessageSquareText className="h-5 w-5 shrink-0 text-brand" />
               <span className="font-black">گفت‌وگوی آنلاین</span>
@@ -293,12 +299,23 @@ export function AccountDetailPage({ c, kind }: { c: AppCtx; kind: "codes" | "pay
         </div>
       )}
       {kind === "payments" && (c.orders.length ? (
-        <div className="divide-y divide-line rounded-3xl border border-line bg-white p-4 sm:m-4">
+        <div className="grid gap-3 p-4 sm:grid-cols-2">
           {c.orders.map((o) => (
-            <div key={o.id} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
-              <div><p className="text-[12px] font-black text-ink">{o.storeName}</p><p className="mt-1 text-[10px] text-muted">سفارش ناز-{pd(o.id.replace("NM-", ""))} · {o.time}</p></div>
-              <span className="shrink-0 text-[12px] font-black text-ink">{faNum(o.total)} تومان</span>
-            </div>
+            <article key={o.id} className="overflow-hidden rounded-3xl border border-line bg-white shadow-sm">
+              <div className="flex items-start gap-3 p-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand"><ReceiptText className="h-5 w-5" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] font-black text-ink">{o.storeName}</p>
+                  <p className="mt-1 text-[10px] font-medium text-muted">سفارش ناز-{pd(o.id.replace("NM-", ""))} · {o.time}</p>
+                </div>
+                <span className="shrink-0 rounded-full bg-[#f4f3f0] px-2 py-1 text-[9px] font-bold text-muted">{o.payment === "cash" ? "پرداخت در محل" : "پرداخت آنلاین"}</span>
+              </div>
+              <div className="mx-4 flex items-center justify-between border-t border-line py-3">
+                <span className="text-[10px] font-bold text-muted">مبلغ سفارش</span>
+                <span className="rounded-xl bg-brand-soft px-3 py-2 text-[13px] font-black text-brand-dark">{faNum(o.total)} تومان</span>
+              </div>
+              <div className="h-1 bg-brand" />
+            </article>
           ))}
         </div>
       ) : <Empty icon={ReceiptText} title="پرداختی ثبت نشده" desc="پرداخت‌های سفارش‌های شما در این صفحه نمایش داده می‌شوند." />)}

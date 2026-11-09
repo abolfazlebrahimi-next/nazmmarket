@@ -123,8 +123,8 @@ export default function MapPicker({
   };
 
   return (
-    <div className={`relative w-full overflow-hidden ${height}`}>
-      <div ref={boxRef} className="absolute inset-0" />
+    <div className={`relative w-full rounded-3xl ${height}`}>
+      <div ref={boxRef} className="absolute inset-0 z-0 overflow-hidden rounded-3xl" />
 
       <div className="pointer-events-none absolute left-1/2 top-[74px] z-10 -translate-x-1/2">
         {hint && !marker && (
@@ -134,7 +134,7 @@ export default function MapPicker({
         )}
       </div>
 
-      <div className="absolute inset-x-3 top-3 z-20">
+      <div className="absolute inset-x-3 top-3 z-[1000]">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />

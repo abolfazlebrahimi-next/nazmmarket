@@ -119,6 +119,9 @@ textarea::placeholder {
 
 /* ---------- Leaflet map ---------- */
 .leaflet-container {
+  position: relative;
+  z-index: 0;
+  isolation: isolate;
   font-family: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
   background: #e8e6e1;
 }

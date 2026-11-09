@@ -545,7 +545,7 @@ export default function App() {
     <div className="min-h-dvh bg-app">
       {/* ---------- one header for every screen size ---------- */}
       <header
-        className={`${sub ? "hidden md:block" : "block"} z-50 border-b border-line bg-white/95 backdrop-blur md:sticky md:top-0`}
+        className={`${sub ? "hidden md:block" : "block"} relative z-[60] border-b border-line bg-white/95 backdrop-blur md:sticky md:top-0`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 md:px-6">
           <button type="button" onClick={() => go("home")} aria-label="صفحه اصلی" className="shrink-0 transition hover:opacity-80">
@@ -641,7 +641,7 @@ export default function App() {
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                  <div className="dropdown-in absolute left-0 top-12 z-50 w-64 rounded-2xl border border-line bg-white p-2 shadow-2xl">
+                  <div className="dropdown-in fixed inset-x-3 top-[7.5rem] z-[70] w-auto rounded-2xl border border-line bg-white p-2 shadow-2xl md:absolute md:inset-x-auto md:left-0 md:top-12 md:w-64">
                     <div className="flex items-center gap-3 rounded-xl bg-[#faf9f6] p-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[13px] font-black text-brand">
                         {(user.firstName || "م").slice(0, 1)}
@@ -699,7 +699,7 @@ export default function App() {
         </div>
       )}
 
-      <main className={`${sub ? "pb-0" : "pb-24 md:pb-0"}`}>{content}</main>
+      <main className={`${sub || view === "home" ? "pb-0" : "pb-24 md:pb-0"} min-w-0 w-full overflow-x-clip`}>{content}</main>
 
       {/* footer */}
       {!sub && (
@@ -790,14 +790,14 @@ export default function App() {
       {/* address overlays */}
       {sub?.name === "address" && (
         <div className="fixed inset-0 z-[80] flex items-stretch justify-center bg-ink/50 backdrop-blur-[2px] md:items-center md:p-6" role="dialog" aria-modal="true" aria-label="انتخاب آدرس">
-          <div className="relative flex w-full max-w-[430px] flex-col bg-white app-scroll md:h-[min(690px,90dvh)] md:max-w-2xl md:overflow-hidden md:rounded-[24px] md:shadow-2xl">
+          <div className="relative flex h-full w-full max-w-[430px] flex-col overflow-y-auto overscroll-contain bg-white app-scroll md:h-[min(690px,90dvh)] md:max-w-2xl md:overflow-hidden md:rounded-[24px] md:shadow-2xl">
             <AddressSelect c={c} />
           </div>
         </div>
       )}
       {sub?.name === "address-form" && (
         <div className="fixed inset-0 z-[80] flex items-stretch justify-center bg-ink/50 backdrop-blur-[2px] md:items-center md:p-6" role="dialog" aria-modal="true" aria-label="جزئیات آدرس">
-          <div className="relative flex w-full max-w-[430px] flex-col bg-white app-scroll md:h-[min(720px,92dvh)] md:max-w-xl md:overflow-y-auto md:rounded-[24px] md:shadow-2xl">
+          <div className="relative flex h-full w-full max-w-[430px] flex-col overflow-y-auto overscroll-contain bg-white app-scroll md:h-[min(720px,92dvh)] md:max-w-xl md:overflow-y-auto md:rounded-[24px] md:shadow-2xl">
             <AddressForm c={c} />
           </div>
         </div>

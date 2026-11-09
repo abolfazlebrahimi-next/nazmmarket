@@ -11,7 +11,6 @@ import {
   ShoppingBasket,
   Sparkles,
   Store,
-  TicketPercent,
   Timer,
   X,
   Zap,
@@ -48,7 +47,7 @@ export function HomePage({ c }: { c: AppCtx }) {
   const section = "mx-auto w-full max-w-6xl px-4 md:px-6";
 
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-7xl pb-24 md:pb-10">
+    <div className="fade-rise mx-auto min-h-dvh w-full max-w-7xl pb-4 md:pb-10">
       {/* weather */}
       <div className="pt-3 md:pt-4">
         <div className={`${section}`}>
@@ -154,24 +153,6 @@ export function HomePage({ c }: { c: AppCtx }) {
             <ProductCard key={p.id} product={p} h={c.cardHandlers()} width="w-[140px] sm:w-[152px] md:w-[164px]" />
           ))}
         </div>
-      </div>
-
-      {/* favorites strip */}
-      <div className={`${section} pt-4`}>
-        <button
-          type="button"
-          onClick={() => c.openSub({ name: "favorites" })}
-          className="flex w-full items-center gap-3 rounded-3xl border border-line bg-white p-3.5 text-right shadow-[0_8px_20px_-16px_rgba(30,20,10,0.4)] transition hover:border-brand/30 active:scale-[0.99]"
-        >
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#ffe9ee]">
-            <Heart className="h-5 w-5 fill-[#f43f5e] text-[#f43f5e]" />
-          </span>
-          <span className="flex-1">
-            <span className="block text-[13px] font-black text-ink">کالاهای مورد علاقه‌ی من</span>
-            <span className="mt-0.5 block text-[11px] font-medium text-muted">{pd(c.favorites.length)} کالای مورد علاقه</span>
-          </span>
-          <ChevronLeft className="h-5 w-5 text-muted" />
-        </button>
       </div>
 
       {/* stores */}
@@ -369,7 +350,7 @@ export function MapPage({ c }: { c: AppCtx }) {
     <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-24 md:pb-12">
       <ScreenHeader title="انتخاب لوکیشن دقیق" onBack={() => c.closeSub()} />
       <div className="p-4">
-        <div className="overflow-hidden rounded-[26px] border border-line shadow-lg">
+        <div className="relative rounded-[26px] border border-line">
           <MapPicker
             marker={c.pickedPin}
             onPick={(p) => {
@@ -493,14 +474,6 @@ export function EasyPage({ c }: { c: AppCtx }) {
             </div>
           ))}
         </div>
-      </div>
-      <div className="px-4 pt-6">
-        <button type="button" onClick={() => c.openSub({ name: "account-detail", id: "codes" })} className="flex w-full items-center justify-between rounded-2xl border border-dashed border-brand/40 bg-brand-soft/50 px-4 py-3.5 transition active:scale-[0.99]">
-          <span className="flex items-center gap-2 text-[12px] font-black text-brand-dark">
-            <TicketPercent className="h-4.5 w-4.5" /> کدهای تخفیف من
-          </span>
-          <ChevronLeft className="h-4 w-4 text-brand" />
-        </button>
       </div>
     </div>
   );

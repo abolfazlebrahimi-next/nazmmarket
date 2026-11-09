@@ -145,7 +145,7 @@ export function CheckoutView({ c }: { c: AppCtx }) {
   const rows = [
     { label: `جمع کالاها (${pd(c.cartCount)} کالا)`, value: `${fa(c.subtotal)} تومان` },
     ...(c.discountAmount > 0 ? [{ label: "تخفیف", value: `− ${fa(c.discountAmount)} تومان`, green: true }] : []),
-    { label: "هزینه ارسال", value: c.deliveryFee === 0 ? "رایگان" : `${fa(c.deliveryFee)} تومان`, green: c.deliveryFee === 0 },
+    { label: c.deliveryFee === 0 ? "هزینه ارسال" : "ارسال (پرداخت با مشتری)", value: c.deliveryFee === 0 ? "رایگان" : `${fa(c.deliveryFee)} تومان`, green: c.deliveryFee === 0 },
   ];
 
   const submit = async () => {
@@ -160,7 +160,7 @@ export function CheckoutView({ c }: { c: AppCtx }) {
   };
 
   return (
-    <div className="fade-rise pb-36 md:pb-16">
+    <div className="fade-rise w-full min-w-0 max-w-full overflow-x-clip pb-28 md:pb-16">
       <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white/92 px-4 py-3 backdrop-blur">
         <button type="button" onClick={() => c.closeSub()} aria-label="بازگشت" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90">
           <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
@@ -168,9 +168,9 @@ export function CheckoutView({ c }: { c: AppCtx }) {
         <h2 className="flex-1 text-[15px] font-black text-ink">تکمیل خرید</h2>
       </div>
 
-      <div className="grid gap-5 px-4 pt-4 lg:grid-cols-[1fr_370px] lg:px-6">
+      <div className="grid w-full min-w-0 grid-cols-1 gap-4 px-3 pt-4 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,370px)] lg:gap-5 lg:px-6">
         {/* right column: steps */}
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <div className="rounded-3xl border border-line bg-white p-4">
             <p className="flex items-center gap-2 text-[13px] font-black text-ink">
               <MapPin className="h-4.5 w-4.5 text-brand" /> آدرس تحویل
@@ -195,7 +195,9 @@ export function CheckoutView({ c }: { c: AppCtx }) {
                 <span className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br ${c.cartStore.gradient} text-[12px] font-black text-white`}>{c.cartStore.initial}</span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12px] font-black text-ink">{c.cartStore.name}</p>
-                  <p className="mt-0.5 text-[10px] font-medium text-muted">تا {pd(c.cartStore.minutes)} دقیقه · {c.cartStore.area}</p>
+                  <p className="mt-0.5 text-[10px] font-medium leading-5 text-muted">
+                    تا {pd(c.cartStore.minutes)} دقیقه · {c.deliveryFee === 0 ? "ارسال این سفارش رایگان است" : `هزینه ارسال ${fa(c.deliveryFee)} تومان، پرداخت با مشتری`}
+                  </p>
                 </div>
                 <button type="button" onClick={c.openStorePicker} className="shrink-0 text-[11px] font-black text-brand">تغییر</button>
               </div>
@@ -223,9 +225,9 @@ export function CheckoutView({ c }: { c: AppCtx }) {
               </button>
             </div>
             {slot !== "now" && (
-              <div className="mt-2.5 flex gap-2">
+              <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {["۱۲ تا ۱۴", "۱۴ تا ۱۶", "۱۶ تا ۱۸", "۱۸ تا ۲۰"].map((s) => (
-                  <button key={s} type="button" onClick={() => setSlot(s)} className={`flex-1 rounded-xl py-2 text-[11px] font-extrabold transition ${slot === s ? "bg-ink text-white" : "bg-[#f4f3f0] text-ink"}`}>
+                  <button key={s} type="button" onClick={() => setSlot(s)} className={`min-w-0 rounded-xl px-1 py-2 text-[11px] font-extrabold transition ${slot === s ? "bg-ink text-white" : "bg-[#f4f3f0] text-ink"}`}>
                     {s}
                   </button>
                 ))}
@@ -285,8 +287,8 @@ export function CheckoutView({ c }: { c: AppCtx }) {
         </div>
 
         {/* left column: summary */}
-        <div>
-          <div className="rounded-3xl border border-line bg-white p-5 lg:sticky lg:top-6">
+        <div className="min-w-0">
+          <div className="rounded-3xl border border-line bg-white p-4 sm:p-5 lg:sticky lg:top-6">
             <p className="text-[14px] font-black text-ink">خلاصه سفارش</p>
             <div className="mt-3">
               {rows.map((row) => (
