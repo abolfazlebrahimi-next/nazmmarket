@@ -171,6 +171,7 @@ export type Order = {
   slot: string;
   payment?: "online" | "cash";
   paymentStatus?: string;
+  deliveryMode?: "courier" | "seller";
   promoCode?: string | null;
   status: number;
   time: string;

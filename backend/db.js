@@ -328,6 +328,8 @@ export async function migrate() {
     "VARCHAR(40) NOT NULL DEFAULT 'other'",
   );
   for (const [column, definition] of Object.entries({
+    delivery_mode: "VARCHAR(20) NOT NULL DEFAULT 'courier'",
+    dispatch_started_at: "VARCHAR(32) NULL",
     destination_lat: "DOUBLE NULL",
     destination_lng: "DOUBLE NULL",
     fare_details: "TEXT NULL",
@@ -530,6 +532,8 @@ export const mapOrder = (r) => ({
   payment: r.payment,
   promoCode: r.promo_code,
   status: Number(r.status),
+  deliveryMode: r.delivery_mode || "courier",
+  dispatchStartedAt: r.dispatch_started_at || null,
   time: r.time,
   createdAt: r.created_at,
   paymentStatus: r.payment_status ?? "unpaid",

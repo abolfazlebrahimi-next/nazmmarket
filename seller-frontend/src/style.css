@@ -2252,3 +2252,47 @@ button:disabled {
   max-width: none !important;
   max-height: none !important;
 }
+.seller-dispatch {
+  flex: 1 1 100%;
+  width: 100%;
+  padding: 16px;
+  background: #f2f8f4;
+  border: 1px solid #dcebe1;
+  border-radius: 14px;
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  line-height: 1.9;
+}
+.seller-dispatch strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #16865b;
+  font-size: 13px;
+}
+.seller-dispatch p {
+  color: #64786a;
+  font-size: 12px;
+  margin: 0;
+}
+.dispatch-spinner {
+  display: inline-block;
+  width: 17px;
+  height: 17px;
+  border: 2px solid #cee3d6;
+  border-top-color: #16865b;
+  border-radius: 50%;
+  animation: dispatch-search-spin 1s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes dispatch-search-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dispatch-spinner {
+    animation: none;
+  }
+}

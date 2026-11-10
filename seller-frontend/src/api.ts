@@ -57,6 +57,10 @@ export type SellerOrder = {
   addressText: string;
   time: string;
   status: number;
+  deliveryMode?: "courier" | "seller";
+  courierAssigned?: boolean;
+  dispatchStartedAt?: string;
+  dispatchTimedOut?: boolean;
   payment: string;
   paymentStatus: string;
   customer: { name: string; phone: string };
@@ -192,6 +196,11 @@ export const sellerApi = {
   }) => call<{ promotion: Promo }>("/promotions", { method: "POST", body }),
   deletePromotion: (id: number) =>
     call<{ ok: boolean }>(`/promotions/${id}`, { method: "DELETE" }),
+  selfDelivery: (id: string, complete = false) =>
+    call<{ order: SellerOrder }>(
+      `/orders/${encodeURIComponent(id)}/self-delivery${complete ? "/complete" : ""}`,
+      { method: "POST" },
+    ),
   orders: () => call<{ orders: SellerOrder[] }>("/orders"),
   setOrderStatus: (id: string, status: number) =>
     call<{ order: SellerOrder }>(`/orders/${encodeURIComponent(id)}/status`, {

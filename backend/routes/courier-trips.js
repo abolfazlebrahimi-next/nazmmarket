@@ -46,7 +46,7 @@ router.post("/orders/:id/claim", async (req, res) => {
       );
       if (!offer) return false;
       const o = await tx.get(
-        "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 FOR UPDATE",
+        "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 AND o.delivery_mode='courier' FOR UPDATE",
         [req.params.id],
       );
       const distance = o ? distanceKm(c, o) : null;

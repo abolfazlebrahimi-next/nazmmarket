@@ -730,13 +730,21 @@ router.get("/orders", async (req, res) => {
   const store = await sellerStore(req.seller.id);
   if (!store) return fail(res, 404, "store_missing", "فروشگاه پیدا نشد.");
   const rows = await db.all(
-    `SELECT o.*, u.phone AS customer_phone, CONCAT_WS(' ', u.first_name, u.last_name) AS customer_name
+    `SELECT o.*, (SELECT d.courier_id FROM order_deliveries d WHERE d.order_id=o.id) AS assigned_courier_id,
+     COALESCE(o.dispatch_started_at,(SELECT MIN(e.created_at) FROM order_events e WHERE e.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND e.status=3),o.created_at) AS search_started_at,
+     u.phone AS customer_phone, CONCAT_WS(' ', u.first_name, u.last_name) AS customer_name
      FROM orders o JOIN users u ON u.id=o.user_id WHERE o.store_id=? ORDER BY o.created_at DESC`,
     [store.id],
   );
   res.json({
     orders: rows.map((r) => ({
       ...mapOrder(r),
+      courierAssigned: r.assigned_courier_id != null,
+      dispatchStartedAt: r.search_started_at,
+      dispatchTimedOut:
+        r.status === 3 &&
+        r.assigned_courier_id == null &&
+        Date.now() - Date.parse(r.search_started_at) >= 15 * 60000,
       items: parseItems(r.items),
       addressText: r.address_text,
       paymentStatus: r.payment_status ?? "unpaid",
@@ -756,8 +764,15 @@ router.patch("/orders/:id/status", async (req, res) => {
     );
   const changed = await db.transaction(async (tx) => {
     const result = await tx.run(
-      "UPDATE orders SET status=? WHERE id=? AND store_id=? AND status=?",
-      [next, req.params.id, store?.id ?? 0, next - 1],
+      "UPDATE orders SET status=?,dispatch_started_at=CASE WHEN ?=3 THEN ? ELSE dispatch_started_at END WHERE id=? AND store_id=? AND status=?",
+      [
+        next,
+        next,
+        new Date().toISOString(),
+        req.params.id,
+        store?.id ?? 0,
+        next - 1,
+      ],
     );
     if (result.affectedRows)
       await recordOrderEvent(tx, req.params.id, next, "seller", req.seller.id);
@@ -774,6 +789,75 @@ router.patch("/orders/:id/status", async (req, res) => {
     req.params.id,
   ]);
   res.json({ order: mapOrder(row) });
+});
+
+// Self delivery is an explicit store choice, never a courier trip or earnings event.
+router.post("/orders/:id/self-delivery", async (req, res) => {
+  const store = await sellerStore(req.seller.id);
+  const ok = await db.transaction(async (tx) => {
+    const o = await tx.get(
+      "SELECT * FROM orders WHERE id=? AND store_id=? FOR UPDATE",
+      [req.params.id, store?.id ?? 0],
+    );
+    if (!o) return false;
+    if (o.delivery_mode === "seller" && [4, 5].includes(Number(o.status)))
+      return true;
+    if (Number(o.status) !== 3) return false;
+    const d = await tx.get(
+      "SELECT order_id FROM order_deliveries WHERE order_id=? FOR UPDATE",
+      [o.id],
+    );
+    if (d) return false;
+    await tx.run(
+      "UPDATE orders SET delivery_mode='seller',status=4 WHERE id=?",
+      [o.id],
+    );
+    await tx.run(
+      "UPDATE courier_offers SET state='cancelled' WHERE order_id=?",
+      [o.id],
+    );
+    await recordOrderEvent(tx, o.id, 4, "seller", req.seller.id);
+    return true;
+  });
+  if (!ok)
+    return fail(
+      res,
+      409,
+      "self_delivery_conflict",
+      "سفارش آماده نیست یا پیک آن را پذیرفته است؛ فهرست را تازه‌سازی کنید.",
+    );
+  res.json({
+    order: mapOrder(
+      await db.get("SELECT * FROM orders WHERE id=?", [req.params.id]),
+    ),
+  });
+});
+router.post("/orders/:id/self-delivery/complete", async (req, res) => {
+  const store = await sellerStore(req.seller.id);
+  const ok = await db.transaction(async (tx) => {
+    const o = await tx.get(
+      "SELECT * FROM orders WHERE id=? AND store_id=? FOR UPDATE",
+      [req.params.id, store?.id ?? 0],
+    );
+    if (!o || o.delivery_mode !== "seller") return false;
+    if (Number(o.status) === 5) return true;
+    if (Number(o.status) !== 4) return false;
+    await tx.run("UPDATE orders SET status=5 WHERE id=?", [o.id]);
+    await recordOrderEvent(tx, o.id, 5, "seller", req.seller.id);
+    return true;
+  });
+  if (!ok)
+    return fail(
+      res,
+      409,
+      "self_delivery_conflict",
+      "فقط سفارش در حال ارسال توسط همین فروشگاه قابل تأیید است.",
+    );
+  res.json({
+    order: mapOrder(
+      await db.get("SELECT * FROM orders WHERE id=?", [req.params.id]),
+    ),
+  });
 });
 
 export default router;

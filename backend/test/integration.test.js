@@ -746,6 +746,114 @@ test(
         (await ok("/api/me/state", next.token)).firstOrderEligible,
         false,
       );
+      const selfOrder = (
+        await ok(
+          "/api/orders",
+          next.token,
+          { ...payload, items: { [cake.id]: 1 }, firstOrderProductId: null },
+          "POST",
+          201,
+        )
+      ).order;
+      assert.equal(
+        (
+          await request(
+            `/api/seller/orders/${selfOrder.id}/self-delivery`,
+            seller.token,
+            {},
+            "POST",
+          )
+        ).status,
+        409,
+      );
+      for (const status of [2, 3])
+        await ok(
+          `/api/seller/orders/${selfOrder.id}/status`,
+          seller.token,
+          { status },
+          "PATCH",
+        );
+      let sellerView = (
+        await ok("/api/seller/orders", seller.token)
+      ).orders.find((o) => o.id === selfOrder.id);
+      assert.ok(sellerView.dispatchStartedAt);
+      assert.equal(sellerView.dispatchTimedOut, false);
+      await db.run("UPDATE orders SET dispatch_started_at=? WHERE id=?", [
+        new Date(Date.now() - 16 * 60000).toISOString(),
+        selfOrder.id,
+      ]);
+      sellerView = (await ok("/api/seller/orders", seller.token)).orders.find(
+        (o) => o.id === selfOrder.id,
+      );
+      assert.equal(sellerView.dispatchTimedOut, true);
+      for (const c of couriers) await ok("/api/courier/orders", c.token);
+      for (let i = 0; i < 2; i++) {
+        const r = await ok(
+          `/api/seller/orders/${selfOrder.id}/self-delivery`,
+          seller.token,
+          {},
+          "POST",
+        );
+        assert.equal(r.order.status, 4);
+        assert.equal(r.order.deliveryMode, "seller");
+      }
+      assert.equal(
+        (await ok("/api/courier/orders", winner.token)).orders.some(
+          (o) => o.id === selfOrder.id,
+        ),
+        false,
+      );
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${selfOrder.id}/claim`,
+            winner.token,
+            {},
+            "POST",
+          )
+        ).status,
+        409,
+      );
+      assert.ok(
+        !(await db.get(
+          "SELECT order_id FROM order_deliveries WHERE order_id=?",
+          [selfOrder.id],
+        )),
+      );
+      for (let i = 0; i < 2; i++)
+        assert.equal(
+          (
+            await ok(
+              `/api/seller/orders/${selfOrder.id}/self-delivery/complete`,
+              seller.token,
+              {},
+              "POST",
+            )
+          ).order.status,
+          5,
+        );
+      assert.equal(
+        Number(
+          (
+            await db.get(
+              "SELECT COUNT(*) AS n FROM order_events WHERE order_id=? AND status=5",
+              [selfOrder.id],
+            )
+          ).n,
+        ),
+        1,
+      );
+      assert.equal(
+        Number(
+          (
+            await db.get(
+              "SELECT COUNT(*) AS n FROM courier_ledger WHERE order_id=?",
+              [selfOrder.id],
+            )
+          ).n,
+        ),
+        0,
+      );
       const declineOrder = (
         await ok(
           "/api/orders",
@@ -840,6 +948,29 @@ test(
         (await ok("/api/courier/orders", winner.token)).dispatchStatus,
         "active_trip",
       );
+      assert.equal(
+        (
+          await request(
+            `/api/seller/orders/${declineOrder.id}/self-delivery`,
+            seller.token,
+            {},
+            "POST",
+          )
+        ).status,
+        409,
+      );
+      assert.equal(
+        (
+          await request(
+            `/api/seller/orders/${declineOrder.id}/self-delivery/complete`,
+            seller.token,
+            {},
+            "POST",
+          )
+        ).status,
+        409,
+      );
+
       await ok(
         `/api/courier/orders/${declineOrder.id}/arrive`,
         winner.token,

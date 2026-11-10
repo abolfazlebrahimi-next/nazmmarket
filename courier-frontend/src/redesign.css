@@ -2889,3 +2889,26 @@ html {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+/* A readable glass navigation surface; icons remain unfilled green outlines. */
+@media (max-width: 750px) {
+  .sidebar nav {
+    background: rgba(255, 255, 255, 0.91);
+    border-top: 1px solid #e8eeea;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+}
+/* Explicit sizing avoids intrinsic/shrink-to-fit map widths on mobile Safari. */
+.dashboard,
+.dashboard-body,
+.dashboard-center {
+  width: 100%;
+  min-width: 0;
+}
+.dispatch-map {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  flex: none;
+  align-self: stretch;
+}

@@ -296,7 +296,7 @@ router.get("/orders", async (req, res) => {
     Date.now() - new Date(c.location_updated_at).getTime() < 15 * 60 * 1000 &&
     validPoint(c.lat, c.lng);
   const rows = await db.all(
-    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,d.trip_status,d.arrived_at,d.picked_up_at,u.phone AS customer_phone,sa.phone AS store_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN seller_accounts sa ON sa.id=s.seller_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND d.order_id IS NULL AND NOT EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND declined.courier_id=? AND declined.created_at>?)) OR (d.courier_id=? AND o.status IN (3,4,5)) ORDER BY o.created_at DESC LIMIT 500`,
+    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,d.trip_status,d.arrived_at,d.picked_up_at,u.phone AS customer_phone,sa.phone AS store_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN seller_accounts sa ON sa.id=s.seller_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND o.delivery_mode='courier' AND d.order_id IS NULL AND NOT EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND declined.courier_id=? AND declined.created_at>?)) OR (d.courier_id=? AND o.status IN (3,4,5)) ORDER BY o.created_at DESC LIMIT 500`,
     [
       req.courier.id,
       new Date(Date.now() - 5 * 60000).toISOString(),

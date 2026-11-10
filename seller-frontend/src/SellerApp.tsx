@@ -434,6 +434,41 @@ export default function SellerApp() {
       );
     }
   };
+  const [deliveryBusy, setDeliveryBusy] = useState<string | null>(null);
+  const selfDelivery = async (order: SellerOrder, complete = false) => {
+    if (deliveryBusy) return;
+    if (
+      !window.confirm(
+        complete
+          ? "آیا سفارش واقعاً به مشتری تحویل داده شده است؟"
+          : "ارسال این سفارش را خودتان انجام می‌دهید؟ پس از تأیید، جست‌وجوی پیک متوقف می‌شود و مسئولیت ارسال با فروشگاه است.",
+      )
+    )
+      return;
+    setDeliveryBusy(order.id);
+    try {
+      const { order: updated } = await sellerApi.selfDelivery(
+        order.id,
+        complete,
+      );
+      setSellerOrders((old) =>
+        old.map((o) => (o.id === order.id ? { ...o, ...updated } : o)),
+      );
+      toast(
+        complete
+          ? "تحویل سفارش ثبت شد."
+          : "ارسال توسط فروشگاه ثبت شد؛ نیازی به کد تحویل پیک نیست.",
+      );
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "ثبت ارسال انجام نشد.");
+      sellerApi
+        .orders()
+        .then((r) => setSellerOrders(r.orders))
+        .catch(() => {});
+    } finally {
+      setDeliveryBusy(null);
+    }
+  };
   const updateOrder = async (order: SellerOrder, status: number) => {
     try {
       const { order: updated } = await sellerApi.setOrderStatus(
@@ -648,7 +683,12 @@ export default function SellerApp() {
             />
           )}
           {page === "orders" && (
-            <OrdersPage orders={sellerOrders} onStatus={updateOrder} />
+            <OrdersPage
+              orders={sellerOrders}
+              onStatus={updateOrder}
+              onSelfDelivery={selfDelivery}
+              deliveryBusy={deliveryBusy}
+            />
           )}
           {page === "products" && (
             <ProductsPage
@@ -1403,11 +1443,20 @@ function EmptyState({
 function OrdersPage({
   orders,
   onStatus,
+  onSelfDelivery,
+  deliveryBusy,
 }: {
   orders: SellerOrder[];
   onStatus: (order: SellerOrder, status: number) => void;
+  onSelfDelivery: (order: SellerOrder, complete?: boolean) => void;
+  deliveryBusy: string | null;
 }) {
   const [filter, setFilter] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const stages = [
     "ثبت سفارش",
     "در حال آماده‌سازی",
@@ -1470,7 +1519,11 @@ function OrdersPage({
                     </div>
                   </div>
                   <span className={`status-pill status-${order.status}`}>
-                    {order.status === 0 ? "لغوشده" : stages[order.status - 1]}
+                    {order.status === 0
+                      ? "لغوشده"
+                      : order.deliveryMode === "seller" && order.status === 4
+                        ? "ارسال توسط فروشگاه"
+                        : stages[order.status - 1]}
                   </span>
                 </div>
                 {order.status > 0 && (
@@ -1533,8 +1586,10 @@ function OrdersPage({
                 </div>
                 <div className="order-actions">
                   <small>
-                    <ShieldCheck size={14} /> دریافت و تحویل نهایی فقط توسط پیک
-                    تأییدشده
+                    <ShieldCheck size={14} />{" "}
+                    {order.deliveryMode === "seller"
+                      ? "ارسال توسط فروشگاه؛ بدون کد تحویل پیک"
+                      : "ارسال با پیک تأییدشده یا توسط خود فروشگاه"}
                   </small>
                   {order.status === 1 && (
                     <button
@@ -1552,18 +1607,81 @@ function OrdersPage({
                       <Check size={15} /> آماده تحویل به پیک
                     </button>
                   )}
-                  {order.status === 3 && (
-                    <span className="status-pill status-3">
-                      <Clock3 size={14} /> آماده؛ قابل پیشنهاد به پیک‌های
-                      تأییدشده و فعال در شعاع ۱۵ کیلومتری فروشگاه
-                    </span>
-                  )}
-                  {order.status === 4 && (
-                    <span className="status-pill status-4">در مسیر مشتری</span>
-                  )}
+                  {order.status === 3 &&
+                    (order.courierAssigned ? (
+                      <span className="status-pill status-3">
+                        پیک پذیرفت؛ در انتظار رسیدن پیک به فروشگاه
+                      </span>
+                    ) : (
+                      <div className="seller-dispatch" role="status">
+                        {order.dispatchTimedOut ||
+                        (order.dispatchStartedAt &&
+                          now - Date.parse(order.dispatchStartedAt) >=
+                            15 * 60000) ? (
+                          <>
+                            <strong>متأسفانه پیکی پیدا نشد</strong>
+                            <p>
+                              هنوز هیچ پیکی سفارش را نپذیرفته است. جست‌وجو ادامه
+                              دارد؛ می‌توانید خودتان ارسال کنید.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <strong>
+                              <span
+                                className="dispatch-spinner"
+                                aria-hidden="true"
+                              />{" "}
+                              در حال پیدا کردن پیک نزدیک
+                            </strong>
+                            <p>
+                              سفارش برای پیک‌های واجد شرایط نمایش داده می‌شود.
+                              اگر پیکی رد کند، پس از ۵ دقیقه دوباره به او
+                              پیشنهاد می‌شود.
+                            </p>
+                          </>
+                        )}
+                        <button
+                          className="btn primary small"
+                          disabled={deliveryBusy === order.id}
+                          onClick={() => onSelfDelivery(order)}
+                        >
+                          {deliveryBusy === order.id
+                            ? "در حال ثبت…"
+                            : "خودم ارسال می‌کنم"}
+                        </button>
+                      </div>
+                    ))}
+                  {order.status === 4 &&
+                    (order.deliveryMode === "seller" ? (
+                      <div className="seller-dispatch">
+                        <strong>
+                          در حال ارسال توسط فروشگاه — بدون کد تحویل
+                        </strong>
+                        <p>
+                          پس از رسیدن واقعی سفارش به مشتری، تحویل را تأیید کنید.
+                        </p>
+                        <button
+                          className="btn primary small"
+                          disabled={deliveryBusy === order.id}
+                          onClick={() => onSelfDelivery(order, true)}
+                        >
+                          {deliveryBusy === order.id
+                            ? "در حال ثبت…"
+                            : "سفارش را به مشتری تحویل دادم"}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="status-pill status-4">
+                        در مسیر مشتری؛ ارسال با پیک
+                      </span>
+                    ))}
                   {order.status === 5 && (
                     <span className="status-pill status-5">
-                      <Check size={14} /> تحویل نهایی توسط پیک
+                      <Check size={14} />
+                      {order.deliveryMode === "seller"
+                        ? "تحویل نهایی توسط فروشگاه"
+                        : "تحویل نهایی توسط پیک"}
                     </span>
                   )}
                 </div>

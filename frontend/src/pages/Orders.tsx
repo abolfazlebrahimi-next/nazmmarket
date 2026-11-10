@@ -49,7 +49,9 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${o.status === 5 ? "bg-emerald-50 text-mint" : o.status === 0 ? "bg-red-50 text-red-700" : "bg-brand-soft text-brand"}`}
         >
-          {statusLabel(o.status)}
+          {o.deliveryMode === "seller" && o.status === 4
+            ? "ارسال توسط فروشگاه"
+            : statusLabel(o.status)}
         </span>
       </div>
 
@@ -59,7 +61,11 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
             const progress = progressFor(o.status);
             return (
               <div
-                key={step}
+                key={
+                  o.deliveryMode === "seller" && i === 3
+                    ? "ارسال فروشگاه"
+                    : step
+                }
                 className="flex flex-1 items-center last:flex-none"
               >
                 <div className="flex flex-col items-center gap-1.5">
@@ -75,7 +81,9 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
                   <span
                     className={`text-center text-[8px] font-bold sm:text-[9px] ${i <= progress ? "text-ink" : "text-muted"}`}
                   >
-                    {step}
+                    {o.deliveryMode === "seller" && i === 3
+                      ? "ارسال فروشگاه"
+                      : step}
                   </span>
                 </div>
                 {i < statusSteps.length - 1 && (
@@ -89,7 +97,7 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
         </div>
       )}
 
-      {o.status === 4 && (
+      {o.status === 4 && o.deliveryMode !== "seller" && (
         <section className="my-4 rounded-2xl border border-mint/20 bg-mint/5 p-4">
           <p className="text-xs font-bold">کد تأیید تحویل به پیک</p>
           <p className="my-2 text-[10px] text-muted">
@@ -130,6 +138,11 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
             </p>
           )}
         </section>
+      )}
+      {o.status === 4 && o.deliveryMode === "seller" && (
+        <p className="my-4 rounded-2xl bg-mint/5 p-4 text-xs text-mint">
+          سفارش توسط فروشگاه ارسال می‌شود؛ نیازی به کد تحویل پیک نیست.
+        </p>
       )}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {o.items.slice(0, 4).map((i) => (
