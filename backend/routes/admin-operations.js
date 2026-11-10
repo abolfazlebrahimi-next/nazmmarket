@@ -1,3 +1,4 @@
+import { notifyCourier } from "../courier-notifications.js";
 import { Router } from "express";
 import { db } from "../db.js";
 import { platformSettings } from "../delivery.js";
@@ -20,17 +21,27 @@ router.get("/operations", async (_req, res) =>
 );
 router.put("/settings", async (req, res) => {
   const commission = Number(req.body.commissionPercent),
-    weather = req.body.weather;
+    weather = req.body.weather,
+    courierCommission = Number(req.body.courierCommissionPercent ?? 0);
   if (
     !["normal", "rain", "snow"].includes(weather) ||
     !Number.isFinite(commission) ||
     commission < 0 ||
-    commission > 30
+    commission > 30 ||
+    !Number.isFinite(courierCommission) ||
+    courierCommission < 0 ||
+    courierCommission > 30
   )
     return fail(res, 400, "وضعیت هوا یا درصد کارمزد معتبر نیست.");
   await db.run(
     "INSERT INTO platform_settings (id,value_json) VALUES (1,?) ON DUPLICATE KEY UPDATE value_json=VALUES(value_json)",
-    [JSON.stringify({ weather, commissionPercent: commission })],
+    [
+      JSON.stringify({
+        weather,
+        commissionPercent: commission,
+        courierCommissionPercent: courierCommission,
+      }),
+    ],
   );
   res.json({ ok: true });
 });
@@ -70,6 +81,17 @@ router.patch("/withdrawals/:id", async (req, res) => {
     [state, reference, reason, req.params.id],
   );
   if (!r.affectedRows) return fail(res, 409, "درخواست قبلاً بررسی شده است.");
+  const withdrawal = await db.get(
+    "SELECT courier_id FROM courier_withdrawals WHERE id=?",
+    [req.params.id],
+  );
+  await notifyCourier(db, withdrawal.courier_id, {
+    key: "withdrawal:" + req.params.id + ":" + state,
+    kind: "finance",
+    title: "وضعیت تسویه تغییر کرد",
+    body: state === "paid" ? "پرداخت تسویه توسط مدیریت ثبت شد." : reason,
+    target: "wallet",
+  });
   res.json({ ok: true });
 });
 router.get("/tickets/:id", async (req, res) =>
@@ -87,7 +109,7 @@ router.post("/tickets/:id/messages", async (req, res) => {
   if (!body) return fail(res, 400, "متن پاسخ لازم است.");
   const ok = await db.transaction(async (tx) => {
     const t = await tx.get(
-      "SELECT id FROM courier_tickets WHERE id=? FOR UPDATE",
+      "SELECT id,courier_id FROM courier_tickets WHERE id=? FOR UPDATE",
       [req.params.id],
     );
     if (!t) return false;
@@ -99,6 +121,13 @@ router.post("/tickets/:id/messages", async (req, res) => {
       req.body.close ? "closed" : "answered",
       t.id,
     ]);
+    await notifyCourier(tx, t.courier_id, {
+      key: "ticket:" + t.id + ":" + Date.now(),
+      kind: "support",
+      title: "پاسخ جدید پشتیبانی",
+      body: "پشتیبانی به تیکت شما پاسخ داده است.",
+      target: "tickets",
+    });
     return true;
   });
   if (!ok) return fail(res, 404, "تیکت پیدا نشد.");

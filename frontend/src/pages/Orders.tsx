@@ -31,6 +31,9 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
   const [events, setEvents] = useState<
     { status: number; actor_role: string; created_at: string }[] | null
   >(null);
+  const [deliveryCode, setDeliveryCode] = useState(""),
+    [codeError, setCodeError] = useState(""),
+    [loadingCode, setLoadingCode] = useState(false);
   return (
     <div className="rounded-[26px] border border-line bg-white p-4 shadow-[0_10px_26px_-20px_rgba(30,20,10,0.5)] transition-shadow hover:shadow-[0_16px_36px_-20px_rgba(30,20,10,0.55)] sm:p-5">
       <div className="flex items-start justify-between gap-2">
@@ -86,6 +89,45 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
         </div>
       )}
 
+      {o.status === 4 && (
+        <section className="my-4 rounded-2xl border border-mint/20 bg-mint/5 p-4">
+          <p className="text-xs font-bold">کد تأیید تحویل به پیک</p>
+          <p className="my-2 text-[10px] text-muted">
+            این کد را فقط پس از دریافت بسته در اختیار پیک قرار دهید.
+          </p>
+          {deliveryCode ? (
+            <p
+              dir="ltr"
+              className="text-center text-2xl font-black tracking-[0.4em]"
+            >
+              {deliveryCode}
+            </p>
+          ) : (
+            <button
+              className="rounded-xl bg-mint px-4 py-2 text-xs font-bold text-white"
+              disabled={loadingCode}
+              onClick={async () => {
+                setLoadingCode(true);
+                try {
+                  setDeliveryCode((await api.orders.deliveryCode(o.id)).code);
+                  setCodeError("");
+                } catch (e) {
+                  setCodeError((e as Error).message);
+                } finally {
+                  setLoadingCode(false);
+                }
+              }}
+            >
+              {loadingCode ? "در حال دریافت…" : "نمایش کد تحویل"}
+            </button>
+          )}
+          {codeError && (
+            <p role="alert" className="mt-2 text-xs text-red-600">
+              {codeError}
+            </p>
+          )}
+        </section>
+      )}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {o.items.slice(0, 4).map((i) => (
           <span

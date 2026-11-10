@@ -396,6 +396,7 @@ test(
         { online: true, lat: 35.96721, lng: 50.65043 },
         "PATCH",
       );
+      for (const c of couriers) await ok("/api/courier/orders", c.token);
       const claims = await Promise.all(
         couriers.map((c) =>
           request(
@@ -420,10 +421,76 @@ test(
         ).status,
         409,
       );
+      assert.equal(
+        (await db.get("SELECT status FROM orders WHERE id=?", [order.id]))
+          .status,
+        3,
+      );
+      await ok(
+        `/api/courier/orders/${order.id}/claim`,
+        winner.token,
+        {},
+        "POST",
+      );
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${order.id}/pickup`,
+            winner.token,
+            {},
+            "POST",
+          )
+        ).status,
+        409,
+      );
+      await ok(
+        `/api/courier/orders/${order.id}/arrive`,
+        winner.token,
+        {},
+        "POST",
+      );
+      await ok(
+        `/api/courier/orders/${order.id}/arrive`,
+        winner.token,
+        {},
+        "POST",
+      );
+      await ok(
+        `/api/courier/orders/${order.id}/pickup`,
+        winner.token,
+        {},
+        "POST",
+      );
+      await ok(
+        `/api/courier/orders/${order.id}/pickup`,
+        winner.token,
+        {},
+        "POST",
+      );
+      assert.equal(
+        (await request(`/api/orders/${order.id}/delivery-code`, null)).status,
+        401,
+      );
+      const deliveryCode = await ok(
+        `/api/orders/${order.id}/delivery-code`,
+        customer.token,
+      );
+      assert.match(deliveryCode.code, /^\d{6}$/);
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${order.id}/complete`,
+            winner.token,
+            { code: "000000" },
+            "POST",
+          )
+        ).status,
+        400,
+      );
       await ok(
         `/api/courier/orders/${order.id}/complete`,
         winner.token,
-        undefined,
+        { code: deliveryCode.code },
         "POST",
       );
       assert.equal(
@@ -435,7 +502,7 @@ test(
             "POST",
           )
         ).status,
-        409,
+        200,
       );
       const history = await ok(`/api/admin/orders/${order.id}/events`, admin);
       assert.deepEqual(
@@ -618,6 +685,7 @@ test(
           { status },
           "PATCH",
         );
+      for (const c of couriers) await ok("/api/courier/orders", c.token);
       await ok(
         `/api/courier/orders/${declineOrder.id}/decline`,
         loser.token,
@@ -658,6 +726,137 @@ test(
         winner.token,
         undefined,
         "POST",
+      );
+      assert.equal(
+        (await ok("/api/courier/orders", winner.token)).dispatchStatus,
+        "active_trip",
+      );
+      await ok(
+        `/api/courier/orders/${declineOrder.id}/arrive`,
+        winner.token,
+        {},
+        "POST",
+      );
+      await ok(
+        `/api/courier/orders/${declineOrder.id}/pickup`,
+        winner.token,
+        {},
+        "POST",
+      );
+      // Financial terms are snapshotted independently from seller commissions.
+      await db.run("UPDATE orders SET courier_commission_rate=10 WHERE id=?", [
+        declineOrder.id,
+      ]);
+      for (let i = 0; i < 5; i++)
+        assert.equal(
+          (
+            await request(
+              `/api/courier/orders/${declineOrder.id}/complete`,
+              winner.token,
+              { code: "000000" },
+              "POST",
+            )
+          ).status,
+          400,
+        );
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${declineOrder.id}/complete`,
+            winner.token,
+            { code: "000000" },
+            "POST",
+          )
+        ).status,
+        429,
+      );
+      await ok(
+        `/api/admin/orders/${declineOrder.id}/reset-delivery-code`,
+        admin,
+        {},
+        "POST",
+      );
+      const code2 = (
+        await ok(`/api/orders/${declineOrder.id}/delivery-code`, next.token)
+      ).code;
+      await ok(
+        `/api/courier/orders/${declineOrder.id}/complete`,
+        winner.token,
+        { code: code2 },
+        "POST",
+      );
+      const wallet2 = await ok("/api/courier/wallet", winner.token);
+      assert.equal(wallet2.earned, 95000);
+      assert.equal(Number(wallet2.periods.commission), 5000);
+      const history2 = await ok(
+        "/api/courier/history?status=completed",
+        winner.token,
+      );
+      assert.equal(history2.total, 2);
+      assert.equal((await ok("/api/courier/history", loser.token)).total, 0);
+      const notices = await ok("/api/courier/notifications", winner.token);
+      assert.ok(notices.unread > 0);
+      await ok(
+        "/api/courier/notifications/all/read",
+        winner.token,
+        {},
+        "PATCH",
+      );
+      assert.equal(
+        (await ok("/api/courier/notifications", winner.token)).unread,
+        0,
+      );
+      const passwordResponse = await ok(
+        "/api/courier/auth/password",
+        winner.token,
+        {
+          currentPassword: "courier-password-123",
+          newPassword: "courier-updated-password-456",
+        },
+        "POST",
+      );
+      assert.equal(passwordResponse.ok, true);
+      const expiredOrder = (
+        await ok(
+          "/api/orders",
+          next.token,
+          { ...payload, items: { [cake.id]: 1 }, firstOrderProductId: null },
+          "POST",
+          201,
+        )
+      ).order;
+      for (const status of [2, 3])
+        await ok(
+          `/api/seller/orders/${expiredOrder.id}/status`,
+          seller.token,
+          { status },
+          "PATCH",
+        );
+      await ok("/api/courier/orders", winner.token);
+      await db.run(
+        "UPDATE courier_offers SET expires_at=? WHERE courier_id=? AND order_id=?",
+        [
+          new Date(Date.now() - 1000).toISOString(),
+          winner.courier.id,
+          expiredOrder.id,
+        ],
+      );
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${expiredOrder.id}/claim`,
+            winner.token,
+            {},
+            "POST",
+          )
+        ).status,
+        409,
+      );
+      assert.equal(
+        (await ok("/api/courier/orders", winner.token)).orders.some(
+          (o) => o.id === expiredOrder.id,
+        ),
+        false,
       );
     } finally {
       // CI database is disposable. Only media files created by the test are removed here.

@@ -219,6 +219,10 @@ export const api = {
     }) =>
       request<{ order: Order }>("/orders", { method: "POST", body: payload }),
     list: () => request<{ orders: Order[] }>("/orders"),
+    deliveryCode: (id: string) =>
+      request<{ code: string; expiresAt: string }>(
+        `/orders/${encodeURIComponent(id)}/delivery-code`,
+      ),
     events: (id: string) =>
       request<{
         events: { status: number; actor_role: string; created_at: string }[];

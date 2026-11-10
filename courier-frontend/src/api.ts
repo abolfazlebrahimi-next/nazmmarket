@@ -29,7 +29,7 @@ export async function api<T = any>(
   }
   const d = await r.json().catch(() => ({}));
   if (!r.ok) {
-    if (r.status === 401 && path != "/auth/login")
+    if (r.status === 401 && path != "/auth/login" && path !== "/auth/password")
       window.dispatchEvent(new Event("courier-expired"));
     const message = d?.error?.message || "ارتباط با سرور برقرار نشد.";
     const reference = d?.error?.requestId;

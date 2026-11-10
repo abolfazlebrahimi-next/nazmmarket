@@ -2,6 +2,8 @@ import adminOperations from "./admin-operations.js";
 import { Router } from "express";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import { createDeliveryCode } from "../trip-security.js";
+import { notifyCourier } from "../courier-notifications.js";
 import { readDocument } from "../private-documents.js";
 import multer from "multer";
 import { uploadDir } from "../storage-paths.js";
@@ -425,6 +427,16 @@ router.patch("/couriers/:id/review", async (req, res) => {
     ],
   );
   if (!result.affectedRows) return fail(res, 409, "درخواست قابل بررسی نیست.");
+  await notifyCourier(db, req.params.id, {
+    key: "kyc:" + Date.now(),
+    kind: "kyc",
+    title: "وضعیت مدارک تغییر کرد",
+    body:
+      state === "approved"
+        ? "مدارک شما تأیید شد. می‌توانید آنلاین شوید."
+        : reason,
+    target: "verify",
+  });
   res.json({ ok: true });
 });
 router.patch("/stores/:id", async (req, res) => {
@@ -433,6 +445,19 @@ router.patch("/stores/:id", async (req, res) => {
     req.body.active ? 1 : 0,
     req.params.id,
   ]);
+  res.json({ ok: true });
+});
+router.post("/orders/:id/reset-delivery-code", async (req, res) => {
+  const code = createDeliveryCode();
+  const changed = await db.run(
+    "UPDATE order_deliveries d JOIN orders o ON o.id=d.order_id SET d.delivery_otp=?,d.otp_attempts=0,d.otp_expires_at=? WHERE o.id=? AND o.status=4 AND d.completed_at IS NULL",
+    [
+      code.encrypted,
+      new Date(Date.now() + 86400000).toISOString(),
+      req.params.id,
+    ],
+  );
+  if (!changed.affectedRows) return fail(res, 409, "سفر در مرحلهٔ تحویل نیست.");
   res.json({ ok: true });
 });
 router.get("/orders/:id/events", async (req, res) =>

@@ -9,6 +9,8 @@ import {
   EyeOff,
   ArrowLeft,
   X,
+  KeyRound,
+  WifiOff,
   ChevronLeft,
   Clock3,
   History,
@@ -26,10 +28,16 @@ import {
 import { api, json, TOKEN, type Courier, money, verifyLabel } from "./api";
 import Verification from "./Verification";
 import Dashboard from "./Dashboard";
+import TripHistory from "./TripHistory";
+import ActiveDelivery, {
+  OfferCountdown,
+  FinanceBreakdown,
+} from "./ActiveDelivery";
 type Row = Record<string, any>;
 const nav = [
   ["work", "داشبورد", House],
   ["orders", "سفارش‌های من", Package],
+  ["active", "سفر فعال", Bike],
   ["history", "تاریخچهٔ سفرها", History],
   ["wallet", "کیف پول", Wallet],
   ["tickets", "پشتیبانی", LifeBuoy],
@@ -41,6 +49,11 @@ export default function CourierApp() {
     [mode, setMode] = useState("login"),
     [showPassword, setShowPassword] = useState(false),
     [page, setPage] = useState("work"),
+    [connected, setConnected] = useState(navigator.onLine),
+    [notifications, setNotifications] = useState<Row[]>([]),
+    [unread, setUnread] = useState(0),
+    [notificationError, setNotificationError] = useState(""),
+    [ticketTrip, setTicketTrip] = useState(""),
     [orders, setOrders] = useState<Row[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -56,6 +69,32 @@ export default function CourierApp() {
     [locationFresh, setLocationFresh] = useState(false),
     [dispatchStatus, setDispatchStatus] = useState("offline");
   const seenOffers = useRef(new Set<string>());
+  async function loadNotifications() {
+    try {
+      const r = await api("/notifications");
+      setNotifications(Array.isArray(r.notifications) ? r.notifications : []);
+      setUnread(Number(r.unread || 0));
+      setNotificationError("");
+    } catch (e) {
+      setNotificationError((e as Error).message);
+    }
+  }
+  useEffect(() => {
+    const online = () => setConnected(true),
+      offline = () => setConnected(false);
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+    };
+  }, []);
+  useEffect(() => {
+    if (!courier?.id) return;
+    void loadNotifications();
+    const timer = setInterval(() => void loadNotifications(), 10000);
+    return () => clearInterval(timer);
+  }, [courier?.id]);
   async function loadOrders() {
     try {
       const r = await api("/orders");
@@ -101,7 +140,7 @@ export default function CourierApp() {
     if (sessionStorage.getItem(TOKEN))
       api("/auth/me")
         .then((r) => setCourier(r.courier))
-        .catch(() => expired())
+        .catch((e) => setError((e as Error).message))
         .finally(() => setBoot(false));
     return () => window.removeEventListener("courier-expired", expired);
   }, []);
@@ -198,15 +237,32 @@ export default function CourierApp() {
             ),
           ),
         )
-        .catch(() => setLocationFresh(false));
+        .catch(async () => {
+          setLocationFresh(false);
+          setError(
+            "دسترسی GPS قطع شد؛ دریافت پیشنهاد تازه متوقف شد. سفر جاری شما حفظ شده است.",
+          );
+          setCourier((c) => (c ? { ...c, online: false } : c));
+          try {
+            await api("/availability", json({ online: false }, "PATCH"));
+          } catch {
+            /* Server also expires stale locations. */
+          }
+        });
     }, 120000);
     return () => clearInterval(timer);
   }, [courier?.online]);
-  async function act(order: Row, action: string) {
+  async function act(order: Row, action: string, body: Row = {}) {
+    if (!navigator.onLine) {
+      setError(
+        "اتصال اینترنت قطع است؛ عملیات ثبت نشده. پس از اتصال، وضعیت سفر را تازه‌سازی کنید.",
+      );
+      return;
+    }
     if (
       action === "claim" &&
       !window.confirm(
-        "سفارش را از فروشگاه تحویل گرفته‌اید؟ با تأیید، دریافت سفارش ثبت و مرحلهٔ ارسال به مشتری آغاز می‌شود.",
+        "پیشنهاد را قبول می‌کنید؟ پس از پذیرش، به فروشگاه حرکت کنید. دریافت بسته در مرحلهٔ جدا ثبت می‌شود.",
       )
     )
       return;
@@ -222,19 +278,32 @@ export default function CourierApp() {
       !window.confirm("آیا سفارش را به مشتری تحویل داده‌اید؟")
     )
       return;
+    if (
+      action === "pickup" &&
+      !window.confirm(
+        "بسته را واقعاً از فروشگاه تحویل گرفته‌اید و سلامت آن را بررسی کرده‌اید؟",
+      )
+    )
+      return;
     setBusy(true);
     try {
-      await api(`/orders/${encodeURIComponent(order.id)}/${action}`, {
-        method: "POST",
-      });
+      await api(
+        `/orders/${encodeURIComponent(order.id)}/${action}`,
+        json(body),
+      );
       setNotice(
         action === "claim"
-          ? "سفارش دریافت شد؛ با مشتری هماهنگ کنید."
+          ? "پیشنهاد پذیرفته شد؛ اکنون به سمت فروشگاه حرکت کنید."
           : action === "decline"
             ? "پیشنهاد رد شد؛ برای سایر پیک‌ها همچنان در دسترس است."
-            : "تحویل نهایی ثبت و دستمزد به کیف پول اضافه شد.",
+            : action === "arrive"
+              ? "رسیدن شما به فروشگاه ثبت شد."
+              : action === "pickup"
+                ? "دریافت بسته ثبت شد؛ به سمت مشتری حرکت کنید."
+                : "تحویل نهایی ثبت و درآمد خالص به کیف پول اضافه شد.",
       );
       await loadOrders();
+      if (action === "claim") setPage("active");
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -379,6 +448,16 @@ export default function CourierApp() {
           {notice && <p className="alert success">{notice}</p>}
           <button
             className="text-btn"
+            onClick={() =>
+              setNotice(
+                "بازیابی پیامکی هنوز به سرویس SMS متصل نشده است؛ برای بازیابی حساب با پشتیبانی پلتفرم تماس بگیرید.",
+              )
+            }
+          >
+            رمز عبور را فراموش کرده‌اید؟
+          </button>
+          <button
+            className="text-btn"
             onClick={() => {
               setMode(mode === "login" ? "register" : "login");
               setError("");
@@ -395,15 +474,21 @@ export default function CourierApp() {
     courier.active && courier.verificationStatus === "approved";
   const dispatchMessage = !isApproved
     ? "دریافت پیشنهاد تا تأیید مدارک توسط مدیر متوقف است. وضعیت را در تنظیمات بررسی کنید."
-    : !courier.online
-      ? "برای دریافت پیشنهاد، کلید فعالیت را روشن و اجازهٔ موقعیت مکانی را فعال کنید."
-      : !locationFresh || dispatchStatus === "location_stale"
-        ? "موقعیت شما معتبر یا به‌روز نیست؛ موقعیت مکانی را تازه‌سازی کنید."
-        : dispatchStatus === "offers_available"
-          ? "پیشنهادهای آمادهٔ دریافت در ادامه هستند. دریافت پیشنهادها هر ۱۰ ثانیه بررسی می‌شود."
-          : "در شعاع ۱۵ کیلومتری شما سفارش آماده‌ای پیدا نشد. فروشنده باید سفارش را به «آماده تحویل به پیک» برساند و مختصات فروشگاه ثبت شده باشد. بررسی خودکار هر ۱۰ ثانیه انجام می‌شود.";
+    : dispatchStatus === "active_trip"
+      ? "یک سفر فعال دارید؛ تا پایان آن پیشنهاد تازه دریافت نمی‌کنید."
+      : !courier.online
+        ? "برای دریافت پیشنهاد، کلید فعالیت را روشن و اجازهٔ موقعیت مکانی را فعال کنید."
+        : !locationFresh || dispatchStatus === "location_stale"
+          ? "موقعیت شما معتبر یا به‌روز نیست؛ موقعیت مکانی را تازه‌سازی کنید."
+          : dispatchStatus === "offers_available"
+            ? "پیشنهادهای آمادهٔ دریافت در ادامه هستند. دریافت پیشنهادها هر ۱۰ ثانیه بررسی می‌شود."
+            : "در شعاع ۱۵ کیلومتری شما سفارش آماده‌ای پیدا نشد. فروشنده باید سفارش را به «آماده تحویل به پیک» برساند و مختصات فروشگاه ثبت شده باشد. بررسی خودکار هر ۱۰ ثانیه انجام می‌شود.";
   const shown = orders.filter((o) =>
-    page === "history" ? o.status === 5 : o.status !== 5,
+    page === "history"
+      ? o.status === 5
+      : page === "active"
+        ? o.claimedByMe && o.status !== 5
+        : o.status !== 5,
   );
   const titles: Record<string, string> = {
     work: `سلام ${courier.fullName.split(" ")[0]} جان!`,
@@ -412,11 +497,14 @@ export default function CourierApp() {
     settings: "تنظیمات حساب",
     verify: "احراز هویت پیک",
     tickets: "پشتیبانی و تیکت",
-    history: "سفرهای تکمیل‌شده",
+    history: "تاریخچهٔ سفرها",
+    notifications: "مرکز اعلان‌ها",
+    password: "تغییر رمز عبور",
+    active: "مدیریت سفر فعال",
   };
   const orderContent = (
     <>
-      {["work", "orders", "history"].includes(page) && (
+      {["work", "orders", "active"].includes(page) && (
         <div className="section-heading orders-heading">
           <h2>
             {page === "history" ? <History size={21} /> : <Bell size={21} />}{" "}
@@ -432,129 +520,155 @@ export default function CourierApp() {
           )}
         </div>
       )}
-      {["work", "orders", "history"].includes(page) &&
+      {["work", "orders", "active"].includes(page) &&
         (shown.length ? (
           <div className="orders-grid">
-            {shown.map((o) => (
-              <article className="order-card" key={o.id}>
-                <div className="order-top">
-                  <span className="order-id">{o.id}</span>
-                  <span
-                    className={`badge ${o.status === 5 ? "approved" : o.claimedByMe ? "shipping" : "pending"}`}
-                  >
-                    {o.status === 5
-                      ? "تحویل‌شده"
-                      : o.claimedByMe
-                        ? "در مسیر مشتری"
-                        : "آماده دریافت"}
-                  </span>
-                </div>
-                <div className="fare">
-                  <small>دستمزد این مسیر</small>
-                  <strong>
-                    {money(o.courierFee)} <span>تومان</span>
-                  </strong>
-                </div>
-                <div className="route">
-                  <div>
-                    <span className="route-dot" />
-                    <section>
-                      <small>دریافت از فروشگاه</small>
-                      <b>{o.storeName}</b>
-                      <p>{o.storeAddress}</p>
-                    </section>
-                  </div>
-                  <div>
-                    <MapPin size={17} />
-                    <section>
-                      <small>تحویل به مشتری</small>
-                      <b>{o.addressTitle}</b>
-                      <p>{o.addressText}</p>
-                    </section>
-                  </div>
-                </div>
-                <div className="trip-meta">
-                  <span>
-                    <MapPin size={13} />
-                    {o.pickupKm === null
-                      ? "فاصله نامشخص"
-                      : money(o.pickupKm) + " کیلومتر تا فروشگاه"}
-                  </span>
-                  <span>
-                    <Clock3 size={13} />
-                    {money(o.fareDetails?.minutes || 15)} دقیقه تخمینی
-                  </span>
-                  <span>
-                    {money(o.fareDetails?.weightKg || 0.5)} کیلوگرم تخمینی
-                  </span>
-                </div>
-                <div className="items">
-                  {o.items.map((i: Row) => (
-                    <span key={i.id}>
-                      {i.name} × {money(i.qty)}
+            {shown.map((o) =>
+              o.claimedByMe && o.status !== 5 ? (
+                <ActiveDelivery
+                  key={o.id}
+                  order={o}
+                  busy={busy}
+                  act={act}
+                  support={() => {
+                    setTicketTrip(o.id);
+                    setNotice(
+                      `برای گزارش مشکل، شماره سفر ${o.id} را در تیکت بنویسید.`,
+                    );
+                    setPage("tickets");
+                  }}
+                />
+              ) : (
+                <article className="order-card" key={o.id}>
+                  <div className="order-top">
+                    <span className="order-id">{o.id}</span>
+                    {!o.claimedByMe && (
+                      <OfferCountdown
+                        expiresAt={o.offerExpiresAt}
+                        onExpire={() =>
+                          setOrders((rows) => rows.filter((r) => r.id !== o.id))
+                        }
+                      />
+                    )}
+                    <span
+                      className={`badge ${o.status === 5 ? "approved" : o.claimedByMe ? "shipping" : "pending"}`}
+                    >
+                      {o.status === 5
+                        ? "تحویل‌شده"
+                        : o.claimedByMe
+                          ? "در مسیر مشتری"
+                          : "آماده دریافت"}
                     </span>
-                  ))}
-                </div>
-                <div className="order-links">
-                  {o.storeLat != null && o.storeLng != null && (
-                    <a
-                      target="_blank"
-                      rel="noreferrer"
-                      href={`https://www.openstreetmap.org/?mlat=${o.storeLat}&mlon=${o.storeLng}#map=17/${o.storeLat}/${o.storeLng}`}
-                    >
-                      <MapPin size={14} />
-                      مسیریابی فروشگاه
-                    </a>
-                  )}
-                  {o.customerPhone && (
-                    <a href={`tel:${o.customerPhone}`}>
-                      <Phone size={14} />
-                      تماس مشتری
-                    </a>
-                  )}
-                </div>
-                {o.status === 4 && (
-                  <div className="delivery-progress">
-                    <span className="done">دریافت از فروشگاه</span>
-                    <span className="current">در مسیر مشتری</span>
-                    <span>تحویل نهایی</span>
                   </div>
-                )}
-                {o.status === 3 && (
-                  <p className="pickup-help">
-                    پس از رسیدن به فروشگاه و دریافت بسته، سفارش را قبول کنید.
-                  </p>
-                )}
-                {o.status === 3 && (
-                  <div className="offer-actions">
+                  <div className="fare">
+                    <small>دستمزد این مسیر</small>
+                    <strong>
+                      {money(o.courierFee)} <span>تومان</span>
+                    </strong>
+                  </div>
+                  <FinanceBreakdown order={o} />
+                  <div className="route">
+                    <div>
+                      <span className="route-dot" />
+                      <section>
+                        <small>دریافت از فروشگاه</small>
+                        <b>{o.storeName}</b>
+                        <p>{o.storeAddress}</p>
+                      </section>
+                    </div>
+                    <div>
+                      <MapPin size={17} />
+                      <section>
+                        <small>تحویل به مشتری</small>
+                        <b>{o.addressTitle}</b>
+                        <p>{o.addressText}</p>
+                      </section>
+                    </div>
+                  </div>
+                  <div className="trip-meta">
+                    <span>
+                      <MapPin size={13} />
+                      {o.pickupKm === null
+                        ? "فاصله نامشخص"
+                        : money(o.pickupKm) + " کیلومتر تا فروشگاه"}
+                    </span>
+                    <span>
+                      <Clock3 size={13} />
+                      {money(o.fareDetails?.minutes || 15)} دقیقه تخمینی
+                    </span>
+                    <span>
+                      {money(o.fareDetails?.weightKg || 0.5)} کیلوگرم تخمینی
+                    </span>
+                  </div>
+                  <div className="items">
+                    {o.items.map((i: Row) => (
+                      <span key={i.id}>
+                        {i.name} × {money(i.qty)}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="order-links">
+                    {o.storeLat != null && o.storeLng != null && (
+                      <a
+                        target="_blank"
+                        rel="noreferrer"
+                        href={`https://www.openstreetmap.org/?mlat=${o.storeLat}&mlon=${o.storeLng}#map=17/${o.storeLat}/${o.storeLng}`}
+                      >
+                        <MapPin size={14} />
+                        مسیریابی فروشگاه
+                      </a>
+                    )}
+                    {o.customerPhone && (
+                      <a href={`tel:${o.customerPhone}`}>
+                        <Phone size={14} />
+                        تماس مشتری
+                      </a>
+                    )}
+                  </div>
+                  {o.status === 4 && (
+                    <div className="delivery-progress">
+                      <span className="done">دریافت از فروشگاه</span>
+                      <span className="current">در مسیر مشتری</span>
+                      <span>تحویل نهایی</span>
+                    </div>
+                  )}
+                  {o.status === 3 && (
+                    <p className="pickup-help">
+                      پس از قبول پیشنهاد، سفر به فروشگاه آغاز می‌شود؛ دریافت
+                      بسته جداگانه تأیید می‌شود.
+                    </p>
+                  )}
+                  {o.status === 3 && (
+                    <div className="offer-actions">
+                      <button
+                        disabled={busy || !courier.online}
+                        className="primary full"
+                        onClick={() => void act(o, "claim")}
+                      >
+                        <PackageCheck size={18} />
+                        قبول پیشنهاد
+                      </button>
+                      <button
+                        className="decline"
+                        disabled={busy}
+                        onClick={() => void act(o, "decline")}
+                      >
+                        <X size={17} /> رد پیشنهاد
+                      </button>
+                    </div>
+                  )}
+                  {o.status === 4 && o.claimedByMe && (
                     <button
-                      disabled={busy || !courier.online}
-                      className="primary full"
-                      onClick={() => void act(o, "claim")}
-                    >
-                      <PackageCheck size={18} />
-                      قبول و دریافت سفارش
-                    </button>
-                    <button
-                      className="decline"
                       disabled={busy}
-                      onClick={() => void act(o, "decline")}
+                      className="primary full"
+                      onClick={() => void act(o, "complete")}
                     >
-                      <X size={17} /> رد پیشنهاد
+                      ثبت تحویل نهایی به مشتری
                     </button>
-                  </div>
-                )}
-                {o.status === 4 && o.claimedByMe && (
-                  <button
-                    disabled={busy}
-                    className="primary full"
-                    onClick={() => void act(o, "complete")}
-                  >
-                    ثبت تحویل نهایی به مشتری
-                  </button>
-                )}
-              </article>
-            ))}
+                  )}
+                </article>
+              ),
+            )}
           </div>
         ) : (
           <Empty
@@ -600,11 +714,15 @@ export default function CourierApp() {
             >
               <Icon size={19} />
               <span>{label}</span>
-              {id === "orders" && orders.some((o) => o.status === 3) && (
-                <small className="nav-count">
-                  {money(orders.filter((o) => o.status === 3).length)}
-                </small>
-              )}
+              {id === "orders" &&
+                orders.some((o) => o.status === 3 && !o.claimedByMe) && (
+                  <small className="nav-count">
+                    {money(
+                      orders.filter((o) => o.status === 3 && !o.claimedByMe)
+                        .length,
+                    )}
+                  </small>
+                )}
             </button>
           ))}
         </nav>
@@ -637,15 +755,11 @@ export default function CourierApp() {
           <div className="topbar-tools">
             <button
               className="notification-button"
-              onClick={() => go("orders")}
-              aria-label="مشاهده پیشنهادهای سفارش"
+              onClick={() => go("notifications")}
+              aria-label="مرکز اعلان‌ها"
             >
               <Bell size={21} />
-              {orders.some((o) => o.status === 3) && (
-                <span>
-                  {money(orders.filter((o) => o.status === 3).length)}
-                </span>
-              )}
+              {unread > 0 && <span>{money(unread)}</span>}
             </button>
             <button
               className="refresh"
@@ -701,6 +815,13 @@ export default function CourierApp() {
             </button>
           )}
         </div>
+        {!connected && (
+          <div className="offline-banner" role="status">
+            <WifiOff size={18} />
+            اتصال اینترنت قطع است. پذیرش و تحویل تا برقراری اتصال تأیید
+            نمی‌شوند؛ درخواست‌ها خودکار تکرار نخواهند شد.
+          </div>
+        )}
         {error && (
           <p role="alert" className="alert error">
             {error}
@@ -715,6 +836,12 @@ export default function CourierApp() {
             </button>
           </p>
         )}
+        {page !== "active" &&
+          orders.some((o) => o.claimedByMe && o.status !== 5) && (
+            <button className="primary full" onClick={() => go("active")}>
+              <Bike size={18} /> ادامهٔ سفر فعال
+            </button>
+          )}
         {page === "work" && (
           <Dashboard
             courier={courier}
@@ -729,9 +856,152 @@ export default function CourierApp() {
           </Dashboard>
         )}
         {page !== "work" && orderContent}
+        {page === "history" && <TripHistory />}
+        {page === "notifications" && (
+          <section className="panel">
+            <div className="section-heading">
+              <h2>
+                <Bell size={20} />
+                اعلان‌های شما
+              </h2>
+              <button
+                onClick={async () => {
+                  try {
+                    await api("/notifications/all/read", json({}, "PATCH"));
+                    await loadNotifications();
+                  } catch (e) {
+                    setError((e as Error).message);
+                  }
+                }}
+              >
+                خواندن همه
+              </button>
+            </div>
+            {notificationError ? (
+              <p className="alert error">
+                {notificationError}
+                <button onClick={() => void loadNotifications()}>
+                  تلاش مجدد
+                </button>
+              </p>
+            ) : !notifications.length ? (
+              <Empty
+                title="اعلانی ثبت نشده"
+                text="خبرهای سفر، بررسی مدارک و پاسخ پشتیبانی اینجا قرار می‌گیرند."
+              />
+            ) : (
+              notifications.map((n) => (
+                <button
+                  className={`notification-row ${n.is_read ? "" : "unread"}`}
+                  key={n.id}
+                  onClick={async () => {
+                    try {
+                      await api(
+                        `/notifications/${n.id}/read`,
+                        json({}, "PATCH"),
+                      );
+                      await loadNotifications();
+                      go(n.target);
+                    } catch (e) {
+                      setError((e as Error).message);
+                    }
+                  }}
+                >
+                  <Bell size={19} />
+                  <div>
+                    <b>{n.title}</b>
+                    <p>{n.body}</p>
+                    <small>
+                      {new Date(n.created_at).toLocaleString("fa-IR")}
+                    </small>
+                  </div>
+                </button>
+              ))
+            )}
+            <p className="spec-hint">
+              این مرکز اعلان داخل پنل است؛ Push موبایل و اعلان هنگام بسته بودن
+              برنامه هنوز متصل نیست.
+            </p>
+          </section>
+        )}
+        {page === "password" && (
+          <section className="panel">
+            <h2>تغییر رمز عبور</h2>
+            <p className="muted">
+              پس از تغییر رمز، نشست‌های دیگر شما بسته می‌شوند.
+            </p>
+            <form
+              className="form-stack"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setBusy(true);
+                const f = Object.fromEntries(new FormData(e.currentTarget));
+                try {
+                  if (f.newPassword !== f.confirmPassword)
+                    throw new Error("تکرار رمز جدید یکسان نیست.");
+                  await api("/auth/password", json(f));
+                  setNotice("رمز عبور تغییر کرد؛ نشست‌های دیگر بسته شدند.");
+                  go("settings");
+                  setNotice("رمز عبور با موفقیت تغییر کرد.");
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <label>
+                رمز فعلی
+                <input
+                  name="currentPassword"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+              <label>
+                رمز جدید
+                <input
+                  name="newPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={10}
+                  maxLength={128}
+                  required
+                />
+              </label>
+              <label>
+                تکرار رمز جدید
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={10}
+                  maxLength={128}
+                  required
+                />
+              </label>
+              <button className="primary" disabled={busy}>
+                ذخیرهٔ رمز جدید
+              </button>
+            </form>
+          </section>
+        )}
         {page === "settings" && (
           <div className="settings-grid">
             {[
+              [
+                "password",
+                "تغییر رمز عبور",
+                "امنیت حساب و بستن نشست‌های دیگر",
+                KeyRound,
+              ],
+              [
+                "notifications",
+                "مرکز اعلان‌ها",
+                "خبرهای سفر، مدارک و امور مالی",
+                Bell,
+              ],
               [
                 "verify",
                 "احراز هویت",
@@ -793,6 +1063,21 @@ export default function CourierApp() {
                 </h2>
                 <p>درآمد کل ثبت‌شده: {money(wallet.earned)} تومان</p>
               </div>
+            </div>
+            <div className="wallet-periods">
+              {[
+                ["today", "درآمد امروز"],
+                ["week", "هفت روز اخیر"],
+                ["month", "درآمد این ماه"],
+                ["commission", "کمیسیون پرداخت‌شده"],
+              ].map(([id, label]) => (
+                <article key={id}>
+                  <small>{label}</small>
+                  <strong>
+                    {money(wallet.periods?.[id])} <small>تومان</small>
+                  </strong>
+                </article>
+              ))}
             </div>
             <div className="two-cols">
               <section className="panel">
@@ -877,7 +1162,13 @@ export default function CourierApp() {
                 {wallet.ledger.map((r: Row) => (
                   <div className="list-row" key={r.order_id}>
                     <span>{r.order_id}</span>
-                    <b>+{money(r.amount)} تومان</b>
+                    <div>
+                      <b>+{money(r.amount)} تومان خالص</b>
+                      <small>
+                        ناخالص {money(r.gross_amount ?? r.amount)} · کمیسیون{" "}
+                        {money(r.commission_amount)}
+                      </small>
+                    </div>
                     <small>
                       {new Date(r.created_at).toLocaleString("fa-IR")}
                     </small>
@@ -912,7 +1203,34 @@ export default function CourierApp() {
               >
                 <label>
                   موضوع
-                  <input name="subject" required maxLength={180} />
+                  <input
+                    name="subject"
+                    required
+                    maxLength={180}
+                    defaultValue={ticketTrip ? `مشکل سفر ${ticketTrip}` : ""}
+                  />
+                </label>
+                <label>
+                  دسته‌بندی
+                  <select
+                    name="category"
+                    defaultValue={ticketTrip ? "order" : "other"}
+                  >
+                    {[
+                      ["order", "مشکلات سفارش"],
+                      ["store", "سوپرمارکت"],
+                      ["customer", "مشتری"],
+                      ["finance", "مالی و کیف پول"],
+                      ["kyc", "احراز هویت"],
+                      ["technical", "مشکل فنی"],
+                      ["incident", "حادثه و خرابی موتور"],
+                      ["other", "سایر"],
+                    ].map(([id, title]) => (
+                      <option value={id} key={id}>
+                        {title}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   شرح درخواست

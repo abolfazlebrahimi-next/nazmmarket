@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import * as L from "leaflet";
-import { LocateFixed, MapPin, Navigation, Store } from "lucide-react";
+import {
+  LocateFixed,
+  MapPin,
+  Navigation,
+  RefreshCw,
+  WifiOff,
+} from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import type { Courier } from "./api";
 type Order = Record<string, any>;
@@ -11,6 +17,54 @@ const valid = (lat: unknown, lng: unknown) =>
   Number.isFinite(Number(lng)) &&
   Math.abs(Number(lat)) <= 90 &&
   Math.abs(Number(lng)) <= 180;
+const providers = [
+  {
+    name: "OpenStreetMap",
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenStreetMap",
+  },
+  {
+    name: "CARTO Voyager",
+    url: "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+    attribution: "&copy; OpenStreetMap &copy; CARTO",
+  },
+];
+// An explicitly labelled coordinate grid, not invented roads, when tile services
+// are unreachable. Leaflet markers/zoom still work at their actual coordinates.
+function coordinateGrid() {
+  class CoordinatesLayer extends L.GridLayer {
+    createTile(coords: L.Coords) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 256;
+      const c = canvas.getContext("2d")!;
+      c.fillStyle = "#e5eee8";
+      c.fillRect(0, 0, 256, 256);
+      c.strokeStyle = "#c3d6cb";
+      c.lineWidth = 1;
+      for (let i = 0; i <= 256; i += 64) {
+        c.beginPath();
+        c.moveTo(i, 0);
+        c.lineTo(i, 256);
+        c.moveTo(0, i);
+        c.lineTo(256, i);
+        c.stroke();
+      }
+      const lng = (coords.x / 2 ** coords.z) * 360 - 180;
+      const lat =
+        (Math.atan(Math.sinh(Math.PI * (1 - (2 * coords.y) / 2 ** coords.z))) *
+          180) /
+        Math.PI;
+      c.font = "11px sans-serif";
+      c.fillStyle = "#729580";
+      c.fillText(`${lat.toFixed(3)}°, ${lng.toFixed(3)}°`, 10, 20);
+      return canvas;
+    }
+  }
+  return new CoordinatesLayer({
+    tileSize: 256,
+    attribution: "نمای مختصات — بدون اطلاعات خیابان",
+  });
+}
 export default function DispatchMap({
   courier,
   orders,
@@ -22,46 +76,87 @@ export default function DispatchMap({
   onLocate: () => void;
   busy: boolean;
 }) {
-  const host = useRef<HTMLDivElement>(null);
-  const map = useRef<L.Map | null>(null);
-  const markers = useRef<L.LayerGroup | null>(null);
-  const [failed, setFailed] = useState(false);
+  const host = useRef<HTMLDivElement>(null),
+    map = useRef<L.Map | null>(null),
+    markers = useRef<L.LayerGroup | null>(null),
+    fitKey = useRef("");
+  const [provider, setProvider] = useState(0),
+    [retry, setRetry] = useState(0),
+    [state, setState] = useState<"loading" | "ready" | "coordinates">(
+      "loading",
+    );
   const hasPosition = valid(courier.lat, courier.lng);
   const visible = orders.filter(
     (o) => o.status !== 5 && valid(o.storeLat, o.storeLng),
   );
   const hasPoints = hasPosition || visible.length > 0;
   useEffect(() => {
-    if (!host.current || !hasPoints) return;
+    if (!host.current) return;
+    const defaultLat = Number(import.meta.env.VITE_MAP_DEFAULT_LAT) || 35.96721,
+      defaultLng = Number(import.meta.env.VITE_MAP_DEFAULT_LNG) || 50.65043;
     const m = L.map(host.current, {
       zoomControl: false,
       scrollWheelZoom: false,
-    }).setView([35.96721, 50.65043], 13);
+    }).setView([defaultLat, defaultLng], 13);
     map.current = m;
     L.control.zoom({ position: "bottomleft" }).addTo(m);
-    const tiles = L.tileLayer(
-      "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-      { maxZoom: 19, attribution: "&copy; OpenStreetMap &copy; CARTO" },
-    ).addTo(m);
-    let errors = 0;
-    tiles.on("tileload", () => setFailed(false));
-    tiles.on("tileerror", () => {
-      errors++;
-      if (errors === 3)
-        tiles.setUrl("https://tile.openstreetmap.org/{z}/{x}/{y}.png");
-      if (errors >= 6) setFailed(true);
-    });
     markers.current = L.layerGroup().addTo(m);
-    const resize = new ResizeObserver(() => m.invalidateSize());
-    resize.observe(host.current);
-    requestAnimationFrame(() => m.invalidateSize());
+    const observer = new ResizeObserver(() => m.invalidateSize());
+    observer.observe(host.current);
+    const raf = requestAnimationFrame(() => m.invalidateSize());
     return () => {
-      resize.disconnect();
+      cancelAnimationFrame(raf);
+      observer.disconnect();
       m.remove();
       map.current = null;
       markers.current = null;
+      fitKey.current = "";
     };
-  }, [hasPoints]);
+  }, []);
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    let disposed = false,
+      loaded = false,
+      failures = 0;
+    setState("loading");
+    const config = providers[provider];
+    const tiles = L.tileLayer(config.url, {
+      maxZoom: 19,
+      attribution: config.attribution,
+      crossOrigin: true,
+    }).addTo(m);
+    let fallback: L.GridLayer | null = null;
+    const fail = () => {
+      if (disposed || loaded) return;
+      if (provider === 0) {
+        setProvider(1);
+        return;
+      }
+      if (!fallback) {
+        m.removeLayer(tiles);
+        fallback = coordinateGrid().addTo(m);
+        setState("coordinates");
+      }
+    };
+    const timer = setTimeout(fail, 10000);
+    tiles.on("tileload", () => {
+      if (!disposed) {
+        loaded = true;
+        clearTimeout(timer);
+        setState("ready");
+      }
+    });
+    tiles.on("tileerror", () => {
+      if (++failures >= 3) fail();
+    });
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      m.removeLayer(tiles);
+      if (fallback) m.removeLayer(fallback);
+    };
+  }, [provider, retry]);
   useEffect(() => {
     const m = map.current,
       group = markers.current;
@@ -75,20 +170,20 @@ export default function DispatchMap({
       css: string,
       symbol: string,
     ) => {
-      const point: L.LatLngExpression = [Number(lat), Number(lng)];
-      points.push(point);
-      const pin = L.marker(point, {
+      const p: L.LatLngExpression = [Number(lat), Number(lng)];
+      points.push(p);
+      const text = document.createElement("span");
+      text.textContent = label;
+      L.marker(p, {
         icon: L.divIcon({
           className: "map-pin-host",
           html: `<span class="map-pin ${css}">${symbol}</span>`,
           iconSize: [38, 38],
           iconAnchor: [19, 19],
         }),
-      }).addTo(group);
-      // Text node prevents store names/addresses from being interpreted as HTML.
-      const text = document.createElement("span");
-      text.textContent = label;
-      pin.bindTooltip(text);
+      })
+        .addTo(group)
+        .bindTooltip(text);
     };
     if (hasPosition)
       add(courier.lat, courier.lng, "موقعیت ثبت‌شدهٔ شما", "you", "●");
@@ -103,60 +198,86 @@ export default function DispatchMap({
           "⌂",
         );
     });
-    if (points.length > 1)
-      m.fitBounds(L.latLngBounds(points), { padding: [55, 55], maxZoom: 15 });
-    else if (points.length) m.setView(points[0], 14);
-  }, [courier.lat, courier.lng, orders, hasPoints]);
+    const key = JSON.stringify(points);
+    if (key !== fitKey.current) {
+      fitKey.current = key;
+      if (points.length > 1)
+        m.fitBounds(L.latLngBounds(points), { padding: [65, 65], maxZoom: 15 });
+      else if (points.length) m.setView(points[0], 14);
+    }
+  }, [courier.lat, courier.lng, orders, hasPosition]);
   return (
     <section
-      className="dispatch-map"
-      aria-label="نقشه موقعیت پیک و فروشگاه‌های پیشنهادی"
+      className={`dispatch-map map-${state}`}
+      aria-label="نقشه موقعیت پیک و فروشگاه‌ها"
     >
-      {hasPoints ? (
-        <div className="dispatch-map-canvas" ref={host} />
-      ) : (
-        <div className="map-placeholder">
-          <div className="map-radar">
-            <MapPin size={32} />
-          </div>
-          <h3>مسیر امروزت از اینجا شروع می‌شود</h3>
-          <p>
-            با فعال کردن موقعیت، محل شما و فروشگاه‌های پیشنهادی روی نقشه نمایش
-            داده می‌شوند.
-          </p>
-          <button disabled={busy} onClick={onLocate}>
-            <LocateFixed size={17} /> فعال‌سازی موقعیت من
-          </button>
-        </div>
-      )}
+      <div className="dispatch-map-canvas" ref={host} />
       <div className="map-caption">
         <span>
           <i className={courier.online ? "online-dot" : "offline-dot"} />
-          {courier.online ? "در جست‌وجوی سفارش نزدیک" : "محدودهٔ سفارش‌های شما"}
+          {hasPoints
+            ? "موقعیت و سفارش‌های شما"
+            : "نمای شهر؛ موقعیت شما هنوز ثبت نشده"}
         </span>
-        <span>
-          <Store size={14} /> فروشگاه <MapPin size={14} /> موقعیت شما
+        <span className="map-provider">
+          <select
+            aria-label="سرویس نقشه"
+            value={provider}
+            onChange={(e) => setProvider(Number(e.target.value))}
+          >
+            {providers.map((p, i) => (
+              <option value={i} key={p.name}>
+                {p.name}
+              </option>
+            ))}
+          </select>
         </span>
       </div>
-      {hasPoints && (
-        <button
-          className="map-locate"
-          disabled={busy}
-          onClick={onLocate}
-          aria-label="تازه‌سازی موقعیت مکانی"
-        >
-          <Navigation size={20} />
-        </button>
+      {!hasPoints && (
+        <div className="map-onboarding">
+          <MapPin size={20} />
+          <span>برای نمایش محدودهٔ واقعی خود، موقعیت را فعال کنید.</span>
+          <button disabled={busy} onClick={onLocate}>
+            <LocateFixed size={15} /> موقعیت من
+          </button>
+        </div>
       )}
-      {failed && (
-        <p className="map-warning" role="status">
-          کاشی‌های نقشه در دسترس نیستند؛ اطلاعات سفارش‌ها در کارت‌های پایین قابل
-          مشاهده است.
-        </p>
+      <button
+        className="map-locate"
+        disabled={busy}
+        onClick={onLocate}
+        aria-label="تازه‌سازی موقعیت مکانی"
+      >
+        <Navigation size={20} />
+      </button>
+      {state === "loading" && (
+        <span className="map-loading" role="status">
+          در حال دریافت نقشه…
+        </span>
       )}
-      {hasPoints && (
-        <small className="map-note">نقاط واقعی؛ مسیریابی زنده نیست</small>
+      {state === "coordinates" && (
+        <div className="map-warning" role="status">
+          <WifiOff size={16} />
+          <span>
+            سرویس خیابان‌ها در دسترس نیست؛ فقط شبکهٔ مختصات و نقاط واقعی نمایش
+            داده می‌شود.
+          </span>
+          <button
+            onClick={() => {
+              setProvider(0);
+              setRetry((n) => n + 1);
+            }}
+          >
+            <RefreshCw size={14} />
+            تلاش مجدد
+          </button>
+        </div>
       )}
+      <small className="map-note">
+        {state === "coordinates"
+          ? "شبکهٔ مختصات؛ بدون خیابان"
+          : "نقشهٔ خیابان‌ها؛ بدون مسیریابی زنده"}
+      </small>
     </section>
   );
 }

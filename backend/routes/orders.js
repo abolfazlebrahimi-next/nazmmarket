@@ -1,4 +1,5 @@
 import { deliveryQuote, platformSettings } from "../delivery.js";
+import { readDeliveryCode } from "../trip-security.js";
 import { firstOffer } from "../product-rules.js";
 import { recordOrderEvent } from "../order-workflow.js";
 import { Router } from "express";
@@ -22,6 +23,21 @@ router.get("/orders", async (req, res) => {
     [req.user.id],
   );
   res.json({ orders: rows.map(mapOrder) });
+});
+router.get("/orders/:id/delivery-code", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const row = await db.get(
+    "SELECT d.delivery_otp,d.otp_expires_at FROM orders o JOIN order_deliveries d ON d.order_id=o.id WHERE o.id=? AND o.user_id=? AND o.status=4",
+    [req.params.id, req.user.id],
+  );
+  if (!row?.delivery_otp)
+    return res
+      .status(404)
+      .json({ error: { message: "کد تحویل برای این سفارش در دسترس نیست." } });
+  res.json({
+    code: readDeliveryCode(row.delivery_otp),
+    expiresAt: row.otp_expires_at,
+  });
 });
 router.get("/orders/:id/events", async (req, res) => {
   const order = await db.get("SELECT id FROM orders WHERE id=? AND user_id=?", [
@@ -321,12 +337,13 @@ router.post("/orders", async (req, res) => {
         ],
       );
       await tx.run(
-        "UPDATE orders SET destination_lat=?,destination_lng=?,fare_details=?,courier_fee=?,platform_commission=?,first_offer_discount=?,seller_discount=? WHERE id=?",
+        "UPDATE orders SET destination_lat=?,destination_lng=?,fare_details=?,courier_fee=?,courier_commission_rate=?,platform_commission=?,first_offer_discount=?,seller_discount=? WHERE id=?",
         [
           addressRow?.lat ?? null,
           addressRow?.lng ?? null,
           JSON.stringify(quote),
           quote.fee,
+          settings.courierCommissionPercent,
           Math.round(
             ((subtotal - sellerDiscount) * settings.commissionPercent) / 100,
           ),

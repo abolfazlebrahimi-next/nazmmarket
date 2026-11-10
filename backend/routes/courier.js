@@ -1,6 +1,7 @@
 import courierOperations from "./courier-operations.js";
 import { distanceKm, validPoint } from "../delivery.js";
-import { recordOrderEvent } from "../order-workflow.js";
+import { notifyCourier } from "../courier-notifications.js";
+import courierTrips from "./courier-trips.js";
 import { Router } from "express";
 import crypto from "node:crypto";
 import { db, mapOrder } from "../db.js";
@@ -243,6 +244,7 @@ router.use((req, res, next) => {
   next();
 });
 
+router.use(courierTrips);
 router.get("/orders", async (req, res) => {
   const c = await db.get("SELECT * FROM courier_accounts WHERE id=?", [
     req.courier.id,
@@ -253,16 +255,33 @@ router.get("/orders", async (req, res) => {
     Date.now() - new Date(c.location_updated_at).getTime() < 15 * 60 * 1000 &&
     validPoint(c.lat, c.lng);
   const rows = await db.all(
-    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,u.phone AS customer_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND d.order_id IS NULL AND NOT EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND declined.courier_id=?)) OR (d.courier_id=? AND o.status IN (4,5)) ORDER BY o.created_at DESC LIMIT 500`,
+    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,d.trip_status,d.arrived_at,d.picked_up_at,u.phone AS customer_phone,sa.phone AS store_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN seller_accounts sa ON sa.id=s.seller_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND d.order_id IS NULL AND NOT EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND declined.courier_id=?)) OR (d.courier_id=? AND o.status IN (3,4,5)) ORDER BY o.created_at DESC LIMIT 500`,
     [req.courier.id, req.courier.id],
   );
-  const orders = rows
+  let orders = rows
     .map((r) => {
       const mine = Number(r.courier_id) === req.courier.id;
       const distance = distanceKm(c, { lat: r.store_lat, lng: r.store_lng });
       return {
         ...mapOrder(r),
         pickupKm: distance === null ? null : Math.round(distance * 100) / 100,
+        tripStatus: r.trip_status,
+        arrivedAt: r.arrived_at,
+        pickedUpAt: r.picked_up_at,
+        storePhone: mine ? r.store_phone : "",
+        grossFare: Number(r.courier_fee ?? r.delivery),
+        commission: Math.round(
+          (Number(r.courier_fee ?? r.delivery) *
+            Number(r.courier_commission_rate || 0)) /
+            100,
+        ),
+        netEarnings:
+          Number(r.courier_fee ?? r.delivery) -
+          Math.round(
+            (Number(r.courier_fee ?? r.delivery) *
+              Number(r.courier_commission_rate || 0)) /
+              100,
+          ),
         courierFee: Number(
           r.courier_fee ?? Math.max(50000, Math.min(80000, Number(r.delivery))),
         ),
@@ -292,17 +311,52 @@ router.get("/orders", async (req, res) => {
         Number(b.claimedByMe) - Number(a.claimedByMe) ||
         (a.pickupKm ?? 999) - (b.pickupKm ?? 999),
     );
+  const busy = orders.some((o) => o.claimedByMe && o.status !== 5);
+  if (busy) orders = orders.filter((o) => o.claimedByMe);
+  else {
+    const permitted = [];
+    for (const o of orders) {
+      if (o.claimedByMe) {
+        permitted.push(o);
+        continue;
+      }
+      await db.run(
+        "INSERT IGNORE INTO courier_offers (courier_id,order_id,expires_at) VALUES (?,?,?)",
+        [req.courier.id, o.id, new Date(Date.now() + 60000).toISOString()],
+      );
+      const offer = await db.get(
+        "SELECT state,expires_at FROM courier_offers WHERE courier_id=? AND order_id=?",
+        [req.courier.id, o.id],
+      );
+      if (
+        offer.state === "pending" &&
+        new Date(offer.expires_at).getTime() > Date.now()
+      ) {
+        permitted.push({ ...o, offerExpiresAt: offer.expires_at });
+        await notifyCourier(db, req.courier.id, {
+          key: "offer:" + o.id,
+          kind: "offer",
+          title: "پیشنهاد سفارش جدید",
+          body: `سفارش ${o.id} آمادهٔ پذیرش است؛ مهلت پیشنهاد محدود است.`,
+          target: "orders",
+        });
+      }
+    }
+    orders = permitted;
+  }
   res.json({
     orders,
     online: Boolean(c.online),
     locationFresh: Boolean(fresh),
-    dispatchStatus: !c.online
-      ? "offline"
-      : !fresh
-        ? "location_stale"
-        : orders.some((o) => !o.claimedByMe)
-          ? "offers_available"
-          : "no_nearby_ready",
+    dispatchStatus: busy
+      ? "active_trip"
+      : !c.online
+        ? "offline"
+        : !fresh
+          ? "location_stale"
+          : orders.some((o) => !o.claimedByMe)
+            ? "offers_available"
+            : "no_nearby_ready",
   });
 });
 
@@ -332,102 +386,11 @@ router.post("/orders/:id/decline", async (req, res) => {
     "INSERT IGNORE INTO courier_declined_orders (courier_id,order_id,created_at) VALUES (?,?,?)",
     [req.courier.id, req.params.id, new Date().toISOString()],
   );
+  await db.run(
+    "UPDATE courier_offers SET state='declined' WHERE courier_id=? AND order_id=?",
+    [req.courier.id, req.params.id],
+  );
   res.json({ ok: true });
-});
-
-router.post("/orders/:id/claim", async (req, res) => {
-  try {
-    const claimed = await db.transaction(async (tx) => {
-      const c = await tx.get(
-        "SELECT * FROM courier_accounts WHERE id=? FOR UPDATE",
-        [req.courier.id],
-      );
-      if (
-        !c?.online ||
-        !c.active ||
-        c.verification_status !== "approved" ||
-        !c.location_updated_at ||
-        Date.now() - new Date(c.location_updated_at).getTime() > 15 * 60 * 1000
-      )
-        return false;
-      const order = await tx.get(
-        "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 FOR UPDATE",
-        [req.params.id],
-      );
-      if (!order || distanceKm(c, order) === null || distanceKm(c, order) > 15)
-        return false;
-      if (
-        await tx.get(
-          "SELECT 1 AS found FROM courier_declined_orders WHERE courier_id=? AND order_id=?",
-          [req.courier.id, order.id],
-        )
-      )
-        return false;
-      await tx.run(
-        "INSERT INTO order_deliveries (order_id,courier_id,claimed_at,completed_at) VALUES (?,?,?,NULL)",
-        [order.id, req.courier.id, new Date().toISOString()],
-      );
-      await tx.run("UPDATE orders SET status=4 WHERE id=? AND status=3", [
-        order.id,
-      ]);
-      await recordOrderEvent(tx, order.id, 4, "courier", req.courier.id);
-      return true;
-    });
-    if (!claimed)
-      return fail(res, 409, "order_unavailable", "سفارش آماده دریافت نیست.");
-    res.json({ ok: true });
-  } catch (error) {
-    if (error?.code === "ER_DUP_ENTRY")
-      return fail(
-        res,
-        409,
-        "order_claimed",
-        "این سفارش را پیک دیگری دریافت کرده است.",
-      );
-    throw error;
-  }
-});
-
-router.post("/orders/:id/complete", async (req, res) => {
-  const now = new Date().toISOString();
-  const result = await db.transaction(async (tx) => {
-    const delivery = await tx.get(
-      "SELECT order_id FROM order_deliveries WHERE order_id=? AND courier_id=? AND completed_at IS NULL FOR UPDATE",
-      [req.params.id, req.courier.id],
-    );
-    if (!delivery) return null;
-    const changed = await tx.run(
-      "UPDATE orders SET status=5 WHERE id=? AND status=4",
-      [req.params.id],
-    );
-    if (!changed.affectedRows) return null;
-    await tx.run(
-      "UPDATE order_deliveries SET completed_at=? WHERE order_id=? AND courier_id=? AND completed_at IS NULL",
-      [now, req.params.id, req.courier.id],
-    );
-    const completed = await tx.get(
-      "SELECT courier_fee,delivery FROM orders WHERE id=?",
-      [req.params.id],
-    );
-    const amount = Number(
-      completed.courier_fee ??
-        Math.max(50000, Math.min(80000, Number(completed.delivery))),
-    );
-    await tx.run(
-      "INSERT INTO courier_ledger (courier_id,order_id,amount,created_at) VALUES (?,?,?,?)",
-      [req.courier.id, req.params.id, amount, now],
-    );
-    await recordOrderEvent(tx, req.params.id, 5, "courier", req.courier.id);
-    return tx.get("SELECT * FROM orders WHERE id=?", [req.params.id]);
-  });
-  if (!result)
-    return fail(
-      res,
-      409,
-      "order_not_completable",
-      "برای تکمیل، ابتدا همین سفارش را دریافت کنید و مطمئن شوید هنوز آمادهٔ تحویل است.",
-    );
-  res.json({ order: mapOrder(result) });
 });
 
 export default router;

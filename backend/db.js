@@ -92,6 +92,9 @@ async function ensureIndex(table, indexName, columns, unique = false) {
 
 export async function migrate() {
   const schema = [
+    `CREATE TABLE IF NOT EXISTS courier_notifications (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,courier_id BIGINT UNSIGNED NOT NULL,event_key VARCHAR(180) NOT NULL,kind VARCHAR(40) NOT NULL,title VARCHAR(180) NOT NULL,body VARCHAR(500) NOT NULL,target VARCHAR(40) NOT NULL,is_read TINYINT NOT NULL DEFAULT 0,created_at VARCHAR(32) NOT NULL,UNIQUE KEY(courier_id,event_key),KEY(courier_id,is_read)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS courier_offers (courier_id BIGINT UNSIGNED NOT NULL,order_id VARCHAR(40) NOT NULL,expires_at VARCHAR(32) NOT NULL,state VARCHAR(20) NOT NULL DEFAULT 'pending',PRIMARY KEY(courier_id,order_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS courier_trip_events (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,order_id VARCHAR(40) NOT NULL,courier_id BIGINT UNSIGNED NOT NULL,stage VARCHAR(30) NOT NULL,created_at VARCHAR(32) NOT NULL,UNIQUE KEY(order_id,stage)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS courier_declined_orders (courier_id BIGINT UNSIGNED NOT NULL,order_id VARCHAR(40) NOT NULL,created_at VARCHAR(32) NOT NULL,PRIMARY KEY(courier_id,order_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS platform_settings (id INT PRIMARY KEY,value_json TEXT NOT NULL) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS courier_ledger (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,courier_id BIGINT UNSIGNED NOT NULL,order_id VARCHAR(40) NOT NULL UNIQUE,amount BIGINT NOT NULL,created_at VARCHAR(32) NOT NULL,KEY(courier_id)) ENGINE=InnoDB`,
@@ -303,10 +306,30 @@ export async function migrate() {
   }))
     await ensureColumn("courier_accounts", column, definition);
   for (const [column, definition] of Object.entries({
+    trip_status: "VARCHAR(30) NOT NULL DEFAULT 'in_transit'",
+    arrived_at: "VARCHAR(32) NULL",
+    picked_up_at: "VARCHAR(32) NULL",
+    delivery_otp: "TEXT NULL",
+    otp_attempts: "INT NOT NULL DEFAULT 0",
+    otp_expires_at: "VARCHAR(32) NULL",
+  }))
+    await ensureColumn("order_deliveries", column, definition);
+  for (const [column, definition] of Object.entries({
+    gross_amount: "BIGINT NULL",
+    commission_amount: "BIGINT NOT NULL DEFAULT 0",
+  }))
+    await ensureColumn("courier_ledger", column, definition);
+  await ensureColumn(
+    "courier_tickets",
+    "category",
+    "VARCHAR(40) NOT NULL DEFAULT 'other'",
+  );
+  for (const [column, definition] of Object.entries({
     destination_lat: "DOUBLE NULL",
     destination_lng: "DOUBLE NULL",
     fare_details: "TEXT NULL",
     courier_fee: "BIGINT NULL",
+    courier_commission_rate: "DECIMAL(5,2) NOT NULL DEFAULT 0",
     platform_commission: "BIGINT NOT NULL DEFAULT 0",
     first_offer_discount: "BIGINT NOT NULL DEFAULT 0",
     seller_discount: "BIGINT NOT NULL DEFAULT 0",

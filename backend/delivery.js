@@ -76,9 +76,14 @@ export async function platformSettings(db) {
     return {
       weather: "normal",
       commissionPercent: 0,
+      courierCommissionPercent: 0,
       ...JSON.parse(row?.value_json || "{}"),
     };
   } catch {
-    return { weather: "normal", commissionPercent: 0 };
+    return {
+      weather: "normal",
+      commissionPercent: 0,
+      courierCommissionPercent: 0,
+    };
   }
 }

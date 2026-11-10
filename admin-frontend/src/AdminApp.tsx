@@ -614,7 +614,14 @@ export default function AdminApp() {
             {page === "orders" && (
               <section className="panel">
                 <Table
-                  headings={["شناسه", "فروشگاه", "مبلغ", "وضعیت", "پیگیری"]}
+                  headings={[
+                    "شناسه",
+                    "فروشگاه",
+                    "مبلغ",
+                    "وضعیت",
+                    "پیگیری",
+                    "بازیابی تحویل",
+                  ]}
                   rows={tableRows.map((o: Row) => [
                     o.id,
                     o.storeName,
@@ -635,6 +642,26 @@ export default function AdminApp() {
                     >
                       تاریخچه
                     </button>,
+                    o.status === 4 ? (
+                      <button
+                        disabled={busy}
+                        onClick={async () => {
+                          if (
+                            window.confirm(
+                              "کد تحویل قبلی باطل شود؟ کد جدید فقط در حساب مشتری نمایش داده می‌شود.",
+                            )
+                          )
+                            await action(
+                              `/orders/${o.id}/reset-delivery-code`,
+                              {},
+                            );
+                        }}
+                      >
+                        بازنشانی کد تحویل
+                      </button>
+                    ) : (
+                      "—"
+                    ),
                   ])}
                 />
                 <p className="definition">

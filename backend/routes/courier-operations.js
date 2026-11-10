@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { db } from "../db.js";
+import { hashPassword, verifyPassword, loginThrottle } from "../auth.js";
+import { notifyCourier } from "../courier-notifications.js";
 import { validPoint } from "../delivery.js";
 const router = Router();
 const fail = (res, status, message) =>
@@ -23,6 +25,107 @@ export async function courierWallet(courierId, tx = db) {
   );
   return { earned: credits, available: Math.max(0, credits - reserved) };
 }
+router.post("/auth/password", loginThrottle, async (req, res) => {
+  const current = String(req.body.currentPassword || ""),
+    next = String(req.body.newPassword || "");
+  if (next.length < 10 || next.length > 128)
+    return fail(res, 400, "رمز جدید باید بین ۱۰ تا ۱۲۸ نویسه باشد.");
+  const ok = await db.transaction(async (tx) => {
+    const c = await tx.get(
+      "SELECT password_hash FROM courier_accounts WHERE id=? FOR UPDATE",
+      [req.courier.id],
+    );
+    if (!verifyPassword(current, c.password_hash)) return false;
+    await tx.run("UPDATE courier_accounts SET password_hash=? WHERE id=?", [
+      hashPassword(next),
+      req.courier.id,
+    ]);
+    await tx.run(
+      "DELETE FROM courier_sessions WHERE courier_id=? AND token<>?",
+      [req.courier.id, req.courierToken],
+    );
+    await notifyCourier(tx, req.courier.id, {
+      key: "password:" + Date.now(),
+      kind: "security",
+      title: "رمز عبور تغییر کرد",
+      body: "نشست‌های دیگر شما بسته شدند. اگر این تغییر کار شما نبوده با پشتیبانی تماس بگیرید.",
+      target: "settings",
+    });
+    return true;
+  });
+  if (!ok) return fail(res, 401, "رمز فعلی صحیح نیست.");
+  res.json({ ok: true });
+});
+router.get("/notifications", async (req, res) =>
+  res.json({
+    notifications: await db.all(
+      "SELECT id,kind,title,body,target,is_read,created_at FROM courier_notifications WHERE courier_id=? ORDER BY id DESC LIMIT 100",
+      [req.courier.id],
+    ),
+    unread: Number(
+      (
+        await db.get(
+          "SELECT COUNT(*) n FROM courier_notifications WHERE courier_id=? AND is_read=0",
+          [req.courier.id],
+        )
+      ).n,
+    ),
+  }),
+);
+router.patch("/notifications/:id/read", async (req, res) => {
+  const all = req.params.id === "all";
+  await db.run(
+    "UPDATE courier_notifications SET is_read=1 WHERE courier_id=?" +
+      (all ? "" : " AND id=?"),
+    all ? [req.courier.id] : [req.courier.id, req.params.id],
+  );
+  res.json({ ok: true });
+});
+router.get("/history", async (req, res) => {
+  const page = Math.max(
+      1,
+      Math.min(1000000, parseInt(req.query.page, 10) || 1),
+    ),
+    size = 20,
+    q = String(req.query.q || "").slice(0, 40),
+    status = String(req.query.status || "all");
+  const where = [
+      "d.courier_id=?",
+      "(d.completed_at IS NOT NULL OR d.trip_status IN ('cancelled','failed'))",
+    ],
+    values = [req.courier.id];
+  if (q) {
+    where.push("o.id LIKE ?");
+    values.push("%" + q + "%");
+  }
+  if (["completed", "cancelled", "failed"].includes(status)) {
+    where.push("d.trip_status=?");
+    values.push(status);
+  }
+  for (const [field, operator] of [
+    ["from", ">="],
+    ["to", "<="],
+  ])
+    if (/^\d{4}-\d{2}-\d{2}$/.test(String(req.query[field] || ""))) {
+      where.push(`LEFT(d.claimed_at,10) ${operator} ?`);
+      values.push(req.query[field]);
+    }
+  const clause = where.join(" AND "),
+    total = Number(
+      (
+        await db.get(
+          "SELECT COUNT(*) n FROM order_deliveries d JOIN orders o ON o.id=d.order_id WHERE " +
+            clause,
+          values,
+        )
+      ).n,
+    );
+  const rows = await db.all(
+    `SELECT o.id,o.store_name,o.address_text,o.courier_fee,o.courier_commission_rate,d.claimed_at,d.completed_at,d.trip_status,l.amount,l.gross_amount,l.commission_amount FROM order_deliveries d JOIN orders o ON o.id=d.order_id LEFT JOIN courier_ledger l ON l.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci WHERE ${clause} ORDER BY d.claimed_at DESC LIMIT ${size} OFFSET ${(page - 1) * size}`,
+    values,
+  );
+  res.json({ rows, total, page, size });
+});
 router.get("/summary", async (req, res) => {
   const id = req.courier.id;
   const today = new Date().toISOString().slice(0, 10);
@@ -78,8 +181,17 @@ router.patch("/availability", async (req, res) => {
 router.get("/wallet", async (req, res) =>
   res.json({
     ...(await courierWallet(req.courier.id)),
+    periods: await db.get(
+      "SELECT COALESCE(SUM(CASE WHEN LEFT(created_at,10)=? THEN amount ELSE 0 END),0) today,COALESCE(SUM(CASE WHEN created_at>=? THEN amount ELSE 0 END),0) week,COALESCE(SUM(CASE WHEN LEFT(created_at,7)=? THEN amount ELSE 0 END),0) month,COALESCE(SUM(commission_amount),0) commission FROM courier_ledger WHERE courier_id=?",
+      [
+        new Date().toISOString().slice(0, 10),
+        new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10),
+        new Date().toISOString().slice(0, 7),
+        req.courier.id,
+      ],
+    ),
     ledger: await db.all(
-      "SELECT order_id,amount,created_at FROM courier_ledger WHERE courier_id=? ORDER BY id DESC LIMIT 100",
+      "SELECT order_id,amount,gross_amount,commission_amount,created_at FROM courier_ledger WHERE courier_id=? ORDER BY id DESC LIMIT 100",
       [req.courier.id],
     ),
     withdrawals: await db.all(
@@ -144,8 +256,24 @@ router.post("/tickets", async (req, res) => {
     return fail(res, 400, "موضوع و متن تیکت را تکمیل کنید.");
   const id = await db.transaction(async (tx) => {
     const r = await tx.run(
-      "INSERT INTO courier_tickets (courier_id,subject,status,created_at) VALUES (?,?,'open',?)",
-      [req.courier.id, subject, new Date().toISOString()],
+      "INSERT INTO courier_tickets (courier_id,subject,category,status,created_at) VALUES (?,?,?,'open',?)",
+      [
+        req.courier.id,
+        subject,
+        [
+          "order",
+          "store",
+          "customer",
+          "finance",
+          "kyc",
+          "technical",
+          "incident",
+          "other",
+        ].includes(req.body.category)
+          ? req.body.category
+          : "other",
+        new Date().toISOString(),
+      ],
     );
     await tx.run(
       "INSERT INTO courier_ticket_messages (ticket_id,role,body,created_at) VALUES (?,'courier',?,?)",

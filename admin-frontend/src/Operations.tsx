@@ -77,6 +77,18 @@ export default function Operations({
               defaultValue={data.settings.commissionPercent}
             />
           </label>
+          <label>
+            کمیسیون از کرایهٔ پیک (%)
+            <input
+              name="courierCommissionPercent"
+              type="number"
+              required
+              min="0"
+              max="30"
+              step="0.1"
+              defaultValue={data.settings.courierCommissionPercent ?? 0}
+            />
+          </label>
           <button disabled={busy} className="primary">
             ذخیره برای سفارش‌های جدید
           </button>
