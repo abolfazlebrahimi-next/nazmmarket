@@ -22,7 +22,15 @@ jobs:
         working-directory: backend
       - run: npm test
         working-directory: backend
-      - run: npm run test:integration
+      - name: Test MySQL workflow
+        run: |
+          if npm run test:integration > integration-output.log 2>&1; then
+            cat integration-output.log
+          else
+            cat integration-output.log
+            node --input-type=module -e "import fs from 'node:fs'; const text=fs.readFileSync('integration-output.log','utf8').slice(-50000); console.log('::error::'+text.replaceAll('%','%25').replaceAll('\r','%0D').replaceAll('\n','%0A'));"
+            exit 1
+          fi
         working-directory: backend
         env:
           RUN_MYSQL_TESTS: "1"
