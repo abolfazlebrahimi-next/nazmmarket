@@ -301,8 +301,15 @@ export function ProductModal({ c }: { c: AppCtx }) {
         className="fade-in absolute inset-0 hidden bg-ink/50 backdrop-blur-[2px] md:block"
       />
       <div className="relative flex h-full w-full flex-col bg-white md:h-auto md:max-h-[90dvh] md:max-w-[430px] md:overflow-y-auto md:rounded-[26px] md:p-4 md:shadow-2xl">
-        <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-white/95 px-4 backdrop-blur md:hidden">
-          <BackButton onBack={c.closeProduct} />
+        <div className="product-detail-toolbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-white/95 px-4 backdrop-blur md:hidden">
+          <button
+            type="button"
+            aria-label="بستن"
+            onClick={c.closeProduct}
+            className="flex h-9 w-9 items-center justify-center"
+          >
+            <X size={20} />
+          </button>
           <span className="flex-1 truncate text-[13px] font-black text-ink">
             جزئیات کالا
           </span>

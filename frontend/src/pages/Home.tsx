@@ -1,3 +1,4 @@
+import { amazingDeals, energizingDrinks } from "../campaigns";
 import ProductRail from "../components/ProductRail";
 import { previousPurchases } from "../personalization";
 import { useState } from "react";
@@ -29,6 +30,8 @@ export function HomePage({ c }: { c: AppCtx }) {
     (p) => p.active !== false && Number(p.stock) > 0,
   );
   const offerProducts = available.filter((p) => p.category === "drinks");
+  const amazing = amazingDeals(available);
+  const drinks = energizingDrinks(available);
   const rows = categories
     .filter((cat) => cat.id !== "all")
     .map((cat) => ({
@@ -54,15 +57,13 @@ export function HomePage({ c }: { c: AppCtx }) {
           type="button"
           className="first-order-banner"
           onClick={() =>
-            document
-              .getElementById("first-order-products")
-              ?.scrollIntoView({
-                behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
-                  .matches
-                  ? "auto"
-                  : "smooth",
-                block: "start",
-              })
+            document.getElementById("first-order-products")?.scrollIntoView({
+              behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
+                .matches
+                ? "auto"
+                : "smooth",
+              block: "start",
+            })
           }
         >
           <div>
@@ -117,6 +118,13 @@ export function HomePage({ c }: { c: AppCtx }) {
           </p>
         </div>
       )}
+      {!!amazing.length && (
+        <ProductRail title="تخفیف‌های شگفت‌انگیز" tone="offer">
+          {amazing.map((p) => (
+            <ProductCard key={p.id} product={p} h={c.cardHandlers(p.storeId)} />
+          ))}
+        </ProductRail>
+      )}
       {rows.map(({ cat, items }) => (
         <ProductRail
           key={cat.id}
@@ -128,6 +136,13 @@ export function HomePage({ c }: { c: AppCtx }) {
           ))}
         </ProductRail>
       ))}
+      {!!drinks.length && (
+        <ProductRail title="بزن روشن شی">
+          {drinks.map((p) => (
+            <ProductCard key={p.id} product={p} h={c.cardHandlers(p.storeId)} />
+          ))}
+        </ProductRail>
+      )}
       {!available.length && (
         <div className="market-empty">
           هنوز کالای موجودی از فروشگاه‌های فعال ثبت نشده است.
@@ -363,22 +378,6 @@ export function EasyPage({ c }: { c: AppCtx }) {
   const purchased = previousPurchases(c.orders, products, 8);
   return (
     <div className="market-home easy-buy-page">
-      <div className="easy-buy-intro">
-        <h1>خرید راحت</h1>
-        <p>کالاهایی که قبلاً خریده‌اید، آمادهٔ انتخاب دوباره‌اند.</p>
-      </div>
-      {purchased.length ? (
-        <ProductRail title="از خریدهای قبلی شما">
-          {purchased.map((p) => (
-            <ProductCard key={p.id} product={p} h={c.cardHandlers(p.storeId)} />
-          ))}
-        </ProductRail>
-      ) : (
-        <div className="market-empty">
-          پس از اولین خرید تکمیل‌شده، کالاهای موجودِ خریدهای قبلی شما اینجا
-          نمایش داده می‌شوند.
-        </div>
-      )}
       <section className="easy-buy-categories">
         <h2>دسترسی سریع به دسته‌ها</h2>
         <div>
@@ -394,6 +393,18 @@ export function EasyPage({ c }: { c: AppCtx }) {
           ))}
         </div>
       </section>
+      {purchased.length ? (
+        <ProductRail title="از خریدهای قبلی شما">
+          {purchased.map((p) => (
+            <ProductCard key={p.id} product={p} h={c.cardHandlers(p.storeId)} />
+          ))}
+        </ProductRail>
+      ) : (
+        <div className="market-empty">
+          پس از اولین خرید تکمیل‌شده، کالاهای موجودِ خریدهای قبلی شما اینجا
+          نمایش داده می‌شوند.
+        </div>
+      )}
     </div>
   );
 }

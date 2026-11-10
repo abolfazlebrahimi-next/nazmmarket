@@ -231,19 +231,12 @@ export default function OrdersView({
   );
   return (
     <div className="fade-rise mx-auto w-full max-w-5xl px-4 pb-6 pt-5 md:pb-6">
-      <div className="mb-5 flex items-center gap-2">
-        {historyOnly && <BackButton onBack={() => c.closeSub()} />}
-        <div>
-          <h1 className="text-[20px] font-black text-ink">
-            {historyOnly ? "تاریخچه سفارش‌ها" : "سفارش‌های فعال"}
-          </h1>
-          <p className="mt-1 text-[11px] font-medium text-muted">
-            {historyOnly
-              ? "خریدهای تکمیل‌شده و لغوشدهٔ شما"
-              : "پیگیری سفارش تا تحویل به دست شما"}
-          </p>
+      {historyOnly && (
+        <div className="screen-heading order-history-heading">
+          <BackButton onBack={() => c.closeSub()} />
+          <h1>تاریخچه سفارش‌ها</h1>
         </div>
-      </div>
+      )}
       {orders.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {orders.map((o) => (

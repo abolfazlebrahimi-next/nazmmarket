@@ -347,6 +347,57 @@ export default function App() {
       setSelectedAddressId(addresses[0].id);
   }, [addresses, selectedAddressId]);
 
+  // Mobile has no visual back header: preserve internal screens in browser /
+  // PWA history so system-back and the browser swipe return within the app.
+  const routeSnapshot = { view, sub, productId: productModal?.id ?? null };
+  const routeRef = useRef(routeSnapshot);
+  routeRef.current = routeSnapshot;
+  const routeInitialized = useRef(false),
+    restoringRoute = useRef(false);
+  useEffect(() => {
+    const state = { ...window.history.state, nazRoute: routeSnapshot };
+    if (!routeInitialized.current) {
+      routeInitialized.current = true;
+      window.history.replaceState(state, "");
+      return;
+    }
+    if (restoringRoute.current) {
+      restoringRoute.current = false;
+      return;
+    }
+    if (
+      JSON.stringify(window.history.state?.nazRoute) !==
+      JSON.stringify(routeSnapshot)
+    )
+      window.history.pushState(state, "");
+  }, [view, sub, productModal?.id]);
+  useEffect(() => {
+    const pop = (e: PopStateEvent) => {
+      const route = e.state?.nazRoute as typeof routeSnapshot | undefined;
+      if (
+        !route ||
+        !["home", "easy", "cart", "orders", "account"].includes(route.view)
+      )
+        return;
+      if (JSON.stringify(route) === JSON.stringify(routeRef.current)) return;
+      restoringRoute.current = true;
+      setView(route.view);
+      setSub(route.sub ?? null);
+      setProductModal(
+        route.productId
+          ? (products.find((p) => p.id === route.productId) ?? null)
+          : null,
+      );
+      setMenuOpen(false);
+      setSheet(null);
+      setCartDrawer(false);
+      setStorePicker(false);
+      setReplacePrompt(null);
+    };
+    window.addEventListener("popstate", pop);
+    return () => window.removeEventListener("popstate", pop);
+  }, []);
+
   /* scroll to top on navigation + escape closes top-most layer */
   useEffect(() => {
     window.scrollTo({ top: 0 });
