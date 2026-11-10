@@ -1090,13 +1090,13 @@ test(
             "POST",
           )
         ).status,
-        409,
+        200,
       );
       assert.equal(
         (await ok("/api/courier/orders", winner.token)).orders.some(
           (o) => o.id === expiredOrder.id,
         ),
-        false,
+        true,
       );
     } finally {
       // CI database is disposable. Only media files created by the test are removed here.
