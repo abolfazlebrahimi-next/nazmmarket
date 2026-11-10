@@ -99,15 +99,25 @@ test(
         201,
       );
       assert.equal(seller.seller.store.isActive, false);
+      createdPublic.push(seller.seller.store.logoUrl);
       await ok(
         `/api/admin/stores/${seller.seller.store.id}`,
         admin,
         { active: true },
         "PATCH",
       );
-      await db.run("UPDATE stores SET min_basket=0 WHERE id=?", [
-        seller.seller.store.id,
-      ]);
+      // Existing shop photos were stored in photo_url, but the public catalog
+      // used to neither map that field nor list shops without logo_url.
+      await db.run(
+        "UPDATE stores SET min_basket=0,photo_url=logo_url,logo_url=NULL WHERE id=?",
+        [seller.seller.store.id],
+      );
+      const publicStore = (await ok("/api/catalog")).stores.find(
+        (store) => store.id === seller.seller.store.id,
+      );
+      assert.ok(publicStore);
+      assert.equal(publicStore.logoUrl, undefined);
+      assert.equal(publicStore.photoUrl, seller.seller.store.logoUrl);
       const masterIds = [];
       for (const [category, name, price] of [
         ["drinks", "نوشیدنی تست", 40000],

@@ -483,6 +483,7 @@ export const mapStore = (r) => ({
   initial: r.initial,
   minBasket: Number(r.min_basket),
   ...(r.logo_url ? { logoUrl: r.logo_url } : {}),
+  ...(r.photo_url ? { photoUrl: r.photo_url } : {}),
   address: r.address ?? r.area,
   ...(r.lat != null ? { lat: Number(r.lat), lng: Number(r.lng) } : {}),
   hours: r.hours ?? "",

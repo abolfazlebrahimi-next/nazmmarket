@@ -137,7 +137,7 @@ export function HomePage({ c }: { c: AppCtx }) {
         </ProductRail>
       ))}
       {!!drinks.length && (
-        <ProductRail title="بزن روشن شی">
+        <ProductRail title="بزن روشن شی" tone="blue">
           {drinks.map((p) => (
             <ProductCard key={p.id} product={p} h={c.cardHandlers(p.storeId)} />
           ))}

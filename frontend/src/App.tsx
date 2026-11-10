@@ -869,7 +869,7 @@ export default function App() {
     >
       {/* ---------- one header for every screen size ---------- */}
       <header
-        className={`${sub ? "hidden md:block" : "block"} ${view === "home" && !sub ? "market-home-header" : ""} relative z-[60] border-b border-line bg-white/95 backdrop-blur md:sticky md:top-0`}
+        className={`${sub ? "hidden md:block" : "block"} mobile-app-header ${view === "home" && !sub ? "market-home-header" : ""} relative z-[60] border-b border-line bg-white/95 backdrop-blur md:sticky md:top-0`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 md:px-6">
           <button
@@ -891,7 +891,7 @@ export default function App() {
                 type="button"
                 onClick={() => go(item.key)}
                 aria-current={item.active ? "page" : undefined}
-                className={`rounded-xl px-3 py-2 text-[12.5px] font-bold transition ${
+                className={`rounded-xl px-3 py-2 text-[11.5px] font-bold transition ${
                   item.active
                     ? "bg-brand-soft text-brand-dark"
                     : "text-ink/70 hover:bg-[#f4f3f0] hover:text-ink"
@@ -903,7 +903,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => c.openSub({ name: "stores" })}
-              className={`rounded-xl px-3 py-2 text-[12.5px] font-bold transition ${
+              className={`rounded-xl px-3 py-2 text-[11.5px] font-bold transition ${
                 sub?.name === "stores"
                   ? "bg-brand-soft text-brand-dark"
                   : "text-ink/70 hover:bg-[#f4f3f0] hover:text-ink"
@@ -913,7 +913,7 @@ export default function App() {
             </button>
           </nav>
 
-          <div className="mr-auto flex min-w-0 items-center gap-2">
+          <div className="mr-auto flex min-w-0 items-center gap-2 mobile-app-actions">
             <button
               type="button"
               onClick={() => c.openSub({ name: "search" })}
@@ -964,6 +964,17 @@ export default function App() {
             >
               <Search className="h-4 w-4" />
             </button>
+            {!!cartCount && (
+              <button
+                type="button"
+                className="mobile-header-cart"
+                aria-label={`سبد خرید، ${pd(cartCount)} کالا`}
+                onClick={() => go("cart")}
+              >
+                <ShoppingCart size={16} />
+                <span>{pd(cartCount)}</span>
+              </button>
+            )}
             <div className="relative">
               <button
                 type="button"
@@ -1098,71 +1109,11 @@ export default function App() {
 
       {/* footer */}
       {!sub && (
-        <footer className="mt-4 border-t border-line bg-white">
-          <div className="mx-auto max-w-7xl px-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-6 md:pb-6 lg:px-8">
-            <div className="grid gap-8 md:grid-cols-[1.3fr_1fr_1fr]">
-              <div>
-                <Wordmark size="text-[20px]" />
-                <p className="mt-3 max-w-sm text-[12px] font-medium leading-6 text-muted">
-                  خرید سوپرمارکتی فوری از سوپرمارکت‌های محلی شهرستان نظرآباد —
-                  از خانه سفارش دهید و تا ۴۵ دقیقه دیگر تحویل بگیرید.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {[
-                    "نظرآباد",
-                    "محمد آباد",
-                    "علی آباد",
-                    "سیدجمالدین",
-                    "بیجارآباد",
-                  ].map((a) => (
-                    <span
-                      key={a}
-                      className="rounded-full bg-brand-soft px-2.5 py-1 text-[10px] font-extrabold text-brand-dark"
-                    >
-                      {a}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-[12px] font-black text-ink">ناز مارکت</p>
-                <ul className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2.5">
-                  {(
-                    [
-                      {
-                        label: "قوانین و مقررات",
-                        fn: () => c.setSheet("rules"),
-                      },
-                      { label: "حریم خصوصی", fn: () => c.setSheet("privacy") },
-                      { label: "پشتیبانی", fn: () => c.setSheet("support") },
-                      {
-                        label: "کدهای تخفیف",
-                        fn: () =>
-                          c.openSub({ name: "account-detail", id: "codes" }),
-                      },
-                    ] as const
-                  ).map((l) => (
-                    <li key={l.label}>
-                      <button
-                        type="button"
-                        onClick={l.fn}
-                        className="text-[12px] font-medium text-muted transition hover:text-brand"
-                      >
-                        {l.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <p className="text-[11px] font-medium text-muted">
-                  نسخه: ۲.۰.۰ · متصل به سرور ناز
-                </p>
-                <p className="mt-2 text-[11px] font-medium leading-6 text-muted">
-                  © ۱۴۰۴ ناز مارکت — تمام حقوق محفوظ است.
-                </p>
-              </div>
-            </div>
+        <footer className="hidden border-t border-line bg-white md:block">
+          <div className="mx-auto max-w-7xl px-5 py-3 text-center lg:px-8">
+            <p className="text-[10px] font-medium text-muted">
+              © ۱۴۰۵ ناز مارکت
+            </p>
           </div>
         </footer>
       )}

@@ -54,14 +54,16 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
         </div>
         <div className="relative flex items-center gap-3 text-ink">
           <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] bg-white text-lg font-black text-brand shadow-md">
-            {store.logoUrl ? (
+            {store.initial}
+            {(store.logoUrl ?? store.photoUrl) && (
               <img
-                src={store.logoUrl}
-                alt={`لوگوی ${store.name}`}
-                className="h-full w-full object-contain p-1"
+                src={store.logoUrl ?? store.photoUrl}
+                alt={`تصویر ${store.name}`}
+                className="absolute inset-0 h-full w-full bg-white object-contain p-1"
+                onError={(event) => {
+                  event.currentTarget.style.display = "none";
+                }}
               />
-            ) : (
-              store.initial
             )}
           </span>
           <div>
@@ -142,16 +144,58 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
 
 /* ---------------- Category page ---------------- */
 export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
+  const [query, setQuery] = useState("");
   const cat = categories.find((ct) => ct.id === catId);
-  const list = products.filter((p) => p.category === catId);
+  const list = products.filter(
+    (p) =>
+      p.category === catId &&
+      (p.name.includes(query.trim()) ||
+        p.description?.includes(query.trim()) ||
+        p.tag?.includes(query.trim())),
+  );
   return (
     <div className="fade-rise mx-auto w-full max-w-6xl pb-6">
       <ScreenHeader title={cat?.name ?? ""} onBack={() => c.closeSub()} />
-      <div className="grid grid-cols-2 gap-2.5 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-        {list.map((p) => (
-          <ProductCard key={p.id} product={p} h={c.cardHandlers()} />
-        ))}
-      </div>
+      <label className="category-search mx-4 mt-3 flex h-11 items-center gap-2 rounded-2xl bg-[#f4f4f3] px-3.5 text-muted">
+        <Search className="h-4 w-4 shrink-0" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={`جست‌وجو در ${cat?.name ?? "این دسته"}`}
+          aria-label={`جست‌وجو در دستهٔ ${cat?.name ?? "کالاها"}`}
+          className="min-w-0 flex-1 border-0 bg-transparent text-[12px] font-medium text-ink outline-none placeholder:text-muted"
+        />
+        {query && (
+          <button
+            type="button"
+            aria-label="پاک کردن جست‌وجو"
+            onClick={() => setQuery("")}
+          >
+            <X size={16} />
+          </button>
+        )}
+      </label>
+      {list.length ? (
+        <div className="grid grid-cols-2 gap-2.5 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {list.map((p) => (
+            <ProductCard key={p.id} product={p} h={c.cardHandlers()} />
+          ))}
+        </div>
+      ) : (
+        <Empty
+          icon={Search}
+          title={
+            query
+              ? "کالایی با این نام پیدا نشد"
+              : "هنوز کالایی در این دسته نیست"
+          }
+          desc={
+            query
+              ? "عبارت دیگری را امتحان کنید."
+              : "کالاهای موجود این دسته به‌زودی نمایش داده می‌شوند."
+          }
+        />
+      )}
     </div>
   );
 }
@@ -302,14 +346,7 @@ export function ProductModal({ c }: { c: AppCtx }) {
       />
       <div className="relative flex h-full w-full flex-col bg-white md:h-auto md:max-h-[90dvh] md:max-w-[430px] md:overflow-y-auto md:rounded-[26px] md:p-4 md:shadow-2xl">
         <div className="product-detail-toolbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-white/95 px-4 backdrop-blur md:hidden">
-          <button
-            type="button"
-            aria-label="بستن"
-            onClick={c.closeProduct}
-            className="flex h-9 w-9 items-center justify-center"
-          >
-            <X size={20} />
-          </button>
+          <BackButton onBack={c.closeProduct} />
           <span className="flex-1 truncate text-[13px] font-black text-ink">
             جزئیات کالا
           </span>
@@ -376,7 +413,7 @@ export function ProductModal({ c }: { c: AppCtx }) {
               {addAction}
             </div>
           </div>
-          <section className="mt-6 md:hidden">
+          <section className="product-modal-suggestions mt-6">
             <div className="flex items-center justify-between px-4">
               <h4 className="text-[13px] font-black text-ink">
                 محصولات پیشنهادی
@@ -391,7 +428,7 @@ export function ProductModal({ c }: { c: AppCtx }) {
                   key={item.id}
                   product={item}
                   h={c.cardHandlers()}
-                  width="w-[148px]"
+                  width="w-[184px]"
                 />
               ))}
             </div>

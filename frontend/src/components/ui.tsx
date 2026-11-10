@@ -194,7 +194,16 @@ export function StoreCard({ store, onOpen }: { store: StoreType; onOpen: () => v
   return (
     <button type="button" onClick={onOpen} className="flex w-full gap-3 border-b border-line bg-white p-4 text-right transition last:border-0 hover:bg-[#fffaf6] active:bg-brand-soft/50">
       <span className={`relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[20px] bg-gradient-to-br ${store.gradient} text-base font-black text-white shadow-md`}>
-        {store.logoUrl ? <img src={store.logoUrl} alt={`لوگوی ${store.name}`} className="absolute inset-0 h-full w-full object-contain bg-white p-1.5" loading="lazy" /> : store.initial}
+        {store.initial}
+        {(store.logoUrl ?? store.photoUrl) && (
+          <img
+            src={store.logoUrl ?? store.photoUrl}
+            alt={`تصویر ${store.name}`}
+            className="absolute inset-0 h-full w-full object-contain bg-white p-1.5"
+            loading="lazy"
+            onError={(event) => { event.currentTarget.style.display = "none"; }}
+          />
+        )}
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">

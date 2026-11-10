@@ -9,15 +9,18 @@ export default function ProductRail({
   title: string;
   onAll?: () => void;
   children: ReactNode;
-  tone?: "plain" | "offer";
+  tone?: "plain" | "offer" | "blue";
 }) {
   return (
     <section
-      className={`market-shelf ${tone === "offer" ? "market-shelf-offer" : ""}`}
+      className={`market-shelf ${tone === "offer" ? "market-shelf-offer" : tone === "blue" ? "market-shelf-blue" : ""}`}
       aria-label={title}
     >
       <div className="market-shelf-heading">
         <h2>{title}</h2>
+        {tone === "blue" && (
+          <span className="market-shelf-campaign-badge">کمپین نوشیدنی</span>
+        )}
         {onAll && (
           <button
             type="button"

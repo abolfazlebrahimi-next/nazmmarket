@@ -32,11 +32,7 @@ const allProducts = async (category, q, storeId) => {
   ).map(mapProduct);
 };
 const allStores = async (q, type) => {
-  const where = [
-    "seller_id IS NOT NULL",
-    "is_active = 1",
-    "logo_url IS NOT NULL",
-  ];
+  const where = ["seller_id IS NOT NULL", "is_active = 1"];
   const values = [];
   if (q) {
     where.push("(name LIKE ? OR area LIKE ? OR address LIKE ?)");

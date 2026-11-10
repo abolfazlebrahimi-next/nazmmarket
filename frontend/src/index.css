@@ -572,26 +572,37 @@ textarea::placeholder {
   width: 100%;
   min-height: 165px;
   padding: 24px 30px;
-  border: 0;
+  border: 1px solid #0d6748;
   border-radius: 22px;
-  background: linear-gradient(110deg, #fff0dd, #fff8ee 55%, #eaf5ed);
+  background: linear-gradient(112deg, #0b6245, #16865b 62%, #126147);
   text-align: right;
   overflow: hidden;
+  box-shadow: 0 12px 28px #0b624526;
+}
+.first-order-banner::before {
+  position: absolute;
+  inset: -45% auto auto -4%;
+  width: 260px;
+  height: 260px;
+  content: "";
+  border-radius: 50%;
+  background: #ffffff0d;
+  pointer-events: none;
 }
 .campaign-eyebrow {
   font-size: 11px;
-  font-weight: 700;
-  color: #16865b;
+  font-weight: 800;
+  color: #ffd69d;
 }
 .first-order-banner h1 {
   margin: 8px 0 6px;
   font-size: 25px;
   font-weight: 850;
-  color: #26352e;
+  color: #fff;
 }
 .first-order-banner p {
   font-size: 13px;
-  color: #577462;
+  color: #e5f5ec;
 }
 .campaign-link {
   display: inline-flex;
@@ -599,8 +610,8 @@ textarea::placeholder {
   gap: 5px;
   margin-top: 14px;
   font-size: 11px;
-  font-weight: 750;
-  color: #16865b;
+  font-weight: 800;
+  color: #fff;
 }
 .campaign-percent {
   position: relative;
@@ -611,17 +622,22 @@ textarea::placeholder {
   font-size: 64px;
   font-weight: 900;
   line-height: 1.2;
-  color: #ed8423;
+  color: #fff;
   transform: rotate(-7deg);
   padding: 12px 20px;
-  background: #ffffff80;
+  background: #ff982f;
   border-radius: 25px;
+  box-shadow: 0 6px 18px #0b4b372b;
 }
 .campaign-percent small {
   font-size: 16px;
   font-weight: 800;
-  color: #16865b;
+  color: #fff;
   white-space: nowrap;
+}
+.first-order-banner:focus-visible {
+  outline: 3px solid #ffb35e;
+  outline-offset: 3px;
 }
 .market-category-shortcuts {
   display: flex;
@@ -666,6 +682,56 @@ textarea::placeholder {
 }
 .market-shelf-offer .market-product-rail {
   grid-auto-columns: calc((100% - 80px) / 5.5);
+}
+.market-shelf-blue {
+  margin-top: 20px;
+  padding: 17px 12px 10px;
+  border: 1px solid #c5daf9;
+  border-radius: 19px;
+  background: linear-gradient(135deg, #e6f1ff, #f1f7ff 58%, #fff);
+  box-shadow: 0 8px 24px #1e5eb20d;
+}
+.market-shelf-blue .market-shelf-heading h2 {
+  color: #174f91;
+  font-size: 17px;
+}
+.market-shelf-blue .market-shelf-campaign-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: #d8e9ff;
+  color: #1456a2;
+  font-size: 10px;
+  font-weight: 800;
+}
+.market-shelf-blue .market-product-image {
+  border-color: #c8daf3;
+}
+.product-modal-suggestions .market-product {
+  flex: 0 0 184px;
+}
+.product-modal-suggestions .market-product-name {
+  min-height: 45px;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.75;
+}
+.product-modal-suggestions .market-product-price {
+  min-height: 42px;
+  margin-top: 5px;
+}
+.product-modal-suggestions .market-product-price strong {
+  font-size: 14px;
+}
+.product-modal-suggestions .market-product-price small {
+  font-size: 10px;
+}
+.category-search:focus-within {
+  outline: 2px solid #16865b33;
+  outline-offset: 2px;
 }
 #first-order-products {
   scroll-margin-top: 150px;
@@ -819,15 +885,58 @@ textarea::placeholder {
     background: #fff;
     backdrop-filter: none;
   }
-  .market-home-header > div:first-child {
+  .mobile-app-header > div:first-child {
+    position: relative;
     justify-content: center;
     height: 62px;
   }
-  .market-home-header > div:first-child > .mr-auto {
-    display: none;
-  }
-  .market-home-header > div:first-child > button {
+  .mobile-app-header > div:first-child > button:first-child {
     margin: 0 auto;
+  }
+  .mobile-app-actions {
+    position: absolute;
+    inset: 10px 12px auto;
+    z-index: 2;
+    display: block !important;
+    width: auto;
+    height: 38px;
+    margin: 0 !important;
+    pointer-events: none;
+  }
+  .mobile-app-actions > button:not(.mobile-header-cart) {
+    display: none !important;
+  }
+  .mobile-app-actions > .mobile-header-cart {
+    position: absolute;
+    top: 3px;
+    left: 0;
+    display: inline-flex !important;
+    height: 30px;
+    min-width: 31px;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border: 0;
+    border-radius: 10px;
+    padding: 0 6px;
+    background: #26352e;
+    color: #fff;
+    font-size: 8px;
+    font-weight: 800;
+    pointer-events: auto;
+  }
+  .mobile-app-actions > .relative {
+    position: absolute;
+    top: 0;
+    right: 0;
+    pointer-events: auto;
+  }
+  .mobile-app-actions > .relative > button {
+    width: 34px;
+    height: 34px;
+  }
+  .mobile-app-actions .dropdown-in {
+    top: 118px;
   }
   .market-home-header > div:first-child > button > span {
     font-size: 25px;
@@ -1023,10 +1132,36 @@ textarea::placeholder {
   margin-bottom: 18px;
   padding-inline: 0;
 }
-@media (max-width: 767px), (display-mode: standalone) {
-  .back-button,
-  .screen-heading {
-    display: none !important;
+.mobile-header-cart {
+  display: none;
+}
+@media (max-width: 767px) {
+  .market-shelf-blue {
+    margin-inline: -5px;
+    padding: 14px 8px 7px;
+    border-radius: 17px;
+  }
+  .market-shelf-blue .market-shelf-heading h2 {
+    font-size: 14px;
+  }
+  .market-shelf-blue .market-shelf-campaign-badge {
+    padding: 4px 7px;
+    font-size: 9px;
+  }
+  .product-modal-suggestions {
+    padding-bottom: 8px;
+  }
+  .product-modal-suggestions .market-product-name {
+    min-height: 46px;
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.8;
+  }
+  .product-modal-suggestions .market-product-price strong {
+    font-size: 14px;
+  }
+  .product-modal-suggestions .market-product-image {
+    border-radius: 18px;
   }
   .product-detail-toolbar > span {
     display: none;
