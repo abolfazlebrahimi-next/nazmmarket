@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bike,
   Bell,
@@ -12,15 +12,11 @@ import {
   KeyRound,
   WifiOff,
   ChevronLeft,
-  Clock3,
   History,
   LifeBuoy,
   LogOut,
-  MapPin,
   PackageCheck,
-  Phone,
   Power,
-  RefreshCw,
   Settings,
   ShieldCheck,
   Wallet,
@@ -30,15 +26,12 @@ import Verification from "./Verification";
 import Dashboard from "./Dashboard";
 import TripHistory from "./TripHistory";
 import DispatchMap from "./DispatchMap";
-import ActiveDelivery, {
-  OfferCountdown,
-  FinanceBreakdown,
-} from "./ActiveDelivery";
+import ActiveDelivery from "./ActiveDelivery";
+import IncomingOffer from "./IncomingOffer";
 type Row = Record<string, any>;
 const nav = [
   ["work", "داشبورد", House],
   ["orders", "سفارش‌های من", Package],
-  ["active", "سفر فعال", Bike],
   ["history", "تاریخچهٔ سفرها", History],
   ["wallet", "کیف پول", Wallet],
   ["tickets", "پشتیبانی", LifeBuoy],
@@ -59,6 +52,7 @@ export default function CourierApp() {
     [orders, setOrders] = useState<Row[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
+    [offerError, setOfferError] = useState(""),
     [notice, setNotice] = useState(""),
     [walletLoaded, setWalletLoaded] = useState(false),
     [wallet, setWallet] = useState<Row>({
@@ -71,7 +65,6 @@ export default function CourierApp() {
     [thread, setThread] = useState<Row | null>(null),
     [locationFresh, setLocationFresh] = useState(false),
     [dispatchStatus, setDispatchStatus] = useState("offline");
-  const seenOffers = useRef(new Set<string>());
   useEffect(() => {
     if (!courier?.hasPortrait) {
       setProfilePhoto("");
@@ -134,17 +127,6 @@ export default function CourierApp() {
       setLocationFresh(r.locationFresh);
       setDispatchStatus(r.dispatchStatus);
       setCourier((c) => (c ? { ...c, online: r.online } : c));
-      const offers = r.orders.filter(
-        (o: Row) => !o.claimedByMe && o.status === 3,
-      );
-      const freshOffers = offers.filter(
-        (o: Row) => !seenOffers.current.has(o.id),
-      );
-      if (freshOffers.length)
-        setNotice(
-          `${money(freshOffers.length)} پیشنهاد جدید آماده دریافت است؛ کرایه و مسیر را بررسی و سفارش را قبول کنید.`,
-        );
-      seenOffers.current = new Set(offers.map((o: Row) => o.id));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -179,7 +161,6 @@ export default function CourierApp() {
   }, []);
   useEffect(() => {
     if (!courier?.id) {
-      seenOffers.current.clear();
       return;
     }
     let disposed = false;
@@ -302,9 +283,10 @@ export default function CourierApp() {
   }, [courier?.online]);
   async function act(order: Row, action: string, body: Row = {}) {
     if (!navigator.onLine) {
-      setError(
-        "اتصال اینترنت قطع است؛ عملیات ثبت نشده. پس از اتصال، وضعیت سفر را تازه‌سازی کنید.",
-      );
+      const message =
+        "اتصال اینترنت قطع است؛ عملیات ثبت نشده. پس از اتصال، وضعیت سفر را تازه‌سازی کنید.";
+      setError(message);
+      if (["claim", "decline"].includes(action)) setOfferError(message);
       return;
     }
     if (
@@ -334,11 +316,24 @@ export default function CourierApp() {
     )
       return;
     setBusy(true);
+    setOfferError("");
     try {
       await api(
         `/orders/${encodeURIComponent(order.id)}/${action}`,
         json(body),
       );
+      if (action === "decline")
+        setOrders((rows) => rows.filter((r) => r.id !== order.id));
+      if (action === "claim")
+        setOrders((rows) =>
+          rows
+            .filter((r) => r.claimedByMe || r.id === order.id)
+            .map((r) =>
+              r.id === order.id
+                ? { ...r, claimedByMe: true, tripStatus: "accepted" }
+                : r,
+            ),
+        );
       setNotice(
         action === "claim"
           ? "پیشنهاد پذیرفته شد؛ اکنون به سمت فروشگاه حرکت کنید."
@@ -361,6 +356,8 @@ export default function CourierApp() {
       }
     } catch (e) {
       setError((e as Error).message);
+      if (["claim", "decline"].includes(action))
+        setOfferError((e as Error).message);
     } finally {
       setBusy(false);
     }
@@ -557,192 +554,47 @@ export default function CourierApp() {
     password: "تغییر رمز عبور",
     active: "مدیریت سفر فعال",
   };
-  const orderContent = (
+  const activeOrders = shown.filter((o) => o.claimedByMe && o.status !== 5);
+  const incoming =
+    isApproved &&
+    courier.online &&
+    !orders.some((o) => o.claimedByMe && o.status !== 5)
+      ? orders.find(
+          (o) =>
+            !o.claimedByMe &&
+            o.status === 3 &&
+            (!o.offerExpiresAt || Date.parse(o.offerExpiresAt) > Date.now()),
+        )
+      : undefined;
+  const orderContent = ["work", "orders", "active"].includes(page) ? (
     <>
-      {["work", "orders", "active"].includes(page) && (
-        <div className="section-heading orders-heading">
-          <h2>
-            {page === "history" ? <History size={21} /> : <Bell size={21} />}{" "}
-            {page === "history"
-              ? "سفرهای تکمیل‌شده"
-              : "سفارش‌های پیشنهادی و جاری"}{" "}
-            <span className="section-count">{money(shown.length)}</span>
-          </h2>
-          {page === "work" && (
-            <button onClick={() => go("orders")}>
-              مشاهده همه <ChevronLeft size={16} />
-            </button>
-          )}
+      {!!activeOrders.length && (
+        <div className="orders-grid">
+          {activeOrders.map((o) => (
+            <ActiveDelivery
+              key={o.id}
+              order={o}
+              busy={busy || !connected}
+              act={act}
+              support={() => {
+                setTicketTrip(o.id);
+                setNotice(
+                  `برای گزارش مشکل، شماره سفر ${o.id} را در تیکت بنویسید.`,
+                );
+                setPage("tickets");
+              }}
+            />
+          ))}
         </div>
       )}
-      {["work", "orders", "active"].includes(page) &&
-        (shown.length ? (
-          <div className="orders-grid">
-            {shown.map((o) =>
-              o.claimedByMe && o.status !== 5 ? (
-                <ActiveDelivery
-                  key={o.id}
-                  order={o}
-                  busy={busy || !connected}
-                  act={act}
-                  support={() => {
-                    setTicketTrip(o.id);
-                    setNotice(
-                      `برای گزارش مشکل، شماره سفر ${o.id} را در تیکت بنویسید.`,
-                    );
-                    setPage("tickets");
-                  }}
-                />
-              ) : (
-                <article className="order-card" key={o.id}>
-                  <div className="order-top">
-                    <span className="order-id">{o.id}</span>
-                    {!o.claimedByMe && (
-                      <OfferCountdown
-                        expiresAt={o.offerExpiresAt}
-                        onExpire={() =>
-                          setOrders((rows) => rows.filter((r) => r.id !== o.id))
-                        }
-                      />
-                    )}
-                    <span
-                      className={`badge ${o.status === 5 ? "approved" : o.claimedByMe ? "shipping" : "pending"}`}
-                    >
-                      {o.status === 5
-                        ? "تحویل‌شده"
-                        : o.claimedByMe
-                          ? "در مسیر مشتری"
-                          : "آماده دریافت"}
-                    </span>
-                  </div>
-                  <div className="fare">
-                    <small>دستمزد این مسیر</small>
-                    <strong>
-                      {money(o.courierFee)} <span>تومان</span>
-                    </strong>
-                  </div>
-                  <FinanceBreakdown order={o} />
-                  <div className="route">
-                    <div>
-                      <span className="route-dot" />
-                      <section>
-                        <small>دریافت از فروشگاه</small>
-                        <b>{o.storeName}</b>
-                        <p>{o.storeAddress}</p>
-                      </section>
-                    </div>
-                    <div>
-                      <MapPin size={17} />
-                      <section>
-                        <small>تحویل به مشتری</small>
-                        <b>{o.addressTitle}</b>
-                        <p>{o.addressText}</p>
-                      </section>
-                    </div>
-                  </div>
-                  <div className="trip-meta">
-                    <span>
-                      <MapPin size={13} />
-                      {o.pickupKm === null
-                        ? "فاصله نامشخص"
-                        : money(o.pickupKm) + " کیلومتر تا فروشگاه"}
-                    </span>
-                    <span>
-                      <Clock3 size={13} />
-                      {money(o.fareDetails?.minutes || 15)} دقیقه تخمینی
-                    </span>
-                    <span>
-                      {money(o.fareDetails?.weightKg || 0.5)} کیلوگرم تخمینی
-                    </span>
-                  </div>
-                  <div className="items">
-                    {o.items.map((i: Row) => (
-                      <span key={i.id}>
-                        {i.name} × {money(i.qty)}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="order-links">
-                    {o.storeLat != null && o.storeLng != null && (
-                      <a
-                        target="_blank"
-                        rel="noreferrer"
-                        href={`https://www.openstreetmap.org/?mlat=${o.storeLat}&mlon=${o.storeLng}#map=17/${o.storeLat}/${o.storeLng}`}
-                      >
-                        <MapPin size={14} />
-                        مسیریابی فروشگاه
-                      </a>
-                    )}
-                    {o.customerPhone && (
-                      <a href={`tel:${o.customerPhone}`}>
-                        <Phone size={14} />
-                        تماس مشتری
-                      </a>
-                    )}
-                  </div>
-                  {o.status === 4 && (
-                    <div className="delivery-progress">
-                      <span className="done">دریافت از فروشگاه</span>
-                      <span className="current">در مسیر مشتری</span>
-                      <span>تحویل نهایی</span>
-                    </div>
-                  )}
-                  {o.status === 3 && (
-                    <p className="pickup-help">
-                      پس از قبول پیشنهاد، سفر به فروشگاه آغاز می‌شود؛ دریافت
-                      بسته جداگانه تأیید می‌شود.
-                    </p>
-                  )}
-                  {o.status === 3 && (
-                    <div className="offer-actions">
-                      <button
-                        disabled={busy || !courier.online}
-                        className="primary full"
-                        onClick={() => void act(o, "claim")}
-                      >
-                        <PackageCheck size={18} />
-                        قبول پیشنهاد
-                      </button>
-                      <button
-                        className="decline"
-                        disabled={busy}
-                        onClick={() => void act(o, "decline")}
-                      >
-                        <X size={17} /> رد پیشنهاد
-                      </button>
-                    </div>
-                  )}
-                  {o.status === 4 && o.claimedByMe && (
-                    <button
-                      disabled={busy}
-                      className="primary full"
-                      onClick={() => void act(o, "complete")}
-                    >
-                      ثبت تحویل نهایی به مشتری
-                    </button>
-                  )}
-                </article>
-              ),
-            )}
-          </div>
-        ) : (
-          <Empty
-            title={
-              page === "history"
-                ? "هنوز مسیری تکمیل نشده"
-                : page === "active"
-                  ? "سفر فعالی ندارید"
-                  : "سفارشی برای نمایش نیست"
-            }
-            text={
-              page === "history"
-                ? "مسیرهای تحویل‌شدهٔ شما اینجا ثبت می‌شوند."
-                : dispatchMessage
-            }
-          />
-        ))}
+      {page !== "work" && !activeOrders.length && (
+        <Empty
+          title="سفر فعالی ندارید"
+          text="پیشنهادهای جدید به‌صورت پنجرهٔ پایین‌صفحه با دکمه‌های قبول و رد نمایش داده می‌شوند."
+        />
+      )}
     </>
-  );
+  ) : null;
   return (
     <div className="courier-shell">
       <aside className="sidebar">
@@ -772,7 +624,7 @@ export default function CourierApp() {
           {nav.map(([id, label, Icon]) => (
             <button
               key={id}
-              className={`${page === id || (id === "settings" && page === "verify") ? "selected" : ""} nav-${id}`}
+              className={`${page === id || (id === "orders" && page === "active") || (id === "settings" && page === "verify") ? "selected" : ""} nav-${id}`}
               onClick={() => go(id)}
             >
               <Icon size={19} />
@@ -801,10 +653,6 @@ export default function CourierApp() {
           <ShieldCheck size={17} />
           {verifyLabel[courier.verificationStatus]}
         </div>
-        <button className="logout" onClick={() => void logout()}>
-          <LogOut size={17} />
-          خروج
-        </button>
       </aside>
       <main className="workspace">
         <header className="topbar">
@@ -827,20 +675,6 @@ export default function CourierApp() {
             >
               <Bell size={21} />
               {unread > 0 && <span>{money(unread)}</span>}
-            </button>
-            <button
-              className="refresh"
-              onClick={async () => {
-                try {
-                  setCourier((await api("/auth/me")).courier);
-                  if (isApproved) await loadOrders();
-                } catch (e) {
-                  setError((e as Error).message);
-                }
-              }}
-            >
-              <RefreshCw size={16} />
-              <span>به‌روزرسانی</span>
             </button>
           </div>
         </header>
@@ -1127,6 +961,13 @@ export default function CourierApp() {
               </p>
               <small>در صورت نیاز به اصلاح اطلاعات هویتی، تیکت ثبت کنید.</small>
             </section>
+            <button
+              className="settings-link settings-logout"
+              onClick={() => void logout()}
+            >
+              <LogOut size={21} />
+              <b>خروج از حساب کاربری</b>
+            </button>
           </div>
         )}
         {page === "verify" && (
@@ -1415,6 +1256,20 @@ export default function CourierApp() {
           نازمارکت · همراه پیک · مبالغ به تومان · فاصله و زمان تخمینی‌اند
         </footer>
       </main>
+      {incoming && (
+        <IncomingOffer
+          key={incoming.id}
+          order={incoming}
+          busy={busy}
+          connected={connected}
+          error={offerError}
+          act={act}
+          onExpire={() => {
+            setOrders((rows) => rows.filter((r) => r.id !== incoming.id));
+            setOfferError("");
+          }}
+        />
+      )}
     </div>
   );
 }

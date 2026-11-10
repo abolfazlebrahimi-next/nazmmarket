@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import * as L from "leaflet";
 import {
   LocateFixed,
@@ -90,20 +90,31 @@ export default function DispatchMap({
     (o) => o.status !== 5 && valid(o.storeLat, o.storeLng),
   );
   const hasPoints = hasPosition || visible.length > 0;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!host.current) return;
     const defaultLat = Number(import.meta.env.VITE_MAP_DEFAULT_LAT) || 35.96721,
       defaultLng = Number(import.meta.env.VITE_MAP_DEFAULT_LNG) || 50.65043;
     const m = L.map(host.current, {
       zoomControl: false,
       scrollWheelZoom: false,
-    }).setView([defaultLat, defaultLng], 13);
+    }).setView(
+      hasPosition
+        ? [Number(courier.lat), Number(courier.lng)]
+        : visible.length
+          ? [Number(visible[0].storeLat), Number(visible[0].storeLng)]
+          : [defaultLat, defaultLng],
+      hasPoints ? 14 : 13,
+    );
     map.current = m;
     L.control.zoom({ position: "bottomleft" }).addTo(m);
+    // Keep a truthful coordinate base visible during slow tile loads/provider changes.
+    coordinateGrid().addTo(m);
     markers.current = L.layerGroup().addTo(m);
-    const observer = new ResizeObserver(() => m.invalidateSize());
+    const observer = new ResizeObserver(() =>
+      m.invalidateSize({ pan: false, debounceMoveend: true }),
+    );
     observer.observe(host.current);
-    const raf = requestAnimationFrame(() => m.invalidateSize());
+    const raf = requestAnimationFrame(() => m.invalidateSize({ pan: false }));
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();
@@ -157,7 +168,7 @@ export default function DispatchMap({
       if (fallback) m.removeLayer(fallback);
     };
   }, [provider, retry]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const m = map.current,
       group = markers.current;
     if (!m || !group) return;
@@ -187,23 +198,38 @@ export default function DispatchMap({
     };
     if (hasPosition)
       add(courier.lat, courier.lng, "موقعیت ثبت‌شدهٔ شما", "you", "●");
-    visible.forEach((o) => {
-      add(o.storeLat, o.storeLng, o.storeName, "pickup", "▣");
-      if (o.claimedByMe && valid(o.destinationLat, o.destinationLng))
-        add(
-          o.destinationLat,
-          o.destinationLng,
-          "مقصد مشتری",
-          "destination",
-          "⌂",
-        );
-    });
-    const key = JSON.stringify(points);
+    visible
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)))
+      .forEach((o) => {
+        add(o.storeLat, o.storeLng, o.storeName, "pickup", "▣");
+        if (o.claimedByMe && valid(o.destinationLat, o.destinationLng))
+          add(
+            o.destinationLat,
+            o.destinationLng,
+            "مقصد مشتری",
+            "destination",
+            "⌂",
+          );
+      });
+    // A location update or reordered polling response must not reset a map the
+    // rider is using. Fit only for changed entities or an explicit locate action.
+    const key = JSON.stringify([
+      hasPosition ? "you" : null,
+      ...visible.map(
+        (o) =>
+          `${o.id}:${o.claimedByMe && valid(o.destinationLat, o.destinationLng) ? "destination" : "store"}`,
+      ),
+    ]);
     if (key !== fitKey.current) {
       fitKey.current = key;
+      m.invalidateSize({ pan: false });
       if (points.length > 1)
-        m.fitBounds(L.latLngBounds(points), { padding: [65, 65], maxZoom: 15 });
-      else if (points.length) m.setView(points[0], 14);
+        m.fitBounds(L.latLngBounds(points), {
+          padding: [65, 65],
+          maxZoom: 15,
+          animate: false,
+        });
+      else if (points.length) m.setView(points[0], 14, { animate: false });
     }
   }, [courier.lat, courier.lng, orders, hasPosition]);
   return (
@@ -237,7 +263,13 @@ export default function DispatchMap({
         <div className="map-onboarding">
           <MapPin size={20} />
           <span>برای نمایش محدودهٔ واقعی خود، موقعیت را فعال کنید.</span>
-          <button disabled={busy} onClick={onLocate}>
+          <button
+            disabled={busy}
+            onClick={() => {
+              fitKey.current = "";
+              onLocate();
+            }}
+          >
             <LocateFixed size={15} /> موقعیت من
           </button>
         </div>
@@ -245,7 +277,10 @@ export default function DispatchMap({
       <button
         className="map-locate"
         disabled={busy}
-        onClick={onLocate}
+        onClick={() => {
+          fitKey.current = "";
+          onLocate();
+        }}
         aria-label="تازه‌سازی موقعیت مکانی"
       >
         <Navigation size={20} />

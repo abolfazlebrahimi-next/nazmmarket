@@ -1,15 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   ArrowDownLeft,
-  ArrowLeft,
-  Bike,
   ChartNoAxesCombined,
-  Check,
   ChevronLeft,
   Clock3,
   Headphones,
   MapPin,
-  Package,
   ShieldCheck,
   Wallet,
 } from "lucide-react";
@@ -42,17 +38,15 @@ export default function Dashboard({
   children: ReactNode;
 }) {
   const [summary, setSummary] = useState<Summary | null>(null),
-    [available, setAvailable] = useState<number | null>(null),
     [error, setError] = useState(""),
     [retry, setRetry] = useState(0);
   useEffect(() => {
     let live = true;
     async function load() {
       try {
-        const [s, w] = await Promise.all([api("/summary"), api("/wallet")]);
+        const s = await api("/summary");
         if (live) {
           setSummary(s);
-          setAvailable(w.available);
           setError("");
         }
       } catch (e) {
@@ -81,54 +75,8 @@ export default function Dashboard({
   const weekTrips = summary?.week.reduce((n, d) => n + d.trips, 0),
     weekEarnings = summary?.week.reduce((n, d) => n + d.earnings, 0);
   const max = Math.max(1, ...days.map((d) => d.earnings || 0));
-  const recent = orders.filter((o) => o.status === 5).slice(0, 3);
   return (
     <div className="dashboard">
-      <div className="dashboard-metrics">
-        <article className="stat-card">
-          <span className="stat-icon mint">
-            <Bike size={24} />
-          </span>
-          <strong>{summary ? money(summary.tripsToday) : "—"}</strong>
-          <p>سفرهای تکمیل‌شدهٔ امروز</p>
-          <div className="stat-line green" />
-        </article>
-        <article className="stat-card">
-          <span className="stat-icon amber">
-            <Wallet size={23} />
-          </span>
-          <strong>
-            {summary ? money(summary.earningsToday) : "—"} <small>تومان</small>
-          </strong>
-          <p>درآمد ثبت‌شدهٔ امروز</p>
-          <div className="stat-line orange" />
-        </article>
-        <article className="stat-card">
-          <span className="stat-icon mint">
-            <Package size={23} />
-          </span>
-          <strong>
-            {money(
-              orders.filter((o) => o.status === 3 && !o.claimedByMe).length,
-            )}
-          </strong>
-          <p>پیشنهاد آمادهٔ دریافت</p>
-          <small className="live-label">
-            <i className="online-dot" /> بررسی هر ۱۰ ثانیه
-          </small>
-        </article>
-        <article className="balance-card">
-          <span>
-            <Wallet size={22} /> کیف پول شما
-          </span>
-          <strong>
-            {available === null ? "—" : money(available)} <small>تومان</small>
-          </strong>
-          <button onClick={() => go("wallet")}>
-            برداشت وجه <ArrowLeft size={17} />
-          </button>
-        </article>
-      </div>
       {error && (
         <div className="alert error" role="alert">
           دریافت آمار ناموفق بود. {error}
@@ -162,50 +110,6 @@ export default function Dashboard({
             ) : null}
           </div>
           {children}
-          <section className="recent-panel">
-            <div className="section-heading">
-              <h2>
-                <Clock3 size={20} /> سفرهای اخیر
-              </h2>
-              <button onClick={() => go("history")}>
-                مشاهده همه <ChevronLeft size={15} />
-              </button>
-            </div>
-            {recent.length ? (
-              recent.map((o) => (
-                <button
-                  className="recent-trip"
-                  key={o.id}
-                  onClick={() => go("history")}
-                >
-                  <span className="recent-icon">
-                    <Check size={18} />
-                  </span>
-                  <span>
-                    <b>{o.storeName}</b>
-                    <small>
-                      {o.completedAt
-                        ? new Date(o.completedAt).toLocaleDateString("fa-IR")
-                        : o.id}
-                    </small>
-                  </span>
-                  <strong>
-                    {money(o.courierFee)} <small>تومان</small>
-                  </strong>
-                  <span className="badge approved">تحویل‌شده</span>
-                </button>
-              ))
-            ) : (
-              <div className="recent-empty">
-                <Package size={24} />
-                <p>
-                  هنوز سفری تکمیل نکرده‌اید.
-                  <br />
-                  <small>اولین تحویل شما، شروع این فهرست است.</small>
-                </p>
-              </div>
-            )}
-          </section>
         </div>
         <aside className="dashboard-rail">
           <section className="weekly-panel">
