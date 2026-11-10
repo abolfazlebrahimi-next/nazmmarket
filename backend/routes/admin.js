@@ -433,7 +433,7 @@ router.patch("/couriers/:id/review", async (req, res) => {
   )
     return fail(res, 400, "وضعیت و دلیل بررسی را مشخص کنید.");
   const result = await db.run(
-    "UPDATE courier_accounts SET active=?,verification_status=?,rejection_reason=? WHERE id=? AND verification_status='pending' AND motor_photo IS NOT NULL AND national_photo IS NOT NULL AND license_photo IS NOT NULL AND plate_photo IS NOT NULL AND (?<>'approved' OR (personal_details IS NOT NULL AND portrait_photo IS NOT NULL AND vehicle_document_photo IS NOT NULL))",
+    "UPDATE courier_accounts SET active=?,verification_status=?,rejection_reason=? WHERE id=? AND verification_status='pending' AND (?<>'approved' OR (motor_photo IS NOT NULL AND national_photo IS NOT NULL AND license_photo IS NOT NULL AND plate_photo IS NOT NULL AND personal_details IS NOT NULL AND portrait_photo IS NOT NULL AND vehicle_document_photo IS NOT NULL))",
     [
       state === "approved" ? 1 : 0,
       state,
@@ -442,7 +442,14 @@ router.patch("/couriers/:id/review", async (req, res) => {
       state,
     ],
   );
-  if (!result.affectedRows) return fail(res, 409, "درخواست قابل بررسی نیست.");
+  if (!result.affectedRows)
+    return fail(
+      res,
+      409,
+      state === "approved"
+        ? "پرونده در انتظار بررسی نیست یا اطلاعات و تصاویر تکمیلی آن ناقص است؛ برای پروندهٔ قدیمی درخواست اصلاح مدارک بدهید."
+        : "درخواست در حالت انتظار بررسی نیست.",
+    );
   await notifyCourier(db, req.params.id, {
     key: "kyc:" + Date.now(),
     kind: "kyc",
