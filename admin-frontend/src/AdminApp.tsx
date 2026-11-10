@@ -565,8 +565,17 @@ export default function AdminApp() {
                                       },
                                     },
                                   );
-                                  if (!r.ok)
-                                    throw new Error("مدرک قابل دریافت نیست.");
+                                  if (!r.ok) {
+                                    const body = await r
+                                      .json()
+                                      .catch(() => null);
+                                    throw new Error(
+                                      body?.error?.message ||
+                                        (r.status === 404
+                                          ? "این تصویر ارسال نشده یا فایل آن روی سرور موجود نیست."
+                                          : "مدرک قابل دریافت نیست."),
+                                    );
+                                  }
                                   setDocument(
                                     URL.createObjectURL(await r.blob()),
                                   );

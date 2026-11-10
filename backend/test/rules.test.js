@@ -120,9 +120,28 @@ test("identity documents encrypted at rest, authenticated on read, and key requi
     const bad = Buffer.from(stored);
     bad[bad.length - 1] ^= 1;
     await fs.writeFile(file.path, bad);
-    await assert.rejects(readDocument(filename));
+    await assert.rejects(readDocument(filename), {
+      status: 409,
+      code: "document_decryption_failed",
+    });
+    await fs.writeFile(file.path, stored);
+    process.env.SELLER_PII_KEY = "cd".repeat(32);
+    await assert.rejects(readDocument(filename), {
+      status: 409,
+      code: "document_decryption_failed",
+    });
+    process.env.SELLER_PII_KEY = "ab".repeat(32);
+    await fs.writeFile(file.path, Buffer.alloc(5));
+    await assert.rejects(readDocument(filename), {
+      status: 409,
+      code: "document_decryption_failed",
+    });
+    await assert.rejects(readDocument(filename + "-missing"), {
+      status: 404,
+      code: "document_missing",
+    });
     process.env.SELLER_PII_KEY = "";
-    await assert.rejects(readDocument(filename));
+    await assert.rejects(readDocument(filename), { status: 503 });
   } finally {
     await fs.unlink(file.path).catch(() => {});
     delete process.env.SELLER_PII_KEY;

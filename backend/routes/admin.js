@@ -364,6 +364,7 @@ router.get("/couriers", async (_req, res) =>
   }),
 );
 router.get("/couriers/:id/documents/:kind", async (req, res) => {
+  res.set("Cache-Control", "no-store");
   const fields = {
     motor: "motor_photo",
     national: "national_photo",
@@ -381,8 +382,13 @@ router.get("/couriers/:id/documents/:kind", async (req, res) => {
     } catch {}
     const filename = photos[Number(req.params.kind.split("-")[1])];
     if (!filename) return res.sendStatus(404);
-    res.set({ "Cache-Control": "no-store", "Content-Type": "image/jpeg" });
-    return res.send(await readDocument(filename));
+    const image = await readDocument(filename);
+    res.set({
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Type": "image/jpeg",
+    });
+    return res.send(image);
   }
   const field = fields[req.params.kind];
   if (!field) return res.sendStatus(404);
@@ -391,12 +397,13 @@ router.get("/couriers/:id/documents/:kind", async (req, res) => {
     [req.params.id],
   );
   if (!row?.file) return res.sendStatus(404);
+  const image = await readDocument(row.file);
   res.set({
     "Cache-Control": "no-store",
     "X-Content-Type-Options": "nosniff",
     "Content-Type": "image/jpeg",
   });
-  res.send(await readDocument(row.file));
+  res.send(image);
 });
 router.patch("/couriers/:id/review", async (req, res) => {
   const state = req.body.status,

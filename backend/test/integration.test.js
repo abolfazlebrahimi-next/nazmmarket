@@ -394,6 +394,43 @@ test(
         (await sharp(Buffer.from(await doc.arrayBuffer())).metadata()).format,
         "jpeg",
       );
+      for (const kind of [
+        "motor-0",
+        "motor-1",
+        "motor-2",
+        "motor-3",
+        "plate",
+        "license",
+      ]) {
+        const imageResponse = await fetch(
+          base + `/api/admin/couriers/${winner.courier.id}/documents/${kind}`,
+          { headers: { Authorization: `Bearer ${admin}` } },
+        );
+        assert.equal(imageResponse.status, 200);
+        assert.equal(
+          (
+            await sharp(
+              Buffer.from(await imageResponse.arrayBuffer()),
+            ).metadata()
+          ).format,
+          "jpeg",
+        );
+      }
+      const originalDocumentKey = process.env.SELLER_PII_KEY;
+      try {
+        process.env.SELLER_PII_KEY = "ef".repeat(32);
+        const failure = await fetch(base + documentUrl, {
+          headers: { Authorization: `Bearer ${admin}` },
+        });
+        assert.equal(failure.status, 409);
+        assert.match(failure.headers.get("content-type"), /application\/json/);
+        assert.equal(
+          (await failure.json()).error.code,
+          "document_decryption_failed",
+        );
+      } finally {
+        process.env.SELLER_PII_KEY = originalDocumentKey;
+      }
       const w = await ok("/api/courier/wallet", winner.token);
       assert.equal(w.earned, 50000);
       assert.equal(w.available, 50000);

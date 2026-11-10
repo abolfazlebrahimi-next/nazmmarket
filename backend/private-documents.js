@@ -26,17 +26,38 @@ export async function secureDocument(file) {
   await fs.chmod(file.path, 0o600);
 }
 export async function readDocument(filename) {
-  const buffer = await fs.readFile(
-      path.join(privateDir, path.basename(filename)),
-    ),
-    decipher = crypto.createDecipheriv(
+  const key = documentKey();
+  let buffer;
+  try {
+    buffer = await fs.readFile(path.join(privateDir, path.basename(filename)));
+  } catch (error) {
+    if (error.code === "ENOENT")
+      throw Object.assign(
+        new Error(
+          "فایل این مدرک روی سرور موجود نیست؛ نسخهٔ پشتیبان فایل‌ها را بازیابی کنید یا درخواست اصلاح مدارک بدهید.",
+        ),
+        { status: 404, code: "document_missing" },
+      );
+    throw error;
+  }
+  try {
+    if (buffer.length < 29) throw new Error("Incomplete encrypted document");
+    const decipher = crypto.createDecipheriv(
       "aes-256-gcm",
-      documentKey(),
+      key,
       buffer.subarray(0, 12),
     );
-  decipher.setAuthTag(buffer.subarray(12, 28));
-  return Buffer.concat([
-    decipher.update(buffer.subarray(28)),
-    decipher.final(),
-  ]);
+    decipher.setAuthTag(buffer.subarray(12, 28));
+    return Buffer.concat([
+      decipher.update(buffer.subarray(28)),
+      decipher.final(),
+    ]);
+  } catch {
+    throw Object.assign(
+      new Error(
+        "رمزگشایی مدرک ممکن نیست؛ کلید امنیتی با زمان ثبت مدرک متفاوت است یا فایل آسیب دیده. کلید قبلی را بازیابی کنید؛ در غیر این صورت درخواست اصلاح مدارک بدهید تا پیک دوباره ارسال کند.",
+      ),
+      { status: 409, code: "document_decryption_failed" },
+    );
+  }
 }
