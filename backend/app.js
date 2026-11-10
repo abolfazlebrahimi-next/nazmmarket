@@ -49,7 +49,13 @@ app.use((req, res, next) => {
 
 app.get("/api/health", async (_req, res) => {
   await db.get("SELECT 1 AS ok");
-  res.json({ ok: true, time: new Date().toISOString() });
+  res.set("Cache-Control", "no-store");
+  res.json({
+    ok: true,
+    apiRevision: "seller-dispatch-v2",
+    capabilities: { sellerDispatch: true, sellerSelfDelivery: true },
+    time: new Date().toISOString(),
+  });
 });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

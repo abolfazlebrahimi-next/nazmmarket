@@ -1,3 +1,4 @@
+import { shouldRestart } from "../dev-watch.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { logApiError } from "../error-diagnostics.js";
@@ -18,5 +19,18 @@ test("development API does not restart on document writes", async () => {
   const pkg = JSON.parse(
     await fs.readFile(new URL("../package.json", import.meta.url), "utf8"),
   );
-  assert.equal(pkg.scripts.dev, "node index.js");
+  assert.equal(pkg.scripts.dev, "node dev.js");
+  for (const name of [
+    "uploads",
+    "private-uploads",
+    "portrait.jpg",
+    "motor.webp",
+    "national.png",
+    "uploads/portrait.js",
+    "private-uploads\\document.js",
+    null,
+  ])
+    assert.equal(shouldRestart(name), false);
+  for (const name of ["seller.js", "app.js", ".env"])
+    assert.equal(shouldRestart(name), true);
 });

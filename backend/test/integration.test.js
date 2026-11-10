@@ -65,6 +65,9 @@ test(
     const suffix = String(Date.now()).slice(-7),
       phone = (n) => "09" + String(n) + suffix;
     try {
+      const health = await ok("/api/health");
+      assert.equal(health.capabilities.sellerDispatch, true);
+      assert.equal(health.capabilities.sellerSelfDelivery, true);
       const admin = (
         await ok(
           "/api/admin/login",

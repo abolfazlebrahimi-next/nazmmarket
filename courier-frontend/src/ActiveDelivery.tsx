@@ -1,3 +1,4 @@
+import NavigationChoice from "./NavigationChoice";
 import { useEffect, useState } from "react";
 import {
   Check,
@@ -63,11 +64,13 @@ export default function ActiveDelivery({
   busy,
   act,
   support,
+  origin,
 }: {
   order: Row;
   busy: boolean;
   act: (o: Row, action: string, body?: Row) => Promise<void>;
   support: () => void;
+  origin?: { lat: unknown; lng: unknown };
 }) {
   const [code, setCode] = useState("");
   const stage =
@@ -84,8 +87,6 @@ export default function ActiveDelivery({
     "در مسیر مشتری",
     "تحویل نهایی",
   ];
-  const mapUrl = (lat: number, lng: number) =>
-    `https://www.openstreetmap.org/directions?engine=fossgis_osrm_bike&route=;${lat},${lng}`;
   return (
     <article className="active-trip-card">
       <div className="order-top">
@@ -137,25 +138,18 @@ export default function ActiveDelivery({
             تماس مشتری
           </a>
         )}
-        {stage < 2 && o.storeLat != null && (
-          <a
-            href={mapUrl(o.storeLat, o.storeLng)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <MapPin size={15} />
-            مسیریابی فروشگاه
-          </a>
-        )}
-        {stage >= 2 && o.destinationLat != null && (
-          <a
-            href={mapUrl(o.destinationLat, o.destinationLng)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <MapPin size={15} />
-            مسیریابی مقصد
-          </a>
+        {stage < 2 ? (
+          <NavigationChoice
+            destination={{ lat: o.storeLat, lng: o.storeLng }}
+            origin={origin}
+            label="فروشگاه"
+          />
+        ) : (
+          <NavigationChoice
+            destination={{ lat: o.destinationLat, lng: o.destinationLng }}
+            origin={origin}
+            label="مقصد"
+          />
         )}
         <button className="text-btn" onClick={support}>
           <Headphones size={15} />

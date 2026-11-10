@@ -2301,3 +2301,34 @@ button:disabled {
   flex-wrap: wrap;
   gap: 8px;
 }
+.backend-readiness {
+  padding: 18px;
+  margin: 0 0 20px;
+  background: #fff7ed;
+  border: 1px solid #f4d5b2;
+  border-radius: 16px;
+  line-height: 2;
+  font-size: 12px;
+  color: #785332;
+}
+.backend-readiness h3 {
+  color: #8b5527;
+  font-size: 15px;
+}
+.backend-readiness ol {
+  padding-inline-start: 22px;
+}
+.backend-readiness pre {
+  padding: 9px 12px;
+  background: #fff;
+  border-radius: 9px;
+  text-align: left;
+  overflow: auto;
+  color: #26352e;
+}
+.backend-ready {
+  font-size: 11px;
+  color: #16865b;
+  margin: 0 0 14px;
+  line-height: 1.9;
+}

@@ -2912,3 +2912,62 @@ html {
   flex: none;
   align-self: stretch;
 }
+.navigation-choice {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  overflow: hidden;
+}
+.navigation-choice summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 13px;
+  cursor: pointer;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+  list-style: none;
+}
+.navigation-choice summary::-webkit-details-marker {
+  display: none;
+}
+.navigation-choice summary:after {
+  content: "⌄";
+  margin-inline-start: auto;
+}
+.navigation-choice[open] summary:after {
+  content: "⌃";
+}
+.navigation-choice summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: -3px;
+}
+.navigation-apps {
+  padding: 0 13px 13px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.navigation-apps p,
+.navigation-apps small {
+  width: 100%;
+  font-size: 10px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.navigation-apps a {
+  flex: 1;
+  min-width: 75px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 8px;
+  color: var(--green);
+  font-size: 11px;
+  background: #f7f9f8;
+}

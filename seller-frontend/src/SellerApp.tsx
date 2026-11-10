@@ -1,3 +1,4 @@
+import BackendReadiness, { useBackendReadiness } from "./BackendReadiness";
 import StoreMap from "./StoreMap";
 import BankPicker from "./BankPicker";
 import {
@@ -187,6 +188,7 @@ export default function SellerApp() {
   const [page, setPage] = useState<Page>("overview");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [seller, setSeller] = useState<Seller | null>(null);
+  const backend = useBackendReadiness(Boolean(seller));
   const [authLoading, setAuthLoading] = useState(Boolean(sellerToken.get()));
   const [mobileNav, setMobileNav] = useState(false);
   const [notice, setNotice] = useState("");
@@ -449,7 +451,7 @@ export default function SellerApp() {
     order: SellerOrder,
     action: "retry" | "stop",
   ) => {
-    if (deliveryBusy) return;
+    if (deliveryBusy || backend.state !== "ready") return;
     setDeliveryBusy(order.id);
     try {
       await sellerApi.dispatch(order.id, action);
@@ -468,7 +470,7 @@ export default function SellerApp() {
   };
   const [deliveryBusy, setDeliveryBusy] = useState<string | null>(null);
   const selfDelivery = async (order: SellerOrder, complete = false) => {
-    if (deliveryBusy) return;
+    if (deliveryBusy || backend.state !== "ready") return;
     if (
       !window.confirm(
         complete
@@ -723,13 +725,17 @@ export default function SellerApp() {
             />
           )}
           {page === "orders" && (
-            <OrdersPage
-              orders={sellerOrders}
-              onStatus={updateOrder}
-              onSelfDelivery={selfDelivery}
-              deliveryBusy={deliveryBusy}
-              onDispatch={dispatchOrder}
-            />
+            <>
+              <BackendReadiness state={backend.state} check={backend.check} />
+              <OrdersPage
+                orders={sellerOrders}
+                onStatus={updateOrder}
+                onSelfDelivery={selfDelivery}
+                deliveryBusy={deliveryBusy}
+                onDispatch={dispatchOrder}
+                deliveryAvailable={backend.state === "ready"}
+              />
+            </>
           )}
           {page === "products" && (
             <ProductsPage
@@ -1487,11 +1493,13 @@ function OrdersPage({
   onSelfDelivery,
   deliveryBusy,
   onDispatch,
+  deliveryAvailable,
 }: {
   orders: SellerOrder[];
   onStatus: (order: SellerOrder, status: number) => void;
   onSelfDelivery: (order: SellerOrder, complete?: boolean) => void;
   deliveryBusy: string | null;
+  deliveryAvailable: boolean;
   onDispatch: (order: SellerOrder, action: "retry" | "stop") => void;
 }) {
   const [filter, setFilter] = useState(0);
@@ -1726,7 +1734,9 @@ function OrdersPage({
                         <div className="dispatch-controls">
                           <button
                             className="btn small"
-                            disabled={deliveryBusy === order.id}
+                            disabled={
+                              deliveryBusy === order.id || !deliveryAvailable
+                            }
                             onClick={() => onDispatch(order, "retry")}
                           >
                             ارسال دوباره به پیک‌ها
@@ -1736,7 +1746,9 @@ function OrdersPage({
                           ) && (
                             <button
                               className="btn small"
-                              disabled={deliveryBusy === order.id}
+                              disabled={
+                                deliveryBusy === order.id || !deliveryAvailable
+                              }
                               onClick={() => onDispatch(order, "stop")}
                             >
                               توقف جست‌وجو
@@ -1745,7 +1757,9 @@ function OrdersPage({
                         </div>
                         <button
                           className="btn primary small"
-                          disabled={deliveryBusy === order.id}
+                          disabled={
+                            deliveryBusy === order.id || !deliveryAvailable
+                          }
                           onClick={() => onSelfDelivery(order)}
                         >
                           {deliveryBusy === order.id
@@ -1765,7 +1779,9 @@ function OrdersPage({
                         </p>
                         <button
                           className="btn primary small"
-                          disabled={deliveryBusy === order.id}
+                          disabled={
+                            deliveryBusy === order.id || !deliveryAvailable
+                          }
                           onClick={() => onSelfDelivery(order, true)}
                         >
                           {deliveryBusy === order.id
