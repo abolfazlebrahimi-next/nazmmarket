@@ -406,20 +406,17 @@ export default function CourierApp() {
             درآمد فردایت.
           </h1>
           <p>سفارش‌های نزدیک، کرایه شفاف و مدیریت درآمد؛ در یک پنل ساده.</p>
-          <span>
-            کرایه عادی ۵۰ تا ۸۰ هزار تومان · شرایط جوی خاص تا ۱۰۰ هزار تومان
-          </span>
         </section>
         <section className="login-card">
           <span className="hero-icon">
             <Bike size={30} />
           </span>
           <h2>{mode === "login" ? "ورود به حساب پیک" : "ساخت حساب پیک"}</h2>
-          <p className="muted">
-            {mode === "login"
-              ? "موبایل و رمز عبور خود را وارد کنید."
-              : "احراز هویت را پس از ورود از تنظیمات تکمیل می‌کنید."}
-          </p>
+          {mode === "register" && (
+            <p className="muted">
+              احراز هویت را پس از ورود از تنظیمات تکمیل می‌کنید.
+            </p>
+          )}
           <form
             className="form-stack"
             onSubmit={async (e) => {
@@ -449,22 +446,27 @@ export default function CourierApp() {
           >
             {mode === "register" && (
               <label>
-                نام و نام خانوادگی
-                <input name="fullName" required maxLength={120} />
+                <input
+                  name="fullName"
+                  required
+                  maxLength={120}
+                  placeholder="نام و نام خانوادگی"
+                  aria-label="نام و نام خانوادگی"
+                />
               </label>
             )}
             <label>
-              شماره موبایل
               <input
+                type="tel"
                 name="phone"
                 required
                 inputMode="tel"
                 autoComplete="tel"
                 placeholder="09xxxxxxxxx"
+                aria-label="شماره موبایل"
               />
             </label>
-            <label>
-              رمز عبور
+            <label className="password-field">
               <input
                 name="password"
                 type={showPassword ? "text" : "password"}
@@ -473,17 +475,20 @@ export default function CourierApp() {
                 autoComplete={
                   mode === "login" ? "current-password" : "new-password"
                 }
+                placeholder="رمز عبور"
+                aria-label="رمز عبور"
               />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-pressed={showPassword}
+                aria-label={showPassword ? "پنهان کردن رمز عبور" : "نمایش رمز عبور"}
+                title={showPassword ? "پنهان کردن رمز" : "نمایش رمز"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </label>
-            <button
-              type="button"
-              className="password-toggle"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-pressed={showPassword}
-            >
-              {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}{" "}
-              {showPassword ? "پنهان کردن رمز" : "نمایش رمز عبور"}
-            </button>
             <button className="primary" disabled={busy}>
               {busy
                 ? "در حال بررسی…"

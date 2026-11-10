@@ -32,7 +32,7 @@ button:hover {
 }
 button:focus-visible,
 a:focus-visible {
-  outline: 3px solid #f6ab47;
+  outline: 3px solid #16865b;
   outline-offset: 4px;
 }
 button:disabled {
@@ -85,7 +85,7 @@ h2 {
 .brand > span {
   width: 46px;
   height: 46px;
-  background: linear-gradient(135deg, #ffb142 0 25%, #03976b 26% 100%);
+  background: linear-gradient(135deg, #16865b, #0b6b4a);
   border-radius: 15px;
   box-shadow: 0 5px 12px #16865b1a;
 }
@@ -166,7 +166,7 @@ h2 {
 .sidebar-promo button {
   font-size: 10px;
   color: #fff;
-  background: var(--orange);
+  background: var(--green);
   border: 0;
   padding: 7px 12px;
   border-radius: 20px;
@@ -1262,6 +1262,41 @@ h2 {
 .login-card input[name="phone"] {
   direction: ltr;
   text-align: right;
+}
+.login-card input::placeholder {
+  color: #91a197;
+  opacity: 1;
+}
+.login-card .password-field {
+  position: relative;
+  display: block;
+}
+.login-card .password-field input {
+  padding-left: 52px;
+}
+.login-card .password-field .password-toggle {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  min-height: 36px;
+  place-items: center;
+  margin: 0;
+  padding: 0;
+  transform: translateY(-50%);
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--green);
+}
+.login-card .password-field .password-toggle:hover {
+  background: #eaf4ee;
+}
+.login-card .password-field .password-toggle:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
 }
 .login-card label {
   font-size: 11px;

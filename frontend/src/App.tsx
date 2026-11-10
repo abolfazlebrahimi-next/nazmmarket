@@ -1112,7 +1112,7 @@ export default function App() {
         <footer className="market-footer hidden border-t border-line bg-white md:block">
           <div className="market-footer-grid mx-auto max-w-7xl px-6 py-5 lg:px-8">
             <div className="market-footer-brand">
-              <Wordmark className="!text-[22px] !text-[#ff982f]" />
+              <Wordmark className="!text-[22px]" />
               <p className="mt-2 text-[12px] font-semibold text-ink">
                 خرید سوپرمارکتی فوری از سوپرمارکت‌های محلی و زنجیره‌ای
               </p>

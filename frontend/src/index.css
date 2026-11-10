@@ -488,7 +488,7 @@ textarea::placeholder {
   right: 0;
   padding: 2px 8px;
   border-radius: 7px 0 0 7px;
-  background: #ff982f;
+  background: #16865b;
   color: #fff;
   font-size: 12px;
   font-weight: 800;
@@ -595,7 +595,7 @@ textarea::placeholder {
 .campaign-eyebrow {
   font-size: 11px;
   font-weight: 800;
-  color: #ffd69d;
+  color: #c9f0dc;
 }
 .first-order-banner h1 {
   margin: 8px 0 6px;
@@ -628,16 +628,16 @@ textarea::placeholder {
   color: #fff;
   transform: rotate(-7deg);
   padding: 12px 20px;
-  border: 1px solid #ffd595;
+  border: 1px solid #b5e4ca;
   border-radius: 12px 22px 12px 22px;
   background: repeating-linear-gradient(
     135deg,
-    #ffad31 0 9px,
-    #f47b1b 9px 17px
+    #20a877 0 9px,
+    #0e704f 9px 17px
   );
-  text-shadow: 0 2px 2px #a6441590;
+  text-shadow: 0 2px 2px #064a3490;
   box-shadow:
-    0 7px 0 #b94c14,
+    0 7px 0 #084b37,
     0 12px 22px #092d253f,
     inset 0 1px 0 #ffffff88;
 }
@@ -648,7 +648,7 @@ textarea::placeholder {
   white-space: nowrap;
 }
 .first-order-banner:focus-visible {
-  outline: 3px solid #ffb35e;
+  outline: 3px solid #16865b;
   outline-offset: 3px;
 }
 .market-category-shortcuts {

@@ -8,7 +8,6 @@ import {
   LoaderCircle,
   Lock,
   Phone,
-  ShieldCheck,
   UserRound,
 } from "lucide-react";
 import { ApiError, api, tokenStore } from "../api/client";
@@ -70,9 +69,6 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
           <div className="absolute -right-10 -top-12 h-44 w-44 rounded-full bg-white/10" />
           <div className="absolute -bottom-16 -left-10 h-52 w-52 rounded-full bg-white/10" />
           <div className="relative">
-            <span className="inline-flex rounded-2xl bg-white/15 px-3 py-1.5 text-[11px] font-black backdrop-blur">
-              خرید آنلاین نظرآباد
-            </span>
             <h2 className="mt-6 text-[26px] font-black leading-9">
               ناز! مارکت
               <span className="mt-2 block text-[15px] font-bold leading-7 text-white/85">
@@ -90,9 +86,6 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
               ))}
             </ul>
           </div>
-          <p className="relative flex items-center gap-2 text-[11px] font-bold text-white/70">
-            <ShieldCheck className="h-4 w-4" /> رمز عبور شما به‌صورت هش‌شده ذخیره می‌شود
-          </p>
         </aside>
 
         {/* form side */}
@@ -125,15 +118,10 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
           <h1 className="mt-6 text-[19px] font-black text-ink">
             {mode === "login" ? "به حساب خود وارد شوید" : "یک حساب تازه بسازید"}
           </h1>
-          <p className="mt-1.5 text-[11.5px] font-medium leading-6 text-muted">
-            {mode === "login"
-              ? "شماره موبایل شما نام کاربری حساب است."
-              : "شماره موبایل = نام کاربری. یک رمز عبور برای خود انتخاب کنید."}
-          </p>
 
           <form onSubmit={submit} className="mt-5 space-y-3.5">
             <label className="block">
-              <span className="mb-1.5 block text-[11.5px] font-black text-ink">شماره موبایل (نام کاربری)</span>
+              <span className="sr-only">شماره موبایل</span>
               <span className="relative flex items-center">
                 <Phone className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
                 <input
@@ -143,7 +131,7 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
                   dir="ltr"
                   value={phone}
                   onChange={(e) => setPhone(toEn(e.target.value).replace(/\D/g, "").slice(0, 11))}
-                  placeholder="09123456789"
+                  placeholder="09xxxxxxxxx"
                   className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[14px] font-bold tracking-wide outline-none transition placeholder:tracking-normal placeholder:text-[#c3beb9] focus:border-brand"
                 />
               </span>
@@ -152,7 +140,7 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
             {mode === "register" && (
               <label className="block">
                 <span className="mb-1.5 block text-[11.5px] font-black text-ink">
-                  نام و نام خانوادگی <span className="font-medium text-muted">(اختیاری)</span>
+                  نام و نام خانوادگی
                 </span>
                 <span className="relative flex items-center">
                   <UserRound className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
@@ -236,10 +224,6 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
               )}
             </button>
           </form>
-
-          <p className="mt-4 text-center text-[10.5px] font-medium leading-5 text-muted">
-            با ورود یا ثبت‌نام، <span className="font-black text-ink">قوانین و مقررات</span> ناز مارکت را می‌پذیرید.
-          </p>
 
         </section>
       </div>
