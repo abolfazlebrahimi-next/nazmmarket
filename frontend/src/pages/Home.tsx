@@ -79,23 +79,33 @@ export function HomePage({ c }: { c: AppCtx }) {
           </span>
         </button>
       )}
-      <div
-        className="market-category-shortcuts no-scrollbar"
-        aria-label="دسته‌بندی کالاها"
-      >
-        {categories.slice(1).map((cat) => (
+      <section className="market-category-section" aria-label="دسته‌بندی کالاها">
+        <div className="market-category-heading">
           <button
             type="button"
-            key={cat.id}
-            onClick={() => c.openSub({ name: "category", id: cat.id })}
+            className="market-category-all"
+            onClick={() => c.go("easy")}
+            aria-label="مشاهده همه دسته‌بندی‌ها در خرید راحت"
           >
-            <span>
-              <cat.icon size={25} strokeWidth={1.5} />
-            </span>
-            <small>{cat.name}</small>
+            مشاهده همه <ChevronLeft size={15} />
           </button>
-        ))}
-      </div>
+          <h2>دسته‌بندی‌ها</h2>
+        </div>
+        <div className="market-category-shortcuts no-scrollbar">
+          {categories.slice(1).map((cat) => (
+            <button
+              type="button"
+              key={cat.id}
+              onClick={() => c.openSub({ name: "category", id: cat.id })}
+            >
+              <span>
+                <cat.icon size={25} strokeWidth={1.5} />
+              </span>
+              <small>{cat.name}</small>
+            </button>
+          ))}
+        </div>
+      </section>
       {c.firstOrderEligible && offerProducts.length > 0 && (
         <div id="first-order-products">
           <ProductRail title="خرید اولی‌ها؛ یک عدد با ۵۰٪ تخفیف" tone="offer">

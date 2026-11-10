@@ -296,11 +296,14 @@ router.get("/orders", async (req, res) => {
     Date.now() - new Date(c.location_updated_at).getTime() < 15 * 60 * 1000 &&
     validPoint(c.lat, c.lng);
   const rows = await db.all(
-    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,d.trip_status,d.arrived_at,d.picked_up_at,u.phone AS customer_phone,sa.phone AS store_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN seller_accounts sa ON sa.id=s.seller_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND o.delivery_mode='courier' AND o.dispatch_paused=0 AND COALESCE(o.dispatch_started_at,o.created_at)>? AND d.order_id IS NULL AND NOT EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND declined.courier_id=? AND declined.created_at>?)) OR (d.courier_id=? AND o.status IN (3,4,5)) ORDER BY o.created_at DESC LIMIT 500`,
+    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,d.trip_status,d.arrived_at,d.picked_up_at,u.phone AS customer_phone,sa.phone AS store_phone,
+      EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND declined.courier_id=?) AS declined_by_me
+     FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN seller_accounts sa ON sa.id=s.seller_id LEFT JOIN order_deliveries d ON d.order_id=o.id
+     WHERE (o.status=3 AND o.delivery_mode='courier' AND o.dispatch_paused=0 AND COALESCE(o.dispatch_started_at,o.created_at)>? AND d.order_id IS NULL) OR (d.courier_id=? AND o.status IN (3,4,5))
+     ORDER BY o.created_at DESC LIMIT 500`,
     [
-      new Date(Date.now() - 15 * 60000).toISOString(),
       req.courier.id,
-      new Date(Date.now() - 5 * 60000).toISOString(),
+      new Date(Date.now() - 15 * 60000).toISOString(),
       req.courier.id,
     ],
   );
@@ -344,6 +347,7 @@ router.get("/orders", async (req, res) => {
         destinationLat: mine ? r.destination_lat : null,
         destinationLng: mine ? r.destination_lng : null,
         claimedByMe: mine,
+        declinedByMe: Boolean(r.declined_by_me),
         claimedAt: r.claimed_at,
         completedAt: r.completed_at,
       };
@@ -364,6 +368,14 @@ router.get("/orders", async (req, res) => {
     for (const o of orders) {
       if (o.claimedByMe) {
         permitted.push(o);
+        continue;
+      }
+      if (o.declinedByMe) {
+        await db.run(
+          "INSERT INTO courier_offers (courier_id,order_id,expires_at,state) VALUES (?,?,?,'declined') ON DUPLICATE KEY UPDATE state='declined',expires_at=VALUES(expires_at)",
+          [req.courier.id, o.id, "9999-12-31T23:59:59.999Z"],
+        );
+        permitted.push({ ...o, offerExpiresAt: null });
         continue;
       }
       await db.run(
@@ -408,8 +420,8 @@ router.post("/orders/:id/decline", async (req, res) => {
     req.courier.id,
   ]);
   const order = await db.get(
-    "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3",
-    [req.params.id],
+    "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 AND o.delivery_mode='courier' AND o.dispatch_paused=0 AND COALESCE(o.dispatch_started_at,o.created_at)>? AND NOT EXISTS (SELECT 1 FROM order_deliveries d WHERE d.order_id=o.id)",
+    [req.params.id, new Date(Date.now() - 15 * 60000).toISOString()],
   );
   const distance = order ? distanceKm(c, order) : null;
   if (

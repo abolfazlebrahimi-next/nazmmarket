@@ -19,11 +19,22 @@ router.post("/orders/:id/claim", async (req, res) => {
         "SELECT * FROM courier_accounts WHERE id=? FOR UPDATE",
         [req.courier.id],
       );
+      const o = await tx.get(
+        "SELECT o.id,o.status,o.delivery_mode,o.dispatch_paused,COALESCE(o.dispatch_started_at,o.created_at) AS dispatch_started_at,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? FOR UPDATE",
+        [req.params.id],
+      );
+      if (!o) return false;
       const existing = await tx.get(
         "SELECT * FROM order_deliveries WHERE order_id=? FOR UPDATE",
         [req.params.id],
       );
-      if (existing) return Number(existing.courier_id) === req.courier.id;
+      if (existing)
+        return (
+          Number(existing.courier_id) === req.courier.id &&
+          !existing.completed_at &&
+          Number(o.status) !== 5 &&
+          !["completed", "cancelled", "failed"].includes(existing.trip_status)
+        );
       if (
         !c?.active ||
         c.verification_status !== "approved" ||
@@ -34,6 +45,14 @@ router.post("/orders/:id/claim", async (req, res) => {
       )
         return false;
       if (
+        Number(o.status) !== 3 ||
+        o.delivery_mode !== "courier" ||
+        Boolean(o.dispatch_paused) ||
+        !Number.isFinite(Date.parse(o.dispatch_started_at)) ||
+        Date.now() - Date.parse(o.dispatch_started_at) >= 15 * 60000
+      )
+        return false;
+      if (
         await tx.get(
           "SELECT order_id FROM order_deliveries WHERE courier_id=? AND completed_at IS NULL AND trip_status NOT IN ('cancelled','failed') LIMIT 1 FOR UPDATE",
           [req.courier.id],
@@ -41,27 +60,12 @@ router.post("/orders/:id/claim", async (req, res) => {
       )
         return false;
       const offer = await tx.get(
-        "SELECT * FROM courier_offers WHERE courier_id=? AND order_id=? AND state='pending' FOR UPDATE",
+        "SELECT * FROM courier_offers WHERE courier_id=? AND order_id=? AND state IN ('pending','declined') FOR UPDATE",
         [req.courier.id, req.params.id],
       );
       if (!offer) return false;
-      const o = await tx.get(
-        "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 AND o.delivery_mode='courier' AND o.dispatch_paused=0 AND COALESCE(o.dispatch_started_at,o.created_at)>? FOR UPDATE",
-        [req.params.id, new Date(Date.now() - 15 * 60000).toISOString()],
-      );
-      const distance = o ? distanceKm(c, o) : null;
+      const distance = distanceKm(c, o);
       if (distance === null || distance > 15) return false;
-      if (
-        await tx.get(
-          "SELECT 1 AS found FROM courier_declined_orders WHERE courier_id=? AND order_id=? AND created_at>?",
-          [
-            req.courier.id,
-            req.params.id,
-            new Date(Date.now() - 5 * 60000).toISOString(),
-          ],
-        )
-      )
-        return false;
       await tx.run(
         "INSERT INTO order_deliveries (order_id,courier_id,claimed_at,trip_status) VALUES (?,?,?,'accepted')",
         [o.id, req.courier.id, new Date().toISOString()],
@@ -77,7 +81,7 @@ router.post("/orders/:id/claim", async (req, res) => {
       return fail(
         res,
         409,
-        "سفر فعال دارید، پیشنهاد را اخیراً رد کرده‌اید یا سفارش دیگر در دسترس نیست.",
+        "سفر فعال دارید، سفارش دیگر در دسترس نیست یا از محدودهٔ مجاز دور است.",
       );
     res.json({ ok: true });
   } catch (e) {

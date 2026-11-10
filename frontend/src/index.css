@@ -9,7 +9,7 @@
   --color-ink: #1c1b1a;
   --color-muted: #75726e;
   --color-line: #eeece9;
-  --color-app: #fafafa;
+  --color-app: #fff;
   --color-mint: #16865b;
 }
 
@@ -23,7 +23,7 @@ html {
 
 body {
   margin: 0;
-  background: #edf1ee;
+  background: #fff;
   color: #1c1b1a;
   font-family: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -453,6 +453,53 @@ textarea::placeholder {
   text-align: right;
   background: transparent;
 }
+.market-product-skeleton {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  scroll-snap-align: start;
+}
+.market-product-skeleton-image {
+  width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid #edf0ee;
+  border-radius: 18px;
+  background-color: #f0f2f1;
+}
+.market-product-skeleton-copy {
+  display: flex;
+  height: 43px;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 11px;
+}
+.market-product-skeleton-line {
+  width: 88%;
+  height: 10px;
+  border-radius: 6px;
+}
+.market-product-skeleton-line.short {
+  width: 57%;
+  height: 9px;
+}
+.market-product-skeleton-prices {
+  display: flex;
+  height: 43px;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 8px;
+}
+.market-product-skeleton-price {
+  width: 61%;
+  height: 13px;
+  border-radius: 6px;
+}
+.market-product-skeleton-old-price {
+  width: 36%;
+  height: 9px;
+  border-radius: 6px;
+}
 .market-product-image {
   position: relative;
   width: 100%;
@@ -663,12 +710,42 @@ textarea::placeholder {
   outline: 3px solid #16865b;
   outline-offset: 3px;
 }
+.market-category-section {
+  margin: 13px 0 0;
+}
+.market-category-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+.market-category-heading h2 {
+  margin: 0;
+  color: #26352e;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.8;
+}
+.market-category-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #16865b;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
 .market-category-shortcuts {
   display: flex;
   gap: 14px;
   overflow-x: auto;
   align-items: flex-start;
-  padding: 23px 0 4px;
+  padding: 0 0 4px;
 }
 .market-category-shortcuts > button {
   width: 72px;
@@ -906,7 +983,7 @@ textarea::placeholder {
   display: block;
   overflow: hidden;
   border-radius: 12px;
-  background: linear-gradient(100deg, #e9eeeb 22%, #f7f9f8 44%, #e9eeeb 68%);
+  background: linear-gradient(100deg, #edf0ee 22%, #f3f5f4 44%, #edf0ee 68%);
   background-size: 220% 100%;
   animation: skeleton-wave 1.35s ease-in-out infinite;
 }
@@ -1346,8 +1423,18 @@ textarea::placeholder {
   .market-product-price del {
     font-size: 10px;
   }
-  .market-product-image {
+  .market-product-image,
+  .market-product-skeleton-image {
     border-radius: 15px;
+  }
+  .market-product-skeleton-copy {
+    height: 40px;
+    margin-top: 9px;
+    gap: 6px;
+  }
+  .market-product-skeleton-prices {
+    height: 38px;
+    margin-top: 5px;
   }
   .market-product-open {
     padding: 7px;
@@ -1418,12 +1505,35 @@ textarea::placeholder {
     font-size: 10px;
     margin-top: 10px;
   }
+  .market-category-section {
+    margin-top: 10px;
+  }
+  .market-category-heading {
+    margin-bottom: 7px;
+  }
+  .market-category-heading h2 {
+    font-size: 12px;
+  }
+  .market-category-all {
+    gap: 2px;
+    font-size: 9px;
+  }
   .market-category-shortcuts {
-    gap: 9px;
-    padding-top: 20px;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px 8px;
+    overflow: visible;
+    align-items: start;
+    padding: 3px 0 0;
   }
   .market-category-shortcuts > button {
-    width: 62px;
+    width: 100%;
+    min-width: 0;
+    flex-shrink: 1;
+    gap: 6px;
+  }
+  .market-category-shortcuts > button:nth-child(n + 9) {
+    display: none;
   }
   .market-category-shortcuts > button > span {
     width: 46px;
@@ -1431,7 +1541,10 @@ textarea::placeholder {
     border-radius: 15px;
   }
   .market-category-shortcuts small {
+    max-width: 100%;
+    min-height: 27px;
     font-size: 9px;
+    line-height: 1.6;
   }
   .market-shelf-offer {
     margin-inline: -5px;

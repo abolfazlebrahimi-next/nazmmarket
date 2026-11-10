@@ -27,6 +27,7 @@ import Dashboard from "./Dashboard";
 import TripHistory from "./TripHistory";
 import DispatchMap from "./DispatchMap";
 import ActiveDelivery from "./ActiveDelivery";
+import AvailableOffer from "./AvailableOffer";
 import IncomingOffer from "./IncomingOffer";
 type Row = Record<string, any>;
 const nav = [
@@ -323,7 +324,11 @@ export default function CourierApp() {
         json(body),
       );
       if (action === "decline")
-        setOrders((rows) => rows.filter((r) => r.id !== order.id));
+        setOrders((rows) =>
+          rows.map((r) =>
+            r.id === order.id ? { ...r, declinedByMe: true } : r,
+          ),
+        );
       if (action === "claim")
         setOrders((rows) =>
           rows
@@ -338,7 +343,7 @@ export default function CourierApp() {
         action === "claim"
           ? "پیشنهاد پذیرفته شد؛ اکنون به سمت فروشگاه حرکت کنید."
           : action === "decline"
-            ? "پیشنهاد رد شد؛ برای سایر پیک‌ها همچنان در دسترس است."
+            ? "پیشنهاد رد شد؛ اگر هنوز در جست‌وجوی پیک باشد، در «سفارش‌های من» برای پذیرش دوباره باقی می‌ماند."
             : action === "arrive"
               ? "رسیدن شما به فروشگاه ثبت شد."
               : action === "pickup"
@@ -356,8 +361,10 @@ export default function CourierApp() {
       }
     } catch (e) {
       setError((e as Error).message);
-      if (["claim", "decline"].includes(action))
+      if (["claim", "decline"].includes(action)) {
         setOfferError((e as Error).message);
+        await loadOrders();
+      }
     } finally {
       setBusy(false);
     }
@@ -566,6 +573,10 @@ export default function CourierApp() {
     active: "مدیریت سفر فعال",
   };
   const activeOrders = shown.filter((o) => o.claimedByMe && o.status !== 5);
+  const availableOrders =
+    page === "orders"
+      ? shown.filter((o) => !o.claimedByMe && o.status === 3)
+      : [];
   const incoming =
     isApproved &&
     courier.online &&
@@ -573,6 +584,7 @@ export default function CourierApp() {
       ? orders.find(
           (o) =>
             !o.claimedByMe &&
+            !o.declinedByMe &&
             o.status === 3 &&
             (!o.offerExpiresAt || Date.parse(o.offerExpiresAt) > Date.now()),
         )
@@ -599,10 +611,37 @@ export default function CourierApp() {
           ))}
         </div>
       )}
-      {page !== "work" && !activeOrders.length && (
+      {page === "orders" && availableOrders.length > 0 && (
+        <section className="available-offers-section" aria-label="سفارش‌های در دسترس">
+          <div className="section-heading orders-heading">
+            <h2>
+              <Package size={20} /> سفارش‌های آمادهٔ پذیرش
+            </h2>
+            <span className="section-count">
+              {money(availableOrders.length)} سفارش
+            </span>
+          </div>
+          <div className="orders-grid">
+            {availableOrders.map((o) => (
+              <AvailableOffer
+                key={o.id}
+                order={o}
+                busy={busy}
+                connected={connected}
+                act={act}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+      {page !== "work" && !activeOrders.length && !availableOrders.length && (
         <Empty
           title="سفر فعالی ندارید"
-          text="پیشنهادهای جدید به‌صورت پنجرهٔ پایین‌صفحه با دکمه‌های قبول و رد نمایش داده می‌شوند."
+          text={
+            page === "orders"
+              ? "سفارش‌های در دسترس در همین صفحه نمایش داده می‌شوند؛ پیشنهاد تازه را هم می‌توانید از پنجرهٔ پایین‌صفحه بررسی کنید."
+              : "پس از پذیرفتن یک پیشنهاد، جزئیات سفر فعال اینجا نمایش داده می‌شود."
+          }
         />
       )}
     </>
