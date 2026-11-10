@@ -303,6 +303,9 @@ export async function migrate() {
     lng: "DOUBLE NULL",
     location_updated_at: "VARCHAR(32) NULL",
     motor_photos: "TEXT NULL",
+    personal_details: "TEXT NULL",
+    portrait_photo: "VARCHAR(255) NULL",
+    vehicle_document_photo: "VARCHAR(255) NULL",
   }))
     await ensureColumn("courier_accounts", column, definition);
   for (const [column, definition] of Object.entries({

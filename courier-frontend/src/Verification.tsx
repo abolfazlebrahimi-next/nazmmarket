@@ -98,26 +98,59 @@ export default function Verification({
     ),
     [step, setStep] = useState(0),
     [plate, setPlate] = useState(""),
-    [vehicle, setVehicle] = useState(""),
+    [nationalId, setNationalId] = useState(""),
+    [birthDate, setBirthDate] = useState(""),
+    [brand, setBrand] = useState(""),
+    [model, setModel] = useState(""),
+    [color, setColor] = useState(""),
+    [portrait, setPortrait] = useState<File[]>([]),
+    [vehicleDocument, setVehicleDocument] = useState<File[]>([]),
     [national, setNational] = useState<File[]>([]),
     [license, setLicense] = useState<File[]>([]),
     [motor, setMotor] = useState<File[]>([]),
     [platePhoto, setPlatePhoto] = useState<File[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const vehicle = `${brand} ${model}، ${color}`;
+  useEffect(() => {
+    let live = true;
+    api("/profile/details")
+      .then((r) => {
+        if (live && r.profile) {
+          setNationalId(r.profile.nationalId);
+          setBirthDate(r.profile.birthDate);
+          setBrand(r.profile.brand);
+          setModel(r.profile.model);
+          setColor(r.profile.color);
+        }
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
   const steps = [
-    "مشخصات موتور",
+    "اطلاعات و موتور",
     "مدارک هویتی",
     "تصاویر موتور",
     "بررسی و ارسال",
   ];
   const valid =
     step === 0
-      ? !!plate.trim() && !!vehicle.trim()
+      ? !!plate.trim() &&
+        !!brand.trim() &&
+        !!model.trim() &&
+        !!color.trim() &&
+        /^\d{10}$/.test(nationalId) &&
+        !!birthDate
       : step === 1
-        ? national.length > 0 && license.length > 0
+        ? national.length > 0 && license.length > 0 && portrait.length > 0
         : step === 2
-          ? motor.length > 0 && platePhoto.length > 0
+          ? motor.length > 0 &&
+            platePhoto.length > 0 &&
+            vehicleDocument.length > 0
           : true;
   async function submit() {
     setBusy(true);
@@ -125,6 +158,13 @@ export default function Verification({
       const b = new FormData();
       b.set("plate", plate);
       b.set("vehicleInfo", vehicle);
+      b.set("nationalId", nationalId);
+      b.set("birthDate", birthDate);
+      b.set("brand", brand);
+      b.set("model", model);
+      b.set("color", color);
+      b.set("portrait", portrait[0]);
+      b.set("vehicleDocument", vehicleDocument[0]);
       motor.forEach((f) => b.append("motor", f));
       b.set("national", national[0]);
       b.set("license", license[0]);
@@ -176,6 +216,22 @@ export default function Verification({
             اصلاح و ارسال مجدد مدارک
           </button>
         )}
+      {courier.verificationStatus === "approved" && !editing && (
+        <button
+          onClick={() => {
+            if (
+              window.confirm(
+                "با ارسال مدارک اصلاح‌شده، فعالیت متوقف و پرونده دوباره برای تأیید مدیر ارسال می‌شود. تا پایان سفر فعال امکان این کار وجود ندارد.",
+              )
+            ) {
+              setEditing(true);
+              setStep(0);
+            }
+          }}
+        >
+          درخواست اصلاح اطلاعات و مدارک
+        </button>
+      )}
       {editing && (
         <section className="panel verification-form">
           <ol className="wizard">
@@ -208,12 +264,57 @@ export default function Verification({
                   />
                 </label>
                 <label>
-                  مدل و رنگ موتور
+                  کد ملی
                   <input
-                    placeholder="مثلاً هوندا ۱۲۵، مشکی"
-                    value={vehicle}
-                    onChange={(e) => setVehicle(e.target.value)}
-                    maxLength={255}
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={nationalId}
+                    onChange={(e) =>
+                      setNationalId(
+                        e.target.value
+                          .replace(/[۰-۹]/g, (d) =>
+                            String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)),
+                          )
+                          .replace(/\D/g, ""),
+                      )
+                    }
+                  />
+                </label>
+                <label>
+                  تاریخ تولد
+                  <input
+                    type="date"
+                    value={birthDate}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                  />
+                  <small>تاریخ مطابق تقویم نمایش‌داده‌شدهٔ مرورگر</small>
+                </label>
+                <label>
+                  برند موتور
+                  <input
+                    value={brand}
+                    maxLength={100}
+                    onChange={(e) => setBrand(e.target.value)}
+                    placeholder="مثلاً هوندا"
+                  />
+                </label>
+                <label>
+                  مدل موتور
+                  <input
+                    value={model}
+                    maxLength={100}
+                    onChange={(e) => setModel(e.target.value)}
+                    placeholder="مثلاً ۱۲۵"
+                  />
+                </label>
+                <label>
+                  رنگ موتور
+                  <input
+                    value={color}
+                    maxLength={60}
+                    onChange={(e) => setColor(e.target.value)}
+                    placeholder="مثلاً مشکی"
                   />
                 </label>
               </div>
@@ -222,6 +323,11 @@ export default function Verification({
           {step === 1 && (
             <>
               <h2>مدارک هویتی خوانا</h2>
+              <Photos
+                title="تصویر پرسنلی"
+                files={portrait}
+                onChange={setPortrait}
+              />
               <Photos
                 title="تصویر کارت ملی"
                 files={national}
@@ -237,6 +343,11 @@ export default function Verification({
           {step === 2 && (
             <>
               <h2>تصاویر موتور و پلاک</h2>
+              <Photos
+                title="تصویر مدارک موتور"
+                files={vehicleDocument}
+                onChange={setVehicleDocument}
+              />
               <p className="muted">
                 نمای کامل موتور و پلاک خوانا را ثبت کنید. امکان انتخاب چند تصویر
                 وجود دارد.
@@ -268,7 +379,9 @@ export default function Verification({
                   {motor.length +
                     national.length +
                     license.length +
-                    platePhoto.length}{" "}
+                    platePhoto.length +
+                    portrait.length +
+                    vehicleDocument.length}{" "}
                   تصویر آماده ارسال امن
                 </p>
                 <small>

@@ -48,6 +48,7 @@ for (const path of [
   "/api/admin/products",
   "/api/admin/couriers",
   "/api/admin/couriers/1/documents/national",
+  "/api/admin/couriers/1/profile",
 ])
   test(`admin route ${path} denies missing/customer/seller/courier tokens`, async () => {
     for (const token of [

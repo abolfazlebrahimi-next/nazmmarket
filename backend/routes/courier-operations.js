@@ -1,3 +1,4 @@
+import { readDocument, decryptPrivateJSON } from "../private-documents.js";
 import { Router } from "express";
 import { db } from "../db.js";
 import { hashPassword, verifyPassword, loginThrottle } from "../auth.js";
@@ -25,6 +26,33 @@ export async function courierWallet(courierId, tx = db) {
   );
   return { earned: credits, available: Math.max(0, credits - reserved) };
 }
+router.get("/profile/photo", async (req, res) => {
+  const row = await db.get(
+    "SELECT portrait_photo FROM courier_accounts WHERE id=?",
+    [req.courier.id],
+  );
+  if (!row?.portrait_photo) return fail(res, 404, "تصویر پرسنلی ثبت نشده.");
+  const image = await readDocument(row.portrait_photo);
+  res
+    .set({
+      "Content-Type": "image/jpeg",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+    })
+    .send(image);
+});
+router.get("/profile/details", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const row = await db.get(
+    "SELECT personal_details FROM courier_accounts WHERE id=?",
+    [req.courier.id],
+  );
+  res.json({
+    profile: row?.personal_details
+      ? decryptPrivateJSON(row.personal_details)
+      : null,
+  });
+});
 router.post("/auth/password", loginThrottle, async (req, res) => {
   const current = String(req.body.currentPassword || ""),
     next = String(req.body.newPassword || "");

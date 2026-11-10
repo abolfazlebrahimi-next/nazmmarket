@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import { createDeliveryCode } from "../trip-security.js";
 import { notifyCourier } from "../courier-notifications.js";
-import { readDocument } from "../private-documents.js";
+import { readDocument, decryptPrivateJSON } from "../private-documents.js";
 import multer from "multer";
 import { uploadDir } from "../storage-paths.js";
 import { db, mapOrder } from "../db.js";
@@ -365,6 +365,19 @@ router.get("/couriers", async (_req, res) =>
     ),
   }),
 );
+router.get("/couriers/:id/profile", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const row = await db.get(
+    "SELECT personal_details FROM courier_accounts WHERE id=?",
+    [req.params.id],
+  );
+  if (!row) return fail(res, 404, "پیک پیدا نشد.");
+  res.json({
+    profile: row.personal_details
+      ? decryptPrivateJSON(row.personal_details)
+      : null,
+  });
+});
 router.get("/couriers/:id/documents/:kind", async (req, res) => {
   res.set("Cache-Control", "no-store");
   const fields = {
@@ -372,6 +385,8 @@ router.get("/couriers/:id/documents/:kind", async (req, res) => {
     national: "national_photo",
     license: "license_photo",
     plate: "plate_photo",
+    portrait: "portrait_photo",
+    vehicleDocument: "vehicle_document_photo",
   };
   if (/^motor-[0-3]$/.test(req.params.kind)) {
     const row = await db.get(
@@ -418,12 +433,13 @@ router.patch("/couriers/:id/review", async (req, res) => {
   )
     return fail(res, 400, "وضعیت و دلیل بررسی را مشخص کنید.");
   const result = await db.run(
-    "UPDATE courier_accounts SET active=?,verification_status=?,rejection_reason=? WHERE id=? AND verification_status='pending' AND motor_photo IS NOT NULL AND national_photo IS NOT NULL AND license_photo IS NOT NULL AND plate_photo IS NOT NULL",
+    "UPDATE courier_accounts SET active=?,verification_status=?,rejection_reason=? WHERE id=? AND verification_status='pending' AND motor_photo IS NOT NULL AND national_photo IS NOT NULL AND license_photo IS NOT NULL AND plate_photo IS NOT NULL AND (?<>'approved' OR (personal_details IS NOT NULL AND portrait_photo IS NOT NULL AND vehicle_document_photo IS NOT NULL))",
     [
       state === "approved" ? 1 : 0,
       state,
       state === "approved" ? "" : reason,
       req.params.id,
+      state,
     ],
   );
   if (!result.affectedRows) return fail(res, 409, "درخواست قابل بررسی نیست.");

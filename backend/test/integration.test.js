@@ -284,15 +284,28 @@ test(
           ok(
             "/api/courier/verification",
             c.token,
-            form({ plate: "۱۲۳ الف ۴۵", vehicleInfo: "موتور تست مشکی" }, [
-              "national",
-              "motor",
-              "motor",
-              "motor",
-              "motor",
-              "license",
-              "platePhoto",
-            ]),
+            form(
+              {
+                plate: "۱۲۳ الف ۴۵",
+                vehicleInfo: "موتور تست مشکی",
+                nationalId: "1234567891",
+                birthDate: "1990-01-01",
+                brand: "موتور",
+                model: "۱۲۵",
+                color: "مشکی",
+              },
+              [
+                "national",
+                "motor",
+                "motor",
+                "motor",
+                "motor",
+                "license",
+                "platePhoto",
+                "portrait",
+                "vehicleDocument",
+              ],
+            ),
             "POST",
           );
         await submit();
@@ -569,6 +582,8 @@ test(
         "jpeg",
       );
       for (const kind of [
+        "portrait",
+        "vehicleDocument",
         "motor-0",
         "motor-1",
         "motor-2",
@@ -590,6 +605,24 @@ test(
           "jpeg",
         );
       }
+      const privateProfile = await ok(
+        `/api/admin/couriers/${winner.courier.id}/profile`,
+        admin,
+      );
+      assert.equal(privateProfile.profile.nationalId, "1234567891");
+      assert.equal(
+        (
+          await request(
+            `/api/admin/couriers/${winner.courier.id}/profile`,
+            loser.token,
+          )
+        ).status,
+        401,
+      );
+      assert.equal(
+        (await ok("/api/courier/profile/details", winner.token)).profile.brand,
+        "موتور",
+      );
       const originalDocumentKey = process.env.SELLER_PII_KEY;
       try {
         process.env.SELLER_PII_KEY = "ef".repeat(32);
@@ -909,7 +942,7 @@ test(
           .unlink(new URL("../uploads/" + path.basename(url), import.meta.url))
           .catch(() => {});
       const documents = await db.all(
-        "SELECT motor_photo,national_photo,license_photo,plate_photo FROM courier_accounts WHERE phone LIKE ?",
+        "SELECT motor_photo,national_photo,license_photo,plate_photo,portrait_photo,vehicle_document_photo FROM courier_accounts WHERE phone LIKE ?",
         ["%" + suffix],
       );
       for (const row of documents)

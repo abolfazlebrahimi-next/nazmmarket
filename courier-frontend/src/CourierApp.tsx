@@ -46,6 +46,7 @@ const nav = [
 ] as const;
 export default function CourierApp() {
   const [courier, setCourier] = useState<Courier | null>(null),
+    [profilePhoto, setProfilePhoto] = useState(""),
     [boot, setBoot] = useState(!!sessionStorage.getItem(TOKEN)),
     [mode, setMode] = useState("login"),
     [showPassword, setShowPassword] = useState(false),
@@ -70,6 +71,35 @@ export default function CourierApp() {
     [locationFresh, setLocationFresh] = useState(false),
     [dispatchStatus, setDispatchStatus] = useState("offline");
   const seenOffers = useRef(new Set<string>());
+  useEffect(() => {
+    if (!courier?.hasPortrait) {
+      setProfilePhoto("");
+      return;
+    }
+    let url = "";
+    const controller = new AbortController();
+    fetch("/api/courier/profile/photo", {
+      headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN)}` },
+      signal: controller.signal,
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error("portrait unavailable");
+        return r.blob();
+      })
+      .then((blob) => {
+        if (!controller.signal.aborted) {
+          url = URL.createObjectURL(blob);
+          setProfilePhoto(url);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setProfilePhoto("");
+      });
+    return () => {
+      controller.abort();
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [courier?.id, courier?.hasPortrait, courier?.verificationStatus]);
   async function loadNotifications() {
     try {
       const r = await api("/notifications");
@@ -724,7 +754,13 @@ export default function CourierApp() {
           </div>
         </div>
         <div className="profile-card">
-          <span className="avatar">{courier.fullName.slice(0, 1)}</span>
+          <span className="avatar">
+            {profilePhoto ? (
+              <img src={profilePhoto} alt="تصویر پروفایل" />
+            ) : (
+              courier.fullName.slice(0, 1)
+            )}
+          </span>
           <div>
             <b>{courier.fullName}</b>
             <small>{courier.phone}</small>
@@ -772,7 +808,11 @@ export default function CourierApp() {
         <header className="topbar">
           <span className="topbar-welcome">
             <span className="avatar">
-              <UserRound size={19} />
+              {profilePhoto ? (
+                <img src={profilePhoto} alt="تصویر پروفایل" />
+              ) : (
+                <UserRound size={19} />
+              )}
             </span>
             <b>{courier.fullName}</b>
             <small>خوش آمدید به همراه پیک</small>

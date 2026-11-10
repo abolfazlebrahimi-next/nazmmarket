@@ -131,7 +131,8 @@ export default function AdminApp() {
     [filter, setFilter] = useState("all"),
     [editing, setEditing] = useState<Product | null | undefined>(undefined),
     [events, setEvents] = useState<Row[] | null>(null),
-    [document, setDocument] = useState("");
+    [document, setDocument] = useState(""),
+    [courierProfile, setCourierProfile] = useState<Row | null>(null);
   const [tableRows, setTableRows] = useState<Row[]>([]),
     [tableTotal, setTableTotal] = useState(0),
     [tablePage, setTablePage] = useState(1);
@@ -545,6 +546,8 @@ export default function AdminApp() {
                       {c.verification_status !== "unsubmitted" && (
                         <div className="document-links">
                           {[
+                            ["portrait", "تصویر پرسنلی"],
+                            ["vehicleDocument", "مدارک موتور"],
                             ["national", "کارت ملی"],
                             ["motor", "موتور"],
                             ["motor-1", "عکس دوم موتور"],
@@ -588,6 +591,24 @@ export default function AdminApp() {
                             </button>
                           ))}
                         </div>
+                      )}
+                      {c.verification_status !== "unsubmitted" && (
+                        <button
+                          onClick={async () => {
+                            try {
+                              const r = await api(`/couriers/${c.id}/profile`);
+                              setCourierProfile({
+                                ...r.profile,
+                                fullName: c.full_name,
+                                empty: !r.profile,
+                              });
+                            } catch (e) {
+                              setError((e as Error).message);
+                            }
+                          }}
+                        >
+                          مشاهده اطلاعات هویتی و موتور
+                        </button>
                       )}
                       {c.verification_status === "pending" && (
                         <button
@@ -900,6 +921,31 @@ export default function AdminApp() {
             ))}
           </ol>
           {!events.length && <Empty text="تاریخچه‌ای ثبت نشده است." />}
+        </Modal>
+      )}
+      {courierProfile && (
+        <Modal
+          title={`اطلاعات محرمانهٔ ${courierProfile.fullName}`}
+          onClose={() => setCourierProfile(null)}
+        >
+          {courierProfile.empty ? (
+            <p>
+              اطلاعات تکمیلی در پروندهٔ قدیمی ثبت نشده؛ در صورت نیاز درخواست
+              اصلاح مدارک بدهید.
+            </p>
+          ) : (
+            <dl>
+              <dt>کد ملی</dt>
+              <dd>{courierProfile.nationalId}</dd>
+              <dt>تاریخ تولد</dt>
+              <dd>{courierProfile.birthDate}</dd>
+              <dt>موتور</dt>
+              <dd>
+                {courierProfile.brand} · {courierProfile.model} ·{" "}
+                {courierProfile.color}
+              </dd>
+            </dl>
+          )}
         </Modal>
       )}
       {document && (

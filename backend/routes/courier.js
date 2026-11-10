@@ -1,5 +1,6 @@
 import courierOperations from "./courier-operations.js";
 import { distanceKm, validPoint } from "../delivery.js";
+import { validateCourierProfile } from "../courier-profile.js";
 import { notifyCourier } from "../courier-notifications.js";
 import courierTrips from "./courier-trips.js";
 import { Router } from "express";
@@ -19,6 +20,7 @@ import {
   privateDir,
   documentKey,
   secureDocument,
+  encryptPrivateJSON,
 } from "../private-documents.js";
 const router = Router();
 fs.mkdirSync(privateDir, { recursive: true, mode: 0o700 });
@@ -27,7 +29,7 @@ const documents = multer({
     destination: privateDir,
     filename: (_r, _f, cb) => cb(null, crypto.randomUUID() + ".jpg"),
   }),
-  limits: { fileSize: 5 * 1024 * 1024, files: 7 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 9 },
   fileFilter: (_r, f, cb) =>
     cb(null, ["image/jpeg", "image/png", "image/webp"].includes(f.mimetype)),
 }).fields([
@@ -35,6 +37,8 @@ const documents = multer({
   { name: "national", maxCount: 1 },
   { name: "license", maxCount: 1 },
   { name: "platePhoto", maxCount: 1 },
+  { name: "portrait", maxCount: 1 },
+  { name: "vehicleDocument", maxCount: 1 },
 ]);
 const fail = (res, status, code, message) =>
   res.status(status).json({ error: { code, message } });
@@ -49,6 +53,7 @@ const shapeCourier = (row) => ({
   lng: row.lng == null ? null : Number(row.lng),
   verificationStatus: row.verification_status,
   rejectionReason: row.rejection_reason,
+  hasPortrait: !!row.portrait_photo,
 });
 
 async function requireCourier(req, res, next) {
@@ -171,6 +176,21 @@ router.post(
       return fail(res, 503, "security_configuration", e.message);
     }
   },
+  async (req, res, next) => {
+    if (
+      await db.get(
+        "SELECT order_id FROM order_deliveries WHERE courier_id=? AND completed_at IS NULL AND trip_status NOT IN ('cancelled','failed') LIMIT 1",
+        [req.courier.id],
+      )
+    )
+      return fail(
+        res,
+        409,
+        "active_trip",
+        "تا پایان سفر فعال امکان تغییر مدارک وجود ندارد.",
+      );
+    next();
+  },
   documents,
   async (req, res) => {
     const files = Object.values(req.files || {}).flat();
@@ -181,6 +201,8 @@ router.post(
       !req.files?.national?.[0] ||
       !req.files?.license?.[0] ||
       !req.files?.platePhoto?.[0] ||
+      !req.files?.portrait?.[0] ||
+      !req.files?.vehicleDocument?.[0] ||
       !String(req.body.vehicleInfo || "").trim() ||
       !String(req.body.plate || "").trim()
     ) {
@@ -193,22 +215,41 @@ router.post(
       );
     }
     try {
-      // Decode/encrypt one image at a time: seven large photographs in parallel
+      const personal = validateCourierProfile(req.body);
+      // Decode/encrypt one image at a time: nine large photographs in parallel
       // can exhaust memory and kill the process during verification upload.
       for (const file of files) await secureDocument(file);
-      const result = await db.run(
-        "UPDATE courier_accounts SET plate=?,motor_photo=?,national_photo=?,license_photo=?,plate_photo=?,vehicle_info=?,motor_photos=?,verification_status='pending',active=0,rejection_reason='' WHERE id=? AND verification_status IN ('unsubmitted','rejected','needs_correction')",
-        [
-          String(req.body.plate).trim().slice(0, 40),
-          req.files.motor[0].filename,
-          req.files.national[0].filename,
-          req.files.license[0].filename,
-          req.files.platePhoto[0].filename,
-          String(req.body.vehicleInfo).trim().slice(0, 255),
-          JSON.stringify(req.files.motor.map((f) => f.filename)),
+      const result = await db.transaction(async (tx) => {
+        await tx.get("SELECT id FROM courier_accounts WHERE id=? FOR UPDATE", [
           req.courier.id,
-        ],
-      );
+        ]);
+        if (
+          await tx.get(
+            "SELECT order_id FROM order_deliveries WHERE courier_id=? AND completed_at IS NULL AND trip_status NOT IN ('cancelled','failed') LIMIT 1",
+            [req.courier.id],
+          )
+        )
+          throw Object.assign(
+            new Error("تا پایان سفر فعال امکان تغییر مدارک نیست."),
+            { status: 409, code: "active_trip" },
+          );
+        return tx.run(
+          "UPDATE courier_accounts SET plate=?,motor_photo=?,national_photo=?,license_photo=?,plate_photo=?,vehicle_info=?,motor_photos=?,personal_details=?,portrait_photo=?,vehicle_document_photo=?,verification_status='pending',active=0,online=0,rejection_reason='' WHERE id=? AND verification_status IN ('unsubmitted','rejected','needs_correction','approved')",
+          [
+            String(req.body.plate).trim().slice(0, 40),
+            req.files.motor[0].filename,
+            req.files.national[0].filename,
+            req.files.license[0].filename,
+            req.files.platePhoto[0].filename,
+            String(req.body.vehicleInfo).trim().slice(0, 255),
+            JSON.stringify(req.files.motor.map((f) => f.filename)),
+            encryptPrivateJSON(personal),
+            req.files.portrait[0].filename,
+            req.files.vehicleDocument[0].filename,
+            req.courier.id,
+          ],
+        );
+      });
       if (!result.affectedRows) {
         clean();
         return fail(

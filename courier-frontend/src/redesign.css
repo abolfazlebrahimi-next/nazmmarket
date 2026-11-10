@@ -2515,3 +2515,4 @@ body {
 .dispatch-map .map-locate {
   bottom: 92px;
 }
+.avatar img{width:100%;height:100%;object-fit:contain;border-radius:50%;background:#f7f9f8}.avatar{overflow:hidden}

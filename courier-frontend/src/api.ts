@@ -8,6 +8,7 @@ export type Courier = {
   lng?: number | null;
   verificationStatus: string;
   rejectionReason: string;
+  hasPortrait?: boolean;
 };
 export const TOKEN = "naz_courier_token";
 export async function api<T = any>(

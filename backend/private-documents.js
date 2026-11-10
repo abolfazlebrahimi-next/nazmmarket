@@ -61,3 +61,30 @@ export async function readDocument(filename) {
     );
   }
 }
+
+export function encryptPrivateJSON(value) {
+  const iv = crypto.randomBytes(12),
+    cipher = crypto.createCipheriv("aes-256-gcm", documentKey(), iv);
+  const ciphertext = Buffer.concat([
+    cipher.update(JSON.stringify(value), "utf8"),
+    cipher.final(),
+  ]);
+  return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString(
+    "base64",
+  );
+}
+export function decryptPrivateJSON(value) {
+  const buffer = Buffer.from(value, "base64"),
+    decipher = crypto.createDecipheriv(
+      "aes-256-gcm",
+      documentKey(),
+      buffer.subarray(0, 12),
+    );
+  decipher.setAuthTag(buffer.subarray(12, 28));
+  return JSON.parse(
+    Buffer.concat([
+      decipher.update(buffer.subarray(28)),
+      decipher.final(),
+    ]).toString("utf8"),
+  );
+}
