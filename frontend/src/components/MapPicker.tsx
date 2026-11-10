@@ -32,6 +32,7 @@ export default function MapPicker({
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
 
+  const [tileError, setTileError] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [busy, setBusy] = useState(false);
@@ -41,12 +42,34 @@ export default function MapPicker({
   /* init map once */
   useEffect(() => {
     if (!boxRef.current || mapRef.current) return;
-    const map = L.map(boxRef.current, { zoomControl: false }).setView([NAZARBAD.lat, NAZARBAD.lng], 14);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "&copy; OpenStreetMap", maxZoom: 19 }).addTo(map);
+    const map = L.map(boxRef.current, { zoomControl: false }).setView(
+      [NAZARBAD.lat, NAZARBAD.lng],
+      14,
+    );
+    const tiles = L.tileLayer(
+      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      { attribution: "&copy; OpenStreetMap", maxZoom: 19 },
+    ).addTo(map);
+    let fallback = false,
+      errors = 0;
+    tiles.on("tileload", () => setTileError(false));
+    tiles.on("tileerror", () => {
+      errors++;
+      if (!fallback && errors >= 3) {
+        fallback = true;
+        tiles.setUrl("https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png");
+      } else if (fallback && errors >= 6) setTileError(true);
+    });
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(boxRef.current);
+    requestAnimationFrame(() => map.invalidateSize());
     L.control.zoom({ position: "bottomright" }).addTo(map);
-    map.on("click", (e: L.LeafletMouseEvent) => onPickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng }));
+    map.on("click", (e: L.LeafletMouseEvent) =>
+      onPickRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng }),
+    );
     mapRef.current = map;
     return () => {
+      observer.disconnect();
       map.remove();
       mapRef.current = null;
       mRef.current = null;
@@ -59,7 +82,10 @@ export default function MapPicker({
     if (!map) return;
     if (marker) {
       if (!mRef.current) {
-        mRef.current = L.marker([marker.lat, marker.lng], { icon: pinIcon, draggable: true }).addTo(map);
+        mRef.current = L.marker([marker.lat, marker.lng], {
+          icon: pinIcon,
+          draggable: true,
+        }).addTo(map);
         mRef.current.on("dragend", () => {
           const ll = mRef.current?.getLatLng();
           if (ll) onPickRef.current?.({ lat: ll.lat, lng: ll.lng });
@@ -89,7 +115,12 @@ export default function MapPicker({
         const r = await fetch(
           `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=fa&countrycodes=ir&q=${encodeURIComponent(q)}`,
         );
-        const j = (await r.json()) as { place_id: number; display_name: string; lat: string; lon: string }[];
+        const j = (await r.json()) as {
+          place_id: number;
+          display_name: string;
+          lat: string;
+          lon: string;
+        }[];
         setResults(
           j.map((x) => ({
             id: x.place_id,
@@ -124,8 +155,31 @@ export default function MapPicker({
 
   return (
     <div className={`relative w-full rounded-3xl ${height}`}>
-      <div ref={boxRef} className="absolute inset-0 z-0 overflow-hidden rounded-3xl" />
+      <div
+        ref={boxRef}
+        style={{
+          position: "absolute",
+          width: "100%",
+          height: "100%",
+          inset: 0,
+        }}
+        className="z-0 overflow-hidden rounded-3xl"
+      />
 
+      {tileError && (
+        <div className="absolute inset-x-3 bottom-3 z-[1000] rounded-2xl border border-amber-200 bg-white p-3 text-[10px] leading-5 text-amber-800">
+          دریافت نقشه از سرویس بیرونی ممکن نیست؛ اتصال اینترنت یا محدودیت شبکه
+          را بررسی کنید.{" "}
+          <a
+            className="font-bold underline"
+            target="_blank"
+            rel="noreferrer"
+            href="https://www.openstreetmap.org/#map=14/35.96721/50.65043"
+          >
+            باز کردن نقشه شهری
+          </a>
+        </div>
+      )}
       <div className="pointer-events-none absolute left-1/2 top-[74px] z-10 -translate-x-1/2">
         {hint && !marker && (
           <span className="rounded-xl bg-ink/85 px-3.5 py-2 text-[10.5px] font-black text-white shadow-lg backdrop-blur">
@@ -168,13 +222,21 @@ export default function MapPicker({
             aria-label="موقعیت من"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-brand shadow-md transition active:scale-95"
           >
-            {locating ? <LoaderCircle className="h-5 w-5 animate-spin" /> : <LocateFixed className="h-5 w-5" />}
+            {locating ? (
+              <LoaderCircle className="h-5 w-5 animate-spin" />
+            ) : (
+              <LocateFixed className="h-5 w-5" />
+            )}
           </button>
         </div>
 
         {openResults && (busy || results.length > 0) && (
           <div className="mt-1.5 overflow-hidden rounded-2xl border border-line bg-white shadow-xl">
-            {busy && results.length === 0 && <p className="px-4 py-3 text-[11px] font-bold text-muted">در حال جستجو در نقشه...</p>}
+            {busy && results.length === 0 && (
+              <p className="px-4 py-3 text-[11px] font-bold text-muted">
+                در حال جستجو در نقشه...
+              </p>
+            )}
             {results.map((r) => (
               <button
                 key={r.id}

@@ -1,4 +1,11 @@
-import type { Address, CartState, Order, Product, Store as StoreType, User } from "./data";
+import type {
+  Address,
+  CartState,
+  Order,
+  Product,
+  Store as StoreType,
+  User,
+} from "./data";
 
 export type View = "home" | "easy" | "cart" | "orders" | "account";
 
@@ -7,6 +14,7 @@ export type Sub =
   | { name: "category"; id: string }
   | { name: "search" }
   | { name: "favorites" }
+  | { name: "order-history" }
   | { name: "account-detail"; id: "codes" | "payments" | "reviews" }
   | { name: "map" }
   | { name: "stores" }
@@ -82,7 +90,10 @@ export interface AppCtx {
   deliveryFee: number;
   payable: number;
   applyCode(c: string): void;
-  placeOrder(extra?: { slot?: string; payment?: "online" | "cash" }): Promise<void>;
+  placeOrder(extra?: {
+    slot?: string;
+    payment?: "online" | "cash";
+  }): Promise<void>;
   reorder(o: Order): void;
   orders: Order[];
   firstOrderEligible: boolean;

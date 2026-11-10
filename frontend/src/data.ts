@@ -72,6 +72,7 @@ export type Product = {
   stock?: number;
   active?: boolean;
   imageUrl?: string;
+  description?: string;
 };
 
 export type Store = {

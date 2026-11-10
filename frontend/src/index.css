@@ -53,69 +53,147 @@ textarea::placeholder {
 
 /* ---------- App animations ---------- */
 @keyframes fade-rise {
-  from { opacity: 0; transform: translateY(14px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes sheet-up {
-  from { opacity: 0; transform: translateY(46px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(46px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes modal-in {
-  from { opacity: 0; transform: translateY(18px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes floaty {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes toast-in {
-  from { opacity: 0; transform: translate(-50%, 14px) scale(0.95); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, 14px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 @keyframes pop-in {
-  0% { transform: scale(0.4); }
-  60% { transform: scale(1.25); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.4);
+  }
+  60% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 @keyframes success-ring {
-  0% { transform: scale(0.6); opacity: 0.7; }
-  100% { transform: scale(1.9); opacity: 0; }
+  0% {
+    transform: scale(0.6);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
 }
 
-.fade-rise { animation: fade-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.sheet-up { animation: sheet-up 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.modal-in { animation: modal-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.fade-in { animation: fade-in 0.25s ease both; }
-.floaty { animation: floaty 5s ease-in-out infinite; }
-.toast-in { animation: toast-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.pop-in { animation: pop-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.fade-rise {
+  animation: fade-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.sheet-up {
+  animation: sheet-up 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.modal-in {
+  animation: modal-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.fade-in {
+  animation: fade-in 0.25s ease both;
+}
+.floaty {
+  animation: floaty 5s ease-in-out infinite;
+}
+.toast-in {
+  animation: toast-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.pop-in {
+  animation: pop-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 /* ---------- Desktop drawer (RTL: slides from the left) ---------- */
 @keyframes drawer-in {
-  from { transform: translateX(-105%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(-105%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
-.drawer-in { animation: drawer-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.drawer-in {
+  animation: drawer-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 
 @keyframes dropdown-in {
-  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
-.dropdown-in { animation: dropdown-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.dropdown-in {
+  animation: dropdown-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 
 /* ---------- Leaflet map ---------- */
 .leaflet-container {
@@ -125,16 +203,29 @@ textarea::placeholder {
   font-family: "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
   background: #e8e6e1;
 }
-.leaflet-div-icon { background: transparent; border: none; }
-.leaflet-container .leaflet-control-attribution { font-size: 9px; background: rgba(255, 255, 255, 0.8); }
-.leaflet-container a { color: #16865b; }
+.leaflet-div-icon {
+  background: transparent;
+  border: none;
+}
+.leaflet-container .leaflet-control-attribution {
+  font-size: 9px;
+  background: rgba(255, 255, 255, 0.8);
+}
+.leaflet-container a {
+  color: #16865b;
+}
 
 .app-scroll {
   scrollbar-width: thin;
   scrollbar-color: #d8d4cf transparent;
 }
-.app-scroll::-webkit-scrollbar { width: 4px; }
-.app-scroll::-webkit-scrollbar-thumb { background: #d8d4cf; border-radius: 99px; }
+.app-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.app-scroll::-webkit-scrollbar-thumb {
+  background: #d8d4cf;
+  border-radius: 99px;
+}
 
 .line-clamp-2 {
   display: -webkit-box;
@@ -144,7 +235,9 @@ textarea::placeholder {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -152,10 +245,42 @@ textarea::placeholder {
 }
 
 @keyframes brand-marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(50%); }
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(50%);
+  }
 }
 
-.brand-marquee { animation: brand-marquee 26s linear infinite; }
-.brand-marquee:hover { animation-play-state: paused; }
-@media (prefers-reduced-motion: reduce) { .brand-marquee { animation: none; } }
+.brand-marquee {
+  animation: brand-marquee 26s linear infinite;
+}
+.brand-marquee:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-marquee {
+    animation: none;
+  }
+}
+/* Preserve Leaflet's own tile sizes; global responsive image rules must not shrink tiles. */
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+.leaflet-container {
+  min-height: 240px;
+}
+.search-page {
+  background: #f7f8f7;
+}
+.search-page .search-toolbar {
+  background: white;
+  border: 1px solid #e3e9e5;
+  box-shadow: 0 6px 20px #23392e04;
+  border-radius: 20px;
+  margin: 16px;
+  position: relative;
+  top: auto;
+}

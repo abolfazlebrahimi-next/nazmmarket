@@ -54,7 +54,7 @@ export function ProductVisual({ product, size = "md" }: { product: Product; size
   const Icon = product.icon;
   return (
     <div className={`relative aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br ${product.bg}`}>
-      {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="absolute inset-0 h-full w-full object-cover" loading="lazy" /> : <><div className="absolute -left-5 -top-6 h-20 w-20 rounded-full bg-white/25" /><div className="absolute -bottom-8 -right-4 h-24 w-24 rounded-full bg-white/20" /><Icon className={`${size === "lg" ? "h-24 w-24" : "h-11 w-11"} relative drop-shadow-sm ${product.iconColor}`} strokeWidth={1.4} /></>}
+      {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="absolute inset-0 h-full w-full object-contain bg-white p-1" loading="lazy" /> : <><div className="absolute -left-5 -top-6 h-20 w-20 rounded-full bg-white/25" /><div className="absolute -bottom-8 -right-4 h-24 w-24 rounded-full bg-white/20" /><Icon className={`${size === "lg" ? "h-24 w-24" : "h-11 w-11"} relative drop-shadow-sm ${product.iconColor}`} strokeWidth={1.4} /></>}
       {discountOf(product) > 0 && (
         <span className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-lg bg-brand px-1.5 py-1 text-[10px] font-black text-white shadow">
           <Flame className="h-3 w-3 fill-current" /> ٪{pd(discountOf(product))}
