@@ -574,7 +574,10 @@ textarea::placeholder {
   padding: 24px 30px;
   border: 1px solid #0d6748;
   border-radius: 22px;
-  background: linear-gradient(112deg, #0b6245, #16865b 62%, #126147);
+  background:
+    repeating-linear-gradient(132deg, #ffffff08 0 2px, transparent 2px 15px),
+    radial-gradient(circle at 10% 15%, #ffffff1c, transparent 34%),
+    linear-gradient(112deg, #084d3e, #16865b 58%, #075442);
   text-align: right;
   overflow: hidden;
   box-shadow: 0 12px 28px #0b624526;
@@ -625,9 +628,11 @@ textarea::placeholder {
   color: #fff;
   transform: rotate(-7deg);
   padding: 12px 20px;
-  background: #ff982f;
-  border-radius: 25px;
-  box-shadow: 0 6px 18px #0b4b372b;
+  border: 1px solid #ffd595;
+  border-radius: 12px 22px 12px 22px;
+  background: repeating-linear-gradient(135deg, #ffad31 0 9px, #f47b1b 9px 17px);
+  text-shadow: 0 2px 2px #a6441590;
+  box-shadow: 0 7px 0 #b94c14, 0 12px 22px #092d253f, inset 0 1px 0 #ffffff88;
 }
 .campaign-percent small {
   font-size: 16px;
@@ -684,30 +689,60 @@ textarea::placeholder {
   grid-auto-columns: calc((100% - 80px) / 5.5);
 }
 .market-shelf-blue {
+  position: relative;
   margin-top: 20px;
-  padding: 17px 12px 10px;
-  border: 1px solid #c5daf9;
-  border-radius: 19px;
-  background: linear-gradient(135deg, #e6f1ff, #f1f7ff 58%, #fff);
-  box-shadow: 0 8px 24px #1e5eb20d;
+  padding: 18px 13px 11px;
+  overflow: hidden;
+  border: 1px solid #0b4694;
+  border-radius: 20px;
+  background:
+    repeating-linear-gradient(132deg, #ffffff0b 0 2px, transparent 2px 18px),
+    radial-gradient(circle at 96% 0%, #39a9ff62, transparent 36%),
+    linear-gradient(135deg, #082f73, #0756ad 48%, #073a87);
+  box-shadow: 0 13px 28px #08377c38, inset 0 1px 0 #ffffff45;
+}
+.market-shelf-blue .market-shelf-heading {
+  position: relative;
+  align-items: flex-start;
+}
+.market-shelf-blue .market-shelf-heading-copy {
+  min-width: 0;
 }
 .market-shelf-blue .market-shelf-heading h2 {
-  color: #174f91;
-  font-size: 17px;
+  color: #fff;
+  font-size: 18px;
+  text-shadow: 0 1px 3px #041f4b75;
 }
-.market-shelf-blue .market-shelf-campaign-badge {
+.market-shelf-gift-ribbon {
+  position: relative;
   display: inline-flex;
-  flex: none;
   align-items: center;
-  border-radius: 999px;
-  padding: 5px 9px;
-  background: #d8e9ff;
-  color: #1456a2;
+  gap: 6px;
+  margin-top: 3px;
+  padding: 5px 13px 5px 15px;
+  clip-path: polygon(0 0, 95% 0, 100% 50%, 95% 100%, 0 100%, 5% 50%);
+  background: repeating-linear-gradient(135deg, #ffb332 0 8px, #f1741b 8px 15px);
+  color: #fff;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 850;
+  text-shadow: 0 1px 2px #85330e;
+  filter: drop-shadow(0 3px 2px #061f4e80);
+}
+.market-shelf-gift-ribbon svg {
+  flex: none;
+  filter: drop-shadow(0 1px 1px #963c13);
 }
 .market-shelf-blue .market-product-image {
-  border-color: #c8daf3;
+  border-color: #b7d0f4;
+  box-shadow: 0 4px 12px #06255524;
+}
+.market-shelf-blue .market-product-name,
+.market-shelf-blue .market-product-price strong {
+  color: #fff;
+}
+.market-shelf-blue .market-product-price small,
+.market-shelf-blue .market-product-price del {
+  color: #d8e8ff;
 }
 .product-modal-suggestions .market-product {
   flex: 0 0 184px;
@@ -1138,15 +1173,21 @@ textarea::placeholder {
 @media (max-width: 767px) {
   .market-shelf-blue {
     margin-inline: -5px;
-    padding: 14px 8px 7px;
+    padding: 15px 8px 7px;
     border-radius: 17px;
   }
   .market-shelf-blue .market-shelf-heading h2 {
-    font-size: 14px;
+    font-size: 15px;
   }
-  .market-shelf-blue .market-shelf-campaign-badge {
-    padding: 4px 7px;
+  .market-shelf-gift-ribbon {
+    gap: 4px;
+    margin-top: 2px;
+    padding: 4px 11px 4px 13px;
     font-size: 9px;
+  }
+  .market-shelf-gift-ribbon svg {
+    width: 13px;
+    height: 13px;
   }
   .product-modal-suggestions {
     padding-bottom: 8px;

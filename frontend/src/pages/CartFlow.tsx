@@ -109,9 +109,19 @@ export function CartBody({
             </div>
             {c.cartStore ? (
               <span
-                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${c.cartStore.gradient} text-[12px] font-black text-white`}
+                className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${c.cartStore.gradient} text-[12px] font-black text-white`}
               >
                 {c.cartStore.initial}
+                {(c.cartStore.logoUrl ?? c.cartStore.photoUrl) && (
+                  <img
+                    src={c.cartStore.logoUrl ?? c.cartStore.photoUrl}
+                    alt={`لوگوی ${c.cartStore.name}`}
+                    className="absolute inset-0 h-full w-full bg-white p-1 object-contain"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
               </span>
             ) : (
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f4f3f0]">

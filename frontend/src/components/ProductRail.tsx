@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Gift } from "lucide-react";
 import type { ReactNode } from "react";
 export default function ProductRail({
   title,
@@ -17,10 +17,15 @@ export default function ProductRail({
       aria-label={title}
     >
       <div className="market-shelf-heading">
-        <h2>{title}</h2>
-        {tone === "blue" && (
-          <span className="market-shelf-campaign-badge">کمپین نوشیدنی</span>
-        )}
+        <div className="market-shelf-heading-copy">
+          <h2>{title}</h2>
+          {tone === "blue" && (
+            <div className="market-shelf-gift-ribbon">
+              <Gift size={15} strokeWidth={2.2} />
+              <span>یه خنکیِ دوست‌داشتنی، برای حالِ بهتر!</span>
+            </div>
+          )}
+        </div>
         {onAll && (
           <button
             type="button"

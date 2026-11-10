@@ -1110,7 +1110,13 @@ export default function App() {
       {/* footer */}
       {!sub && (
         <footer className="hidden border-t border-line bg-white md:block">
-          <div className="mx-auto max-w-7xl px-5 py-3 text-center lg:px-8">
+          <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-5 py-3.5 lg:px-8">
+            <Wordmark className="!text-[14px]" />
+            <span className="h-4 w-px bg-line" aria-hidden="true" />
+            <p className="text-[10px] font-medium text-muted">
+              خرید آسان از فروشگاه‌های محلی
+            </p>
+            <span className="h-4 w-px bg-line" aria-hidden="true" />
             <p className="text-[10px] font-medium text-muted">
               © ۱۴۰۵ ناز مارکت
             </p>
