@@ -178,18 +178,11 @@ export function Modal({ onClose, children, label }: { onClose: () => void; child
   );
 }
 
+export function BackButton({onBack,className=""}:{onBack:()=>void;className?:string}) {
+  return <button type="button" onClick={onBack} aria-label="بازگشت" className={`back-button ${className}`}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>;
+}
 export function ScreenHeader({ title, onBack, end }: { title: string; onBack: () => void; end?: ReactNode }) {
-  return (
-    <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white/92 px-4 py-3 backdrop-blur md:top-16">
-      <button type="button" onClick={onBack} aria-label="بازگشت" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] text-ink transition active:scale-90">
-        <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </button>
-      <h2 className="flex-1 truncate text-[15px] font-black text-ink">{title}</h2>
-      {end}
-    </div>
-  );
+  return <div className="screen-heading"><BackButton onBack={onBack}/><h1>{title}</h1>{end}</div>;
 }
 
 export function Empty({ icon: Icon, title, desc, actionLabel, onAction }: { icon: typeof X; title: string; desc: string; actionLabel?: string; onAction?: () => void }) {

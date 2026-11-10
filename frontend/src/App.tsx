@@ -781,8 +781,8 @@ export default function App() {
   else if (view === "account") content = <AccountView c={c} />;
   else if (view === "cart")
     content = (
-      <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-36">
-        <div className="sticky top-0 z-30 border-b border-line bg-white/92 px-4 py-3.5 backdrop-blur md:top-16">
+      <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
+        <div className="px-4 pt-5 pb-2">
           <h2 className="text-[16px] font-black text-ink">سبد خرید</h2>
         </div>
         <CartBody c={c} />
@@ -1013,16 +1013,12 @@ export default function App() {
         </div>
       )}
 
-      <main
-        className={`${sub || view === "home" ? "pb-0" : "pb-24 md:pb-0"} min-w-0 w-full overflow-x-clip`}
-      >
-        {content}
-      </main>
+      <main className="min-w-0 w-full overflow-x-clip">{content}</main>
 
       {/* footer */}
       {!sub && (
         <footer className="mt-4 border-t border-line bg-white">
-          <div className="mx-auto max-w-7xl px-5 pb-24 pt-8 md:pb-10 lg:px-8">
+          <div className="mx-auto max-w-7xl px-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-6 md:pb-6 lg:px-8">
             <div className="grid gap-8 md:grid-cols-[1.3fr_1fr_1fr]">
               <div>
                 <Wordmark size="text-[20px]" />

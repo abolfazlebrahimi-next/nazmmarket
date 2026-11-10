@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, ChevronLeft, LoaderCircle, LocateFixed, MapPin, MoreVertical, Plus, Trash2, X } from "lucide-react";
 import MapPicker from "../components/MapPicker";
-import { pd, toEn } from "../components/ui";
+import { BackButton, ScreenHeader, pd, toEn } from "../components/ui";
 import type { AppCtx } from "../ctx";
 import type { Address } from "../data";
 
@@ -73,14 +73,8 @@ export function AddressSelect({ c }: { c: AppCtx }) {
           }}
           height="h-[34dvh] lg:h-80"
         />
-        <button
-          type="button"
-          onClick={() => c.closeSub()}
-          aria-label="بازگشت"
-          className="absolute bottom-4 right-4 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-white text-ink shadow-lg transition active:scale-90"
-        >
-          <X className="h-4.5 w-4.5" />
-        </button>
+        <BackButton onBack={()=>c.closeSub()} className="absolute bottom-4 right-4 z-30 bg-white shadow-lg"/>
+
       </div>
 
       <div className="relative z-10 -mt-5 flex flex-1 flex-col rounded-t-[26px] bg-white px-5 pb-6 pt-3 shadow-[0_-12px_30px_-18px_rgba(0,0,0,0.35)] lg:overflow-y-auto app-scroll">
@@ -191,12 +185,8 @@ export function AddressForm({ c }: { c: AppCtx }) {
 
   return (
     <div className="min-h-full bg-white lg:min-h-0">
-      <div className="flex items-center gap-2 border-b border-line px-4 py-3">
-        <button type="button" onClick={() => c.openSub({ name: "address" })} aria-label="بازگشت" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90">
-          <X className="h-4.5 w-4.5" />
-        </button>
-        <h2 className="flex-1 text-[15px] font-black text-ink">جزئیات آدرس</h2>
-      </div>
+      <ScreenHeader title="جزئیات آدرس" onBack={()=>c.openSub({name:'address'})}/>
+
 
       <div className="mx-auto max-w-2xl px-5 pb-10 pt-4">
         <div className="relative rounded-3xl border border-line">

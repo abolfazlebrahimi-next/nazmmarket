@@ -272,15 +272,106 @@ textarea::placeholder {
 .leaflet-container {
   min-height: 240px;
 }
-.search-page {
-  background: #f7f8f7;
+/* Compact, unboxed page controls: one back icon and one title, no header band. */
+.back-button {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #26352e;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.back-button:hover {
+  background: #e8eeea;
+}
+.back-button:focus-visible {
+  outline: 2px solid #16865b;
+  outline-offset: 2px;
+}
+.back-on-cover {
+  background: #ffffffed;
+  color: #26352e;
+}
+.back-on-cover:hover {
+  background: #fff;
+}
+.screen-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 4px;
+  min-width: 0;
+}
+.screen-heading h1 {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #26352e;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .search-page .search-toolbar {
-  background: white;
-  border: 1px solid #e3e9e5;
-  box-shadow: 0 6px 20px #23392e04;
-  border-radius: 20px;
-  margin: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
   position: relative;
-  top: auto;
+}
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: #eeefed;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s;
+}
+.search-field:focus-within {
+  background: #fff;
+  box-shadow: 0 0 0 2px #16865b20;
+}
+.search-field .search-input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: #26352e;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.search-field .search-input:focus,
+.search-field .search-input:focus-visible {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+}
+.search-input::-webkit-search-cancel-button,
+.search-input::-webkit-search-decoration {
+  -webkit-appearance: none;
 }

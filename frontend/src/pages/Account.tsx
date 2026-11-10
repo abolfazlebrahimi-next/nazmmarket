@@ -96,7 +96,7 @@ export function AccountView({ c }: { c: AppCtx }) {
   ];
 
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-24 md:pb-16">
+    <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
       <div className="border-b border-line bg-white px-5 pb-2 pt-5">
         <h2 className="text-[17px] font-black text-ink">حساب کاربری</h2>
         <button
@@ -444,7 +444,7 @@ export function AccountDetailPage({
     c.toast("کد تخفیف کپی شد");
   };
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-24 md:pb-12">
+    <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
       <ScreenHeader title={title} onBack={() => c.closeSub()} />
       {kind === "codes" && (
         <div className="space-y-3 p-4">

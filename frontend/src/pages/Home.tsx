@@ -38,7 +38,7 @@ export function HomePage({ c }: { c: AppCtx }) {
   const section = "mx-auto w-full max-w-6xl px-4 md:px-6";
 
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-7xl pb-4 md:pb-10">
+    <div className="fade-rise mx-auto w-full max-w-7xl pb-4 md:pb-10">
       {/* shortcut tiles */}
       <div className={`${section} mt-3`}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -250,7 +250,7 @@ export function StoresPage({ c }: { c: AppCtx }) {
     return true;
   });
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-4xl pb-24 md:pb-12">
+    <div className="fade-rise mx-auto w-full max-w-4xl pb-6">
       <ScreenHeader title="فروشگاه‌ها" onBack={() => c.closeSub()} />
       <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
         {(
@@ -297,7 +297,7 @@ export function StoresPage({ c }: { c: AppCtx }) {
 export function FavoritesPage({ c }: { c: AppCtx }) {
   const favs = products.filter((p) => c.favorites.includes(p.id));
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-4xl pb-24 md:pb-12">
+    <div className="fade-rise mx-auto w-full max-w-4xl pb-6">
       <ScreenHeader
         title="کالاهای مورد علاقه‌ی من"
         onBack={() => c.closeSub()}
@@ -324,7 +324,7 @@ export function FavoritesPage({ c }: { c: AppCtx }) {
 /* ---------------- Map / exact location ---------------- */
 export function MapPage({ c }: { c: AppCtx }) {
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-24 md:pb-12">
+    <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
       <ScreenHeader title="انتخاب لوکیشن دقیق" onBack={() => c.closeSub()} />
       <div className="p-4">
         <div className="relative rounded-[26px] border border-line">
@@ -402,7 +402,7 @@ export function EasyPage({ c }: { c: AppCtx }) {
   const frequent = products.filter((p) => p.frequent);
   const lastOrder = c.orders[0];
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-3xl pb-24 md:pb-12">
+    <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
       <div className="px-4 pt-6">
         <h3 className="text-[14px] font-black text-ink">
           دسترسی سریع به دسته‌ها

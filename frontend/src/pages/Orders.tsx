@@ -1,7 +1,7 @@
 import { api } from "../api/client";
 import { useState } from "react";
 import { Check, ReceiptText, ShoppingBasket } from "lucide-react";
-import { Empty, pd } from "../components/ui";
+import { BackButton, Empty, pd } from "../components/ui";
 import type { AppCtx } from "../ctx";
 import type { Order } from "../data";
 import { faNum } from "../data";
@@ -230,8 +230,9 @@ export default function OrdersView({
       : o.status >= 1 && o.status <= 4,
   );
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-5xl px-4 pb-24 pt-5 md:pb-12">
-      <div className="mb-5 flex items-center justify-between">
+    <div className="fade-rise mx-auto w-full max-w-5xl px-4 pb-6 pt-5 md:pb-6">
+      <div className="mb-5 flex items-center gap-2">
+        {historyOnly && <BackButton onBack={() => c.closeSub()} />}
         <div>
           <h1 className="text-[20px] font-black text-ink">
             {historyOnly ? "تاریخچه سفارش‌ها" : "سفارش‌های فعال"}
@@ -242,14 +243,6 @@ export default function OrdersView({
               : "پیگیری سفارش تا تحویل به دست شما"}
           </p>
         </div>
-        {historyOnly && (
-          <button
-            className="rounded-xl bg-white px-4 py-2 text-[11px] font-bold"
-            onClick={() => c.closeSub()}
-          >
-            بازگشت
-          </button>
-        )}
       </div>
       {orders.length ? (
         <div className="grid gap-4 md:grid-cols-2">

@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   Bike,
   CheckCircle2,
-  ChevronLeft,
   Search,
   ShoppingBasket,
   Star,
@@ -12,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  BackButton,
   ProductCard,
   ProductVisual,
   QtyStepper,
@@ -37,25 +37,22 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
   );
 
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-24 md:pb-10">
-      <ScreenHeader
-        title={store.name}
-        onBack={() => c.closeSub()}
-        end={
+    <div
+      className={`fade-rise mx-auto w-full max-w-6xl ${c.cartCount > 0 ? "pb-24" : "pb-6"}`}
+    >
+      <div className="relative px-4 pb-3 pt-16">
+        <div className="absolute inset-x-4 top-3 flex items-center justify-between">
+          <BackButton onBack={() => c.closeSub()} className="back-on-cover" />
           <button
             type="button"
             onClick={() => c.openSub({ name: "search" })}
             aria-label="جستجو"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90"
+            className="back-button back-on-cover"
           >
-            <Search className="h-4.5 w-4.5" />
+            <Search size={20} />
           </button>
-        }
-      />
-      <div
-        className={`relative flex h-32 items-end bg-gradient-to-br ${store.gradient} p-4 lg:h-36`}
-      >
-        <div className="relative flex items-center gap-3 text-white">
+        </div>
+        <div className="relative flex items-center gap-3 text-ink">
           <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] bg-white text-lg font-black text-brand shadow-md">
             {store.logoUrl ? (
               <img
@@ -68,10 +65,10 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
             )}
           </span>
           <div>
-            <p className="flex items-center gap-1.5 text-[16px] font-black">
+            <h1 className="flex items-center gap-1.5 text-[16px] font-black">
               {store.name}
-            </p>
-            <p className="mt-1 text-[11px] font-medium text-white/85">
+            </h1>
+            <p className="mt-1 text-[11px] font-medium text-muted">
               {store.area} · شهرستان نظرآباد
             </p>
           </div>
@@ -99,7 +96,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           </span>
         ))}
       </div>
-      <div className="no-scrollbar sticky top-[53px] z-20 flex gap-2 overflow-x-auto border-b border-line bg-white/95 px-4 py-2.5 backdrop-blur md:top-[124px]">
+      <div className="no-scrollbar sticky top-0 z-20 flex gap-2 overflow-x-auto border-b border-line bg-white/95 px-4 py-2.5 backdrop-blur md:top-16">
         {storeCats.map((ct) => (
           <button
             key={ct.id}
@@ -121,7 +118,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
         ))}
       </div>
       {c.cartCount > 0 && (
-        <div className="fixed inset-x-0 bottom-[80px] md:bottom-6 z-40 mx-auto w-full max-w-[430px] px-4">
+        <div className="fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] md:bottom-6 z-40 mx-auto w-full max-w-[430px] px-4">
           <button
             type="button"
             onClick={() => c.go("cart")}
@@ -148,7 +145,7 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
   const cat = categories.find((ct) => ct.id === catId);
   const list = products.filter((p) => p.category === catId);
   return (
-    <div className="fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-24 md:pb-10">
+    <div className="fade-rise mx-auto w-full max-w-6xl pb-6">
       <ScreenHeader title={cat?.name ?? ""} onBack={() => c.closeSub()} />
       <div className="grid grid-cols-2 gap-2.5 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {list.map((p) => (
@@ -175,34 +172,18 @@ export function SearchPage({ c }: { c: AppCtx }) {
   }, [q]);
 
   return (
-    <div className="search-page fade-rise mx-auto min-h-dvh w-full max-w-6xl pb-24 md:pb-10">
+    <div className="search-page fade-rise mx-auto w-full max-w-6xl pb-6">
       <div className="search-toolbar z-30 flex items-center gap-2 bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => c.closeSub()}
-          aria-label="بازگشت"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4.5 w-4.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            <path d="M9 6l6 6-6 6" />
-          </svg>
-        </button>
-        <div className="flex h-11 flex-1 items-center gap-2 rounded-2xl bg-[#f4f3f0] px-3">
+        <BackButton onBack={() => c.closeSub()} />
+        <div className="search-field">
           <Search className="h-4.5 w-4.5 shrink-0 text-muted" />
           <input
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="جستجو بین همه کالاها و فروشگاه‌ها"
-            className="w-full bg-transparent text-[13px] font-semibold outline-none"
+            placeholder="جست‌وجوی کالا یا فروشگاه"
+            className="search-input"
+            type="search"
             aria-label="جستجوی کالا یا فروشگاه"
           />
           {q && (
@@ -321,14 +302,7 @@ export function ProductModal({ c }: { c: AppCtx }) {
       />
       <div className="relative flex h-full w-full flex-col bg-white md:h-auto md:max-h-[90dvh] md:max-w-[430px] md:overflow-y-auto md:rounded-[26px] md:p-4 md:shadow-2xl">
         <div className="sticky top-0 z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-white/95 px-4 backdrop-blur md:hidden">
-          <button
-            type="button"
-            onClick={c.closeProduct}
-            aria-label="بازگشت"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[#f4f3f0]"
-          >
-            <ChevronLeft className="h-4 w-4 rotate-180" />
-          </button>
+          <BackButton onBack={c.closeProduct} />
           <span className="flex-1 truncate text-[13px] font-black text-ink">
             جزئیات کالا
           </span>

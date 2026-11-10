@@ -14,7 +14,14 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { Empty, QtyStepper, ProductVisual, pd } from "../components/ui";
+import {
+  BackButton,
+  ScreenHeader,
+  Empty,
+  QtyStepper,
+  ProductVisual,
+  pd,
+} from "../components/ui";
 import type { AppCtx } from "../ctx";
 import { faNum, productById } from "../data";
 
@@ -62,7 +69,7 @@ export function CartBody({
       className={
         compact
           ? "flex flex-1 flex-col overflow-y-auto app-scroll"
-          : "px-4 pt-4 pb-40"
+          : "px-4 pt-4 pb-4"
       }
     >
       <div className={compact ? "flex-1 overflow-y-auto app-scroll px-4" : ""}>
@@ -282,28 +289,8 @@ export function CheckoutView({ c }: { c: AppCtx }) {
   };
 
   return (
-    <div className="fade-rise w-full min-w-0 max-w-full overflow-x-clip pb-28 md:pb-16">
-      <div className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-white/92 px-4 py-3 backdrop-blur">
-        <button
-          type="button"
-          onClick={() => c.closeSub()}
-          aria-label="بازگشت"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f4f3f0] transition active:scale-90"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4.5 w-4.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            aria-hidden="true"
-          >
-            <path d="M9 6l6 6-6 6" />
-          </svg>
-        </button>
-        <h2 className="flex-1 text-[15px] font-black text-ink">تکمیل خرید</h2>
-      </div>
+    <div className="fade-rise w-full min-w-0 max-w-full overflow-x-clip pb-6">
+      <ScreenHeader title="تکمیل خرید" onBack={() => c.closeSub()} />
 
       <div className="grid w-full min-w-0 grid-cols-1 gap-4 px-3 pt-4 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(300px,370px)] lg:gap-5 lg:px-6">
         {/* right column: steps */}
@@ -573,7 +560,7 @@ export function DoneView({
   order: { id: string; storeName: string; addressTitle: string };
 }) {
   return (
-    <div className="fade-rise flex min-h-dvh flex-col items-center justify-center px-6 py-16 text-center lg:min-h-0">
+    <div className="fade-rise flex min-h-[360px] flex-col items-center justify-center px-6 py-16 text-center lg:min-h-0">
       <div className="relative h-24 w-24">
         <span
           className="absolute inset-0 rounded-full bg-emerald-100"
@@ -603,16 +590,12 @@ export function DoneView({
         >
           پیگیری سفارش
         </button>
-        <button
-          type="button"
-          onClick={() => {
+        <BackButton
+          onBack={() => {
             c.closeSub();
             c.go("home");
           }}
-          className="w-full rounded-2xl bg-[#f4f3f0] py-4 text-[13px] font-black text-ink transition active:scale-[0.99]"
-        >
-          بازگشت به خانه
-        </button>
+        />
       </div>
     </div>
   );
