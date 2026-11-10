@@ -23,6 +23,11 @@ test(
     process.env.SELLER_PII_KEY = "cd".repeat(32);
     await migrate();
     await migrate(); // idempotent schema migration
+    // Older installations may have server-default media/operations collations.
+    // Dispatch must work even when the decline table differs from orders.
+    await db.run(
+      "ALTER TABLE courier_declined_orders CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci",
+    );
     const server = app.listen(0, "127.0.0.1");
     await new Promise((r) => server.once("listening", r));
     const base = `http://127.0.0.1:${server.address().port}`;

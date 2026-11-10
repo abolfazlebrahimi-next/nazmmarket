@@ -92,7 +92,7 @@ async function ensureIndex(table, indexName, columns, unique = false) {
 
 export async function migrate() {
   const schema = [
-    `CREATE TABLE IF NOT EXISTS courier_declined_orders (courier_id BIGINT UNSIGNED NOT NULL,order_id VARCHAR(40) NOT NULL,created_at VARCHAR(32) NOT NULL,PRIMARY KEY(courier_id,order_id)) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS courier_declined_orders (courier_id BIGINT UNSIGNED NOT NULL,order_id VARCHAR(40) NOT NULL,created_at VARCHAR(32) NOT NULL,PRIMARY KEY(courier_id,order_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS platform_settings (id INT PRIMARY KEY,value_json TEXT NOT NULL) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS courier_ledger (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,courier_id BIGINT UNSIGNED NOT NULL,order_id VARCHAR(40) NOT NULL UNIQUE,amount BIGINT NOT NULL,created_at VARCHAR(32) NOT NULL,KEY(courier_id)) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS courier_withdrawals (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,courier_id BIGINT UNSIGNED NOT NULL,amount BIGINT NOT NULL,iban VARCHAR(26) NOT NULL,status VARCHAR(20) NOT NULL DEFAULT 'pending',reference VARCHAR(120) NOT NULL DEFAULT '',reason VARCHAR(500) NOT NULL DEFAULT '',created_at VARCHAR(32) NOT NULL,KEY(courier_id)) ENGINE=InnoDB`,
