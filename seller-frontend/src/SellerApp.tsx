@@ -447,7 +447,11 @@ export default function SellerApp() {
         ...old,
         pendingOrders: Math.max(0, old.pendingOrders - (status === 3 ? 1 : 0)),
       }));
-      toast("وضعیت سفارش ذخیره شد.");
+      toast(
+        status === 3
+          ? "سفارش آماده شد؛ پیک‌های تأییدشده و فعال اطراف فروشگاه می‌توانند آن را دریافت کنند."
+          : "وضعیت سفارش ذخیره شد.",
+      );
     } catch (err) {
       toast(
         err instanceof SellerApiError
@@ -1550,7 +1554,8 @@ function OrdersPage({
                   )}
                   {order.status === 3 && (
                     <span className="status-pill status-3">
-                      <Clock3 size={14} /> در انتظار دریافت پیک
+                      <Clock3 size={14} /> آماده؛ قابل پیشنهاد به پیک‌های
+                      تأییدشده و فعال در شعاع ۱۵ کیلومتری فروشگاه
                     </span>
                   )}
                   {order.status === 4 && (

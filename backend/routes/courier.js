@@ -292,6 +292,13 @@ router.get("/orders", async (req, res) => {
     orders,
     online: Boolean(c.online),
     locationFresh: Boolean(fresh),
+    dispatchStatus: !c.online
+      ? "offline"
+      : !fresh
+        ? "location_stale"
+        : orders.some((o) => !o.claimedByMe)
+          ? "offers_available"
+          : "no_nearby_ready",
   });
 });
 

@@ -325,6 +325,33 @@ test(
       await db.run("UPDATE stores SET lat=35.96721,lng=50.65043 WHERE id=?", [
         seller.seller.store.id,
       ]);
+      const dispatchCourier = couriers[0];
+      assert.equal(
+        (await ok("/api/courier/auth/me", dispatchCourier.token)).courier
+          .verificationStatus,
+        "approved",
+      );
+      const offlineOffers = await ok(
+        "/api/courier/orders",
+        dispatchCourier.token,
+      );
+      assert.equal(offlineOffers.dispatchStatus, "offline");
+      assert.equal(
+        offlineOffers.orders.some((o) => o.id === order.id),
+        false,
+      );
+      await ok(
+        "/api/courier/availability",
+        dispatchCourier.token,
+        { online: true, lat: 32, lng: 48 },
+        "PATCH",
+      );
+      assert.equal(
+        (await ok("/api/courier/orders", dispatchCourier.token)).orders.some(
+          (o) => o.id === order.id,
+        ),
+        false,
+      );
       for (const c of couriers) {
         await ok(
           "/api/courier/availability",
@@ -333,6 +360,37 @@ test(
           "PATCH",
         );
       }
+      const offered = await ok("/api/courier/orders", dispatchCourier.token);
+      assert.equal(offered.dispatchStatus, "offers_available");
+      assert.equal(
+        offered.orders.some((o) => o.id === order.id),
+        true,
+      );
+      await db.run("UPDATE orders SET status=2 WHERE id=?", [order.id]);
+      assert.equal(
+        (await ok("/api/courier/orders", dispatchCourier.token)).orders.some(
+          (o) => o.id === order.id,
+        ),
+        false,
+      );
+      await db.run("UPDATE orders SET status=3 WHERE id=?", [order.id]);
+      await db.run(
+        "UPDATE courier_accounts SET location_updated_at=? WHERE id=?",
+        [
+          new Date(Date.now() - 16 * 60 * 1000).toISOString(),
+          dispatchCourier.courier.id,
+        ],
+      );
+      assert.equal(
+        (await ok("/api/courier/orders", dispatchCourier.token)).dispatchStatus,
+        "location_stale",
+      );
+      await ok(
+        "/api/courier/availability",
+        dispatchCourier.token,
+        { online: true, lat: 35.96721, lng: 50.65043 },
+        "PATCH",
+      );
       const claims = await Promise.all(
         couriers.map((c) =>
           request(

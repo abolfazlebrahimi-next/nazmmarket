@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bike,
   ChevronLeft,
@@ -40,12 +40,27 @@ export default function CourierApp() {
     }),
     [tickets, setTickets] = useState<Row[]>([]),
     [thread, setThread] = useState<Row | null>(null),
-    [locationFresh, setLocationFresh] = useState(false);
+    [locationFresh, setLocationFresh] = useState(false),
+    [dispatchStatus, setDispatchStatus] = useState("offline");
+  const seenOffers = useRef(new Set<string>());
   async function loadOrders() {
     try {
       const r = await api("/orders");
       setOrders(r.orders);
       setLocationFresh(r.locationFresh);
+      setDispatchStatus(r.dispatchStatus);
+      setCourier((c) => (c ? { ...c, online: r.online } : c));
+      const offers = r.orders.filter(
+        (o: Row) => !o.claimedByMe && o.status === 3,
+      );
+      const freshOffers = offers.filter(
+        (o: Row) => !seenOffers.current.has(o.id),
+      );
+      if (freshOffers.length)
+        setNotice(
+          `${money(freshOffers.length)} پیشنهاد جدید آماده دریافت است؛ کرایه و مسیر را بررسی و سفارش را قبول کنید.`,
+        );
+      seenOffers.current = new Set(offers.map((o: Row) => o.id));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -78,6 +93,33 @@ export default function CourierApp() {
     return () => window.removeEventListener("courier-expired", expired);
   }, []);
   useEffect(() => {
+    if (!courier?.id) {
+      seenOffers.current.clear();
+      return;
+    }
+    let disposed = false;
+    async function refreshAccount() {
+      try {
+        const r = await api("/auth/me");
+        if (!disposed) {
+          setCourier(r.courier);
+          if (!r.courier.active || r.courier.verificationStatus !== "approved")
+            setOrders([]);
+        }
+      } catch (e) {
+        if (!disposed) setError((e as Error).message);
+      }
+    }
+    const timer = setInterval(() => void refreshAccount(), 10000);
+    const focus = () => void refreshAccount();
+    window.addEventListener("focus", focus);
+    return () => {
+      disposed = true;
+      clearInterval(timer);
+      window.removeEventListener("focus", focus);
+    };
+  }, [courier?.id]);
+  useEffect(() => {
     if (!courier) return;
     if (courier.active && courier.verificationStatus === "approved")
       void loadOrders();
@@ -86,9 +128,15 @@ export default function CourierApp() {
     const timer = setInterval(() => {
       if (courier.active && courier.verificationStatus === "approved")
         void loadOrders();
-    }, 30000);
+    }, 10000);
     return () => clearInterval(timer);
-  }, [courier?.id, courier?.active, courier?.online, page]);
+  }, [
+    courier?.id,
+    courier?.active,
+    courier?.verificationStatus,
+    courier?.online,
+    page,
+  ]);
   function geo(): Promise<GeolocationPosition> {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
@@ -299,6 +347,15 @@ export default function CourierApp() {
     );
   const isApproved =
     courier.active && courier.verificationStatus === "approved";
+  const dispatchMessage = !isApproved
+    ? "دریافت پیشنهاد تا تأیید مدارک توسط مدیر متوقف است. وضعیت را در تنظیمات بررسی کنید."
+    : !courier.online
+      ? "برای دریافت پیشنهاد، کلید فعالیت را روشن و اجازهٔ موقعیت مکانی را فعال کنید."
+      : dispatchStatus === "location_stale"
+        ? "موقعیت شما معتبر یا به‌روز نیست؛ موقعیت مکانی را تازه‌سازی کنید."
+        : dispatchStatus === "offers_available"
+          ? "پیشنهادهای آمادهٔ دریافت در ادامه هستند. دریافت پیشنهادها هر ۱۰ ثانیه بررسی می‌شود."
+          : "در شعاع ۱۵ کیلومتری شما سفارش آماده‌ای پیدا نشد. فروشنده باید سفارش را به «آماده تحویل به پیک» برساند و مختصات فروشگاه ثبت شده باشد. بررسی خودکار هر ۱۰ ثانیه انجام می‌شود.";
   const shown = orders.filter((o) =>
     page === "history" ? o.status === 5 : o.status !== 5,
   );
@@ -430,6 +487,9 @@ export default function CourierApp() {
                 )}
               </div>
             </section>
+            <p className="alert" role="status">
+              {dispatchMessage}
+            </p>
             <div className="metric-grid">
               <article>
                 <small>سفارش‌های جاری شما</small>
@@ -565,7 +625,11 @@ export default function CourierApp() {
                   ? "هنوز مسیری تکمیل نشده"
                   : "سفارشی برای نمایش نیست"
               }
-              text="سفارش واقعی آماده تحویل، متناسب با موقعیت و وضعیت فعالیت شما نمایش داده می‌شود."
+              text={
+                page === "history"
+                  ? "مسیرهای تحویل‌شدهٔ شما اینجا ثبت می‌شوند."
+                  : dispatchMessage
+              }
             />
           ))}
         {page === "settings" && (
