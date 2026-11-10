@@ -492,6 +492,18 @@ test(
       const w = await ok("/api/courier/wallet", winner.token);
       assert.equal(w.earned, 50000);
       assert.equal(w.available, 50000);
+      const summary = await ok("/api/courier/summary", winner.token);
+      assert.equal(summary.totalTrips, 1);
+      assert.equal(summary.tripsToday, 1);
+      assert.equal(summary.earningsToday, 50000);
+      assert.equal(
+        summary.week.reduce((n, d) => n + d.earnings, 0),
+        50000,
+      );
+      assert.equal(
+        (await ok("/api/courier/summary", loser.token)).totalTrips,
+        0,
+      );
       const withdrawals = await Promise.all([
         request(
           "/api/courier/withdrawals",
@@ -584,6 +596,63 @@ test(
       assert.equal(
         (await ok("/api/me/state", next.token)).firstOrderEligible,
         false,
+      );
+      const declineOrder = (
+        await ok(
+          "/api/orders",
+          next.token,
+          { ...payload, items: { [cake.id]: 1 }, firstOrderProductId: null },
+          "POST",
+          201,
+        )
+      ).order;
+      for (const status of [2, 3])
+        await ok(
+          `/api/seller/orders/${declineOrder.id}/status`,
+          seller.token,
+          { status },
+          "PATCH",
+        );
+      await ok(
+        `/api/courier/orders/${declineOrder.id}/decline`,
+        loser.token,
+        undefined,
+        "POST",
+      );
+      await ok(
+        `/api/courier/orders/${declineOrder.id}/decline`,
+        loser.token,
+        undefined,
+        "POST",
+      );
+      assert.equal(
+        (await ok("/api/courier/orders", loser.token)).orders.some(
+          (o) => o.id === declineOrder.id,
+        ),
+        false,
+      );
+      assert.equal(
+        (await ok("/api/courier/orders", winner.token)).orders.some(
+          (o) => o.id === declineOrder.id,
+        ),
+        true,
+      );
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${declineOrder.id}/claim`,
+            loser.token,
+            undefined,
+            "POST",
+          )
+        ).status,
+        409,
+      );
+      await ok(
+        `/api/courier/orders/${declineOrder.id}/claim`,
+        winner.token,
+        undefined,
+        "POST",
       );
     } finally {
       // CI database is disposable. Only media files created by the test are removed here.

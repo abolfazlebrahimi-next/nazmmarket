@@ -23,6 +23,32 @@ export async function courierWallet(courierId, tx = db) {
   );
   return { earned: credits, available: Math.max(0, credits - reserved) };
 }
+router.get("/summary", async (req, res) => {
+  const id = req.courier.id;
+  const today = new Date().toISOString().slice(0, 10);
+  const weekStart = new Date(Date.now() - 6 * 86400000)
+    .toISOString()
+    .slice(0, 10);
+  const totals = await db.get(
+    "SELECT COUNT(*) total,COALESCE(SUM(CASE WHEN LEFT(completed_at,10)=? THEN 1 ELSE 0 END),0) today FROM order_deliveries WHERE courier_id=? AND completed_at IS NOT NULL",
+    [today, id],
+  );
+  const days = await db.all(
+    "SELECT LEFT(created_at,10) day,COUNT(*) trips,COALESCE(SUM(amount),0) earnings FROM courier_ledger WHERE courier_id=? AND created_at>=? GROUP BY LEFT(created_at,10) ORDER BY day",
+    [id, weekStart],
+  );
+  res.json({
+    totalTrips: Number(totals.total),
+    tripsToday: Number(totals.today),
+    earningsToday: Number(days.find((d) => d.day === today)?.earnings || 0),
+    week: days.map((d) => ({
+      day: d.day,
+      trips: Number(d.trips),
+      earnings: Number(d.earnings),
+    })),
+    timezone: "UTC",
+  });
+});
 router.patch("/availability", async (req, res) => {
   if (typeof req.body.online !== "boolean")
     return fail(res, 400, "وضعیت فعالیت معتبر نیست.");

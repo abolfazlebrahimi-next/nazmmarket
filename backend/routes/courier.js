@@ -44,6 +44,8 @@ const shapeCourier = (row) => ({
   vehicle: row.vehicle,
   active: Boolean(row.active),
   online: Boolean(row.online),
+  lat: row.lat == null ? null : Number(row.lat),
+  lng: row.lng == null ? null : Number(row.lng),
   verificationStatus: row.verification_status,
   rejectionReason: row.rejection_reason,
 });
@@ -251,8 +253,8 @@ router.get("/orders", async (req, res) => {
     Date.now() - new Date(c.location_updated_at).getTime() < 15 * 60 * 1000 &&
     validPoint(c.lat, c.lng);
   const rows = await db.all(
-    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,u.phone AS customer_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND d.order_id IS NULL) OR (d.courier_id=? AND o.status IN (4,5)) ORDER BY o.created_at DESC LIMIT 500`,
-    [req.courier.id],
+    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,u.phone AS customer_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND d.order_id IS NULL AND NOT EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id=o.id AND declined.courier_id=?)) OR (d.courier_id=? AND o.status IN (4,5)) ORDER BY o.created_at DESC LIMIT 500`,
+    [req.courier.id, req.courier.id],
   );
   const orders = rows
     .map((r) => {
@@ -274,6 +276,8 @@ router.get("/orders", async (req, res) => {
         storeArea: r.store_area,
         addressText: mine ? r.address_text : r.address_title,
         customerPhone: mine ? r.customer_phone : "",
+        destinationLat: mine ? r.destination_lat : null,
+        destinationLng: mine ? r.destination_lng : null,
         claimedByMe: mine,
         claimedAt: r.claimed_at,
         completedAt: r.completed_at,
@@ -302,6 +306,35 @@ router.get("/orders", async (req, res) => {
   });
 });
 
+router.post("/orders/:id/decline", async (req, res) => {
+  const c = await db.get("SELECT * FROM courier_accounts WHERE id=?", [
+    req.courier.id,
+  ]);
+  const order = await db.get(
+    "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3",
+    [req.params.id],
+  );
+  const distance = order ? distanceKm(c, order) : null;
+  if (
+    !c.online ||
+    !c.location_updated_at ||
+    Date.now() - new Date(c.location_updated_at).getTime() > 15 * 60000 ||
+    distance === null ||
+    distance > 15
+  )
+    return fail(
+      res,
+      409,
+      "order_unavailable",
+      "این پیشنهاد دیگر در دسترس نیست.",
+    );
+  await db.run(
+    "INSERT IGNORE INTO courier_declined_orders (courier_id,order_id,created_at) VALUES (?,?,?)",
+    [req.courier.id, req.params.id, new Date().toISOString()],
+  );
+  res.json({ ok: true });
+});
+
 router.post("/orders/:id/claim", async (req, res) => {
   try {
     const claimed = await db.transaction(async (tx) => {
@@ -322,6 +355,13 @@ router.post("/orders/:id/claim", async (req, res) => {
         [req.params.id],
       );
       if (!order || distanceKm(c, order) === null || distanceKm(c, order) > 15)
+        return false;
+      if (
+        await tx.get(
+          "SELECT 1 AS found FROM courier_declined_orders WHERE courier_id=? AND order_id=?",
+          [req.courier.id, order.id],
+        )
+      )
         return false;
       await tx.run(
         "INSERT INTO order_deliveries (order_id,courier_id,claimed_at,completed_at) VALUES (?,?,?,NULL)",

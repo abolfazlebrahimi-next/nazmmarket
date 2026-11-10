@@ -4,6 +4,8 @@ export type Courier = {
   phone: string;
   active: boolean;
   online: boolean;
+  lat?: number | null;
+  lng?: number | null;
   verificationStatus: string;
   rejectionReason: string;
 };

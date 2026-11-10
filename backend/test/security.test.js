@@ -173,3 +173,24 @@ test("private documents are never mounted as public static files", async () =>
     (await request("/api/private-uploads/secret.jpg")).status,
     200,
   ));
+
+test("summary and decline require an authenticated courier", async () => {
+  assert.equal((await request("/api/courier/summary", null)).status, 401);
+  assert.equal(
+    (await request("/api/courier/orders/any/decline", null, {}, "POST")).status,
+    401,
+  );
+});
+test("unverified courier cannot decline delivery offers", async () => {
+  assert.equal(
+    (
+      await request(
+        "/api/courier/orders/any/decline",
+        "courier-token",
+        {},
+        "POST",
+      )
+    ).status,
+    403,
+  );
+});
