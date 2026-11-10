@@ -95,32 +95,35 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
           <p className="my-2 text-[10px] text-muted">
             این کد را فقط پس از دریافت بسته در اختیار پیک قرار دهید.
           </p>
-          {deliveryCode ? (
+          {deliveryCode && (
             <p
               dir="ltr"
               className="text-center text-2xl font-black tracking-[0.4em]"
             >
               {deliveryCode}
             </p>
-          ) : (
-            <button
-              className="rounded-xl bg-mint px-4 py-2 text-xs font-bold text-white"
-              disabled={loadingCode}
-              onClick={async () => {
-                setLoadingCode(true);
-                try {
-                  setDeliveryCode((await api.orders.deliveryCode(o.id)).code);
-                  setCodeError("");
-                } catch (e) {
-                  setCodeError((e as Error).message);
-                } finally {
-                  setLoadingCode(false);
-                }
-              }}
-            >
-              {loadingCode ? "در حال دریافت…" : "نمایش کد تحویل"}
-            </button>
           )}
+          <button
+            className="mt-3 rounded-xl bg-mint px-4 py-2 text-xs font-bold text-white"
+            disabled={loadingCode}
+            onClick={async () => {
+              setLoadingCode(true);
+              try {
+                setDeliveryCode((await api.orders.deliveryCode(o.id)).code);
+                setCodeError("");
+              } catch (e) {
+                setCodeError((e as Error).message);
+              } finally {
+                setLoadingCode(false);
+              }
+            }}
+          >
+            {loadingCode
+              ? "در حال دریافت…"
+              : deliveryCode
+                ? "تازه‌سازی کد تحویل"
+                : "نمایش کد تحویل"}
+          </button>
           {codeError && (
             <p role="alert" className="mt-2 text-xs text-red-600">
               {codeError}

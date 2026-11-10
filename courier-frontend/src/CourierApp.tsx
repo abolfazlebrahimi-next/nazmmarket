@@ -60,6 +60,7 @@ export default function CourierApp() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
+    [walletLoaded, setWalletLoaded] = useState(false),
     [wallet, setWallet] = useState<Row>({
       available: 0,
       earned: 0,
@@ -151,6 +152,7 @@ export default function CourierApp() {
   async function loadWallet() {
     try {
       setWallet(await api("/wallet"));
+      setWalletLoaded(true);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -1132,14 +1134,23 @@ export default function CourierApp() {
         )}
         {page === "wallet" && (
           <>
+            {!walletLoaded && (
+              <p className="muted" role="status">
+                در حال دریافت اطلاعات مالی…
+              </p>
+            )}
             <div className="wallet-hero">
               <Wallet size={34} />
               <div>
                 <small>موجودی قابل برداشت</small>
                 <h2>
-                  {money(wallet.available)} <span>تومان</span>
+                  {walletLoaded ? money(wallet.available) : "—"}{" "}
+                  <span>تومان</span>
                 </h2>
-                <p>درآمد کل ثبت‌شده: {money(wallet.earned)} تومان</p>
+                <p>
+                  درآمد کل ثبت‌شده: {walletLoaded ? money(wallet.earned) : "—"}{" "}
+                  تومان
+                </p>
               </div>
             </div>
             <div className="wallet-periods">
@@ -1152,7 +1163,8 @@ export default function CourierApp() {
                 <article key={id}>
                   <small>{label}</small>
                   <strong>
-                    {money(wallet.periods?.[id])} <small>تومان</small>
+                    {walletLoaded ? money(wallet.periods?.[id]) : "—"}{" "}
+                    <small>تومان</small>
                   </strong>
                 </article>
               ))}
@@ -1204,7 +1216,12 @@ export default function CourierApp() {
                     />
                   </label>
                   <button
-                    disabled={busy || !isApproved || wallet.available < 50000}
+                    disabled={
+                      busy ||
+                      !isApproved ||
+                      !walletLoaded ||
+                      wallet.available < 50000
+                    }
                     className="primary"
                   >
                     ثبت درخواست برداشت
