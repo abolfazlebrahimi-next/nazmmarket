@@ -204,24 +204,28 @@ export function AddressForm({ c }: { c: AppCtx }) {
           />
         </div>
 
-        <label className="mt-6 block text-[13px] font-black text-ink" htmlFor="addr-text">نشانی</label>
-        <textarea
-          id="addr-text"
-          value={addr}
-          onChange={(e) => setAddr(e.target.value)}
-          rows={3}
-          placeholder="مثلاً: نظرآباد، خیابان شهید بهشتی، کوچه شهید رجایی"
-          className="mt-2 w-full resize-none rounded-2xl border border-line px-4 py-3 text-[13px] font-semibold outline-none transition focus:border-brand"
-        />
+        <label className="naz-floating-field address-floating-field mt-6">
+          <span className="naz-floating-label">نشانی</span>
+          <textarea
+            id="addr-text"
+            value={addr}
+            onChange={(e) => setAddr(e.target.value)}
+            rows={3}
+            placeholder="مثلاً: نظرآباد، خیابان شهید بهشتی، کوچه شهید رجایی"
+            className="w-full resize-none rounded-2xl border border-line px-4 py-3 text-[13px] font-semibold outline-none transition focus:border-brand"
+          />
+        </label>
 
-        <label className="mt-5 block text-[13px] font-black text-ink" htmlFor="addr-detail">جزئیات آدرس</label>
-        <input
-          id="addr-detail"
-          value={detail}
-          onChange={(e) => setDetail(e.target.value)}
-          placeholder="پلاک، واحد، طبقه"
-          className="mt-2 w-full rounded-2xl border border-line px-4 py-3.5 text-[13px] font-semibold outline-none transition focus:border-brand"
-        />
+        <label className="naz-floating-field address-floating-field mt-5">
+          <span className="naz-floating-label">جزئیات آدرس</span>
+          <input
+            id="addr-detail"
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            placeholder="پلاک، واحد، طبقه"
+            className="w-full rounded-2xl border border-line px-4 py-3.5 text-[13px] font-semibold outline-none transition focus:border-brand"
+          />
+        </label>
 
         <p className="mt-5 text-[13px] font-black text-ink">
           عنوان آدرس <span className="text-[11px] font-medium text-muted">(اختیاری)</span>
@@ -243,16 +247,18 @@ export function AddressForm({ c }: { c: AppCtx }) {
           ))}
         </div>
 
-        <label className="mt-5 block text-[13px] font-black text-ink" htmlFor="addr-phone">موبایل تحویل گیرنده</label>
-        <input
-          id="addr-phone"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          inputMode="tel"
-          dir="ltr"
-          placeholder="۰۹۹۵۳۷۴۲۶"
-          className="mt-2 w-full rounded-2xl border border-line px-4 py-3.5 text-right text-[13px] font-semibold outline-none transition focus:border-brand"
-        />
+        <label className="naz-floating-field address-floating-field mt-5">
+          <span className="naz-floating-label">موبایل تحویل‌گیرنده</span>
+          <input
+            id="addr-phone"
+            value={phone}
+            onChange={(e) => setPhone(toEn(e.target.value).replace(/\D/g, "").slice(0, 11))}
+            inputMode="tel"
+            dir="ltr"
+            placeholder="09xxxxxxxxx"
+            className="w-full rounded-2xl border border-line px-4 py-3.5 text-right text-[13px] font-semibold outline-none transition focus:border-brand"
+          />
+        </label>
 
         <button
           type="button"

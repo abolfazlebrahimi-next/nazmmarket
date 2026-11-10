@@ -1267,7 +1267,13 @@ h2 {
   color: #91a197;
   opacity: 1;
 }
+.login-card .naz-floating-field {
+  --naz-field-top: 7px;
+  --naz-field-center: 32px;
+}
 .login-card .password-field {
+  --naz-field-top: 0px;
+  --naz-field-center: 25.5px;
   position: relative;
   display: block;
 }
@@ -2271,6 +2277,10 @@ body {
   gap: 10px;
   flex-wrap: wrap;
   margin: 15px 0;
+}
+.history-filters > .history-filter-field {
+  flex: 1;
+  min-width: 130px;
 }
 .history-filters input,
 .history-filters select {

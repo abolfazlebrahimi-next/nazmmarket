@@ -148,9 +148,18 @@ async function call<T>(
       path !== "/auth/me" &&
       data?.error?.code !== "seller_unauthorized"
     ) {
-      const check = await fetch(`${API}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      let check: Response;
+      try {
+        check = await fetch(`${API}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        throw new SellerApiError(
+          "ارتباط با سرور برقرار نشد؛ اتصال بک‌اند را بررسی کنید.",
+          0,
+          "network",
+        );
+      }
       if (check.ok)
         throw new SellerApiError(
           "نشست فروشنده معتبر است، اما این عملیات در بک‌اند فعلی در دسترس نیست. بک‌اند را به‌روزرسانی و ری‌استارت کنید و مقصد API_PROXY_TARGET پنل فروشگاه را بررسی کنید.",
@@ -167,12 +176,16 @@ async function call<T>(
     sellerToken.set(null);
     window.dispatchEvent(new Event("seller-session-expired"));
   }
-  if (!response.ok)
+  if (!response.ok) {
+    const message = data?.error?.message;
     throw new SellerApiError(
-      data?.error?.message ?? "درخواست انجام نشد.",
+      typeof message === "string" && message.trim()
+        ? message
+        : "درخواست پنل فروشنده انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.",
       response.status,
       data?.error?.code ?? "error",
     );
+  }
   return data as T;
 }
 export const sellerApi = {

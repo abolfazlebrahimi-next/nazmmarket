@@ -82,7 +82,11 @@ function Photos({
         تصویر واضح و بدون بازتاب · حداکثر ۵ مگابایت
         {multiple ? " · تا ۴ تصویر" : ""}
       </small>
-      {error && <p className="alert error">{error}</p>}
+      {error && (
+        <p className="alert error" role="alert">
+          {error}
+        </p>
+      )}
     </section>
   );
 }
@@ -152,6 +156,27 @@ export default function Verification({
             platePhoto.length > 0 &&
             vehicleDocument.length > 0
           : true;
+  function stepValidationMessage() {
+    if (step === 0) {
+      if (!plate.trim()) return "شماره پلاک موتور را وارد کنید.";
+      if (!/^\d{10}$/.test(nationalId)) return "کد ملی باید ۱۰ رقم باشد.";
+      if (!birthDate) return "تاریخ تولد را انتخاب کنید.";
+      if (!brand.trim()) return "برند موتور را وارد کنید.";
+      if (!model.trim()) return "مدل موتور را وارد کنید.";
+      if (!color.trim()) return "رنگ موتور را وارد کنید.";
+    }
+    if (step === 1) {
+      if (!portrait.length) return "تصویر پرسنلی را بارگذاری کنید.";
+      if (!national.length) return "تصویر کارت ملی را بارگذاری کنید.";
+      if (!license.length) return "تصویر گواهینامه موتور را بارگذاری کنید.";
+    }
+    if (step === 2) {
+      if (!vehicleDocument.length) return "تصویر مدارک موتور را بارگذاری کنید.";
+      if (!motor.length) return "حداقل یک عکس از موتور بارگذاری کنید.";
+      if (!platePhoto.length) return "نمای نزدیک و خوانای پلاک را بارگذاری کنید.";
+    }
+    return "اطلاعات این مرحله را بررسی کنید.";
+  }
   async function submit() {
     setBusy(true);
     try {
@@ -245,17 +270,17 @@ export default function Verification({
           {step === 0 && (
             <>
               <h2>مشخصات شما و وسیله نقلیه</h2>
-              <div className="form-grid">
-                <label>
-                  نام و نام خانوادگی
-                  <input value={courier.fullName} readOnly />
+              <div className="form-grid" onInput={() => setError("")}>
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">نام و نام خانوادگی</span>
+                  <input value={courier.fullName} readOnly placeholder=" " />
                 </label>
-                <label>
-                  شماره موبایل
-                  <input value={courier.phone} readOnly />
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">شماره موبایل</span>
+                  <input value={courier.phone} readOnly placeholder=" " />
                 </label>
-                <label>
-                  شماره پلاک موتور
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">شماره پلاک موتور</span>
                   <input
                     placeholder="مثلاً ۱۲۳ · ۴۵۶۷۸"
                     value={plate}
@@ -263,11 +288,12 @@ export default function Verification({
                     maxLength={40}
                   />
                 </label>
-                <label>
-                  کد ملی
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">کد ملی</span>
                   <input
                     inputMode="numeric"
                     maxLength={10}
+                    placeholder=" "
                     value={nationalId}
                     onChange={(e) =>
                       setNationalId(
@@ -280,18 +306,19 @@ export default function Verification({
                     }
                   />
                 </label>
-                <label>
-                  تاریخ تولد
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">تاریخ تولد</span>
                   <input
                     type="date"
+                    placeholder=" "
                     value={birthDate}
                     max={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => setBirthDate(e.target.value)}
                   />
                   <small>تاریخ مطابق تقویم نمایش‌داده‌شدهٔ مرورگر</small>
                 </label>
-                <label>
-                  برند موتور
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">برند موتور</span>
                   <input
                     value={brand}
                     maxLength={100}
@@ -299,8 +326,8 @@ export default function Verification({
                     placeholder="مثلاً هوندا"
                   />
                 </label>
-                <label>
-                  مدل موتور
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">مدل موتور</span>
                   <input
                     value={model}
                     maxLength={100}
@@ -308,8 +335,8 @@ export default function Verification({
                     placeholder="مثلاً ۱۲۵"
                   />
                 </label>
-                <label>
-                  رنگ موتور
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">رنگ موتور</span>
                   <input
                     value={color}
                     maxLength={60}
@@ -326,17 +353,26 @@ export default function Verification({
               <Photos
                 title="تصویر پرسنلی"
                 files={portrait}
-                onChange={setPortrait}
+                onChange={(files) => {
+                  setPortrait(files);
+                  setError("");
+                }}
               />
               <Photos
                 title="تصویر کارت ملی"
                 files={national}
-                onChange={setNational}
+                onChange={(files) => {
+                  setNational(files);
+                  setError("");
+                }}
               />
               <Photos
                 title="تصویر گواهینامه موتور"
                 files={license}
-                onChange={setLicense}
+                onChange={(files) => {
+                  setLicense(files);
+                  setError("");
+                }}
               />
             </>
           )}
@@ -346,7 +382,10 @@ export default function Verification({
               <Photos
                 title="تصویر مدارک موتور"
                 files={vehicleDocument}
-                onChange={setVehicleDocument}
+                onChange={(files) => {
+                  setVehicleDocument(files);
+                  setError("");
+                }}
               />
               <p className="muted">
                 نمای کامل موتور و پلاک خوانا را ثبت کنید. امکان انتخاب چند تصویر
@@ -356,12 +395,18 @@ export default function Verification({
                 title="عکس‌های موتور"
                 multiple
                 files={motor}
-                onChange={setMotor}
+                onChange={(files) => {
+                  setMotor(files);
+                  setError("");
+                }}
               />
               <Photos
                 title="نمای نزدیک پلاک"
                 files={platePhoto}
-                onChange={setPlatePhoto}
+                onChange={(files) => {
+                  setPlatePhoto(files);
+                  setError("");
+                }}
               />
             </>
           )}
@@ -391,7 +436,11 @@ export default function Verification({
               </div>
             </>
           )}
-          {error && <p className="alert error">{error}</p>}
+          {error && (
+            <p className="alert error" role="alert">
+              {error}
+            </p>
+          )}
           <div className="wizard-actions">
             <button
               disabled={step === 0 || busy}
@@ -402,8 +451,15 @@ export default function Verification({
             {step < 3 ? (
               <button
                 className="primary"
-                disabled={!valid}
-                onClick={() => setStep((s) => s + 1)}
+                disabled={busy}
+                onClick={() => {
+                  if (!valid) {
+                    setError(stepValidationMessage());
+                    return;
+                  }
+                  setError("");
+                  setStep((s) => s + 1);
+                }}
               >
                 ادامه <ChevronLeft size={16} />
               </button>

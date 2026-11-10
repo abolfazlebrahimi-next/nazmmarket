@@ -29,7 +29,6 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
 
   const phoneOk = /^09\d{9}$/.test(phone);
   const passOk = password.length >= 6;
-  const canSubmit = phoneOk && passOk && (mode === "login" || password === confirm);
 
   const switchMode = (next: Mode) => {
     setMode(next);
@@ -39,7 +38,19 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
 
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!canSubmit || busy) return;
+    if (busy) return;
+    if (!phoneOk) {
+      setError("شماره موبایل باید ۱۱ رقم باشد و با ۰۹ شروع شود.");
+      return;
+    }
+    if (!passOk) {
+      setError("رمز عبور باید دست‌کم ۶ نویسه باشد.");
+      return;
+    }
+    if (mode === "register" && password !== confirm) {
+      setError("رمز عبور و تکرار آن یکسان نیستند.");
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -56,7 +67,13 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
       tokenStore.set(res.token);
       onAuth(res);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "خطایی رخ داد؛ دوباره تلاش کنید.");
+      const fallback =
+        mode === "login"
+          ? "ورود انجام نشد؛ شماره موبایل و رمز عبور را بررسی کنید."
+          : "ثبت‌نام انجام نشد؛ اطلاعات واردشده را بررسی کنید.";
+      setError(
+        err instanceof ApiError && err.message.trim() ? err.message : fallback,
+      );
       setBusy(false);
     }
   };
@@ -120,17 +137,23 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
           </h1>
 
           <form onSubmit={submit} className="mt-5 space-y-3.5">
-            <label className="block">
-              <span className="sr-only">شماره موبایل</span>
+            <label className="naz-floating-field auth-floating-field">
+              <span className="naz-floating-label">شماره موبایل</span>
               <span className="relative flex items-center">
                 <Phone className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
                 <input
                   type="tel"
+                  name="phone"
                   inputMode="numeric"
                   autoComplete="username"
                   dir="ltr"
+                  required
+                  pattern="09[0-9]{9}"
                   value={phone}
-                  onChange={(e) => setPhone(toEn(e.target.value).replace(/\D/g, "").slice(0, 11))}
+                  onChange={(e) => {
+                    setPhone(toEn(e.target.value).replace(/\D/g, "").slice(0, 11));
+                    setError("");
+                  }}
                   placeholder="09xxxxxxxxx"
                   className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[14px] font-bold tracking-wide outline-none transition placeholder:tracking-normal placeholder:text-[#c3beb9] focus:border-brand"
                 />
@@ -138,15 +161,17 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
             </label>
 
             {mode === "register" && (
-              <label className="block">
-                <span className="mb-1.5 block text-[11.5px] font-black text-ink">
-                  نام و نام خانوادگی
-                </span>
+              <label className="naz-floating-field auth-floating-field">
+                <span className="naz-floating-label">نام و نام خانوادگی</span>
                 <span className="relative flex items-center">
                   <UserRound className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
                   <input
+                    name="fullName"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setError("");
+                    }}
                     placeholder="مثلاً سارا محمدی"
                     autoComplete="name"
                     className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-[13px] font-bold outline-none transition placeholder:text-[#c3beb9] focus:border-brand"
@@ -155,15 +180,21 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
               </label>
             )}
 
-            <label className="block">
-              <span className="mb-1.5 block text-[11.5px] font-black text-ink">رمز عبور</span>
+            <label className="naz-floating-field auth-floating-field">
+              <span className="naz-floating-label">رمز عبور</span>
               <span className="relative flex items-center">
                 <Lock className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
                 <input
                   type={showPass ? "text" : "password"}
+                  name="password"
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  required
+                  minLength={6}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError("");
+                  }}
                   placeholder="حداقل ۶ کاراکتر"
                   className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-11 text-left text-[13.5px] font-bold outline-none transition placeholder:text-right placeholder:text-[#c3beb9] focus:border-brand"
                   dir="ltr"
@@ -180,15 +211,21 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
             </label>
 
             {mode === "register" && (
-              <label className="block">
-                <span className="mb-1.5 block text-[11.5px] font-black text-ink">تکرار رمز عبور</span>
+              <label className="naz-floating-field auth-floating-field">
+                <span className="naz-floating-label">تکرار رمز عبور</span>
                 <span className="relative flex items-center">
                   <Lock className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
                   <input
                     type={showPass ? "text" : "password"}
+                    name="passwordConfirm"
                     autoComplete="new-password"
+                    required
+                    minLength={6}
                     value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
+                    onChange={(e) => {
+                      setConfirm(e.target.value);
+                      setError("");
+                    }}
                     placeholder="رمز عبور را دوباره بنویسید"
                     className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[13.5px] font-bold outline-none transition placeholder:text-right placeholder:text-[#c3beb9] focus:border-brand"
                     dir="ltr"
@@ -209,7 +246,7 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
 
             <button
               type="submit"
-              disabled={!canSubmit || busy}
+              disabled={busy}
               className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[13.5px] font-black text-white shadow-lg shadow-brand/30 transition enabled:hover:brightness-105 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? (

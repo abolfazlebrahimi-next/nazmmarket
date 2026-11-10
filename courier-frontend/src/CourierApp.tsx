@@ -419,8 +419,10 @@ export default function CourierApp() {
           )}
           <form
             className="form-stack"
+            onInput={() => setError("")}
             onSubmit={async (e) => {
               e.preventDefault();
+              setError("");
               setBusy(true);
               const f = Object.fromEntries(new FormData(e.currentTarget));
               try {
@@ -445,28 +447,32 @@ export default function CourierApp() {
             }}
           >
             {mode === "register" && (
-              <label>
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">نام و نام خانوادگی</span>
                 <input
                   name="fullName"
                   required
                   maxLength={120}
-                  placeholder="نام و نام خانوادگی"
+                  placeholder="مثلاً علی رضایی"
                   aria-label="نام و نام خانوادگی"
                 />
               </label>
             )}
-            <label>
+            <label className="naz-floating-field">
+              <span className="naz-floating-label">شماره موبایل</span>
               <input
                 type="tel"
                 name="phone"
                 required
+                pattern="[0۰٠][9۹٩][0-9۰-۹٠-٩]{9}"
                 inputMode="tel"
                 autoComplete="tel"
                 placeholder="09xxxxxxxxx"
                 aria-label="شماره موبایل"
               />
             </label>
-            <label className="password-field">
+            <label className="password-field naz-floating-field">
+              <span className="naz-floating-label">رمز عبور</span>
               <input
                 name="password"
                 type={showPassword ? "text" : "password"}
@@ -475,7 +481,7 @@ export default function CourierApp() {
                 autoComplete={
                   mode === "login" ? "current-password" : "new-password"
                 }
-                placeholder="رمز عبور"
+                placeholder="رمز عبور خود را وارد کنید"
                 aria-label="رمز عبور"
               />
               <button
@@ -852,6 +858,7 @@ export default function CourierApp() {
             </p>
             <form
               className="form-stack"
+              onInput={() => setError("")}
               onSubmit={async (e) => {
                 e.preventDefault();
                 setBusy(true);
@@ -870,31 +877,34 @@ export default function CourierApp() {
                 }
               }}
             >
-              <label>
-                رمز فعلی
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">رمز فعلی</span>
                 <input
                   name="currentPassword"
                   type="password"
+                  placeholder=" "
                   autoComplete="current-password"
                   required
                 />
               </label>
-              <label>
-                رمز جدید
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">رمز جدید</span>
                 <input
                   name="newPassword"
                   type="password"
+                  placeholder=" "
                   autoComplete="new-password"
                   minLength={10}
                   maxLength={128}
                   required
                 />
               </label>
-              <label>
-                تکرار رمز جدید
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">تکرار رمز جدید</span>
                 <input
                   name="confirmPassword"
                   type="password"
+                  placeholder=" "
                   autoComplete="new-password"
                   minLength={10}
                   maxLength={128}
@@ -1025,6 +1035,7 @@ export default function CourierApp() {
                 </p>
                 <form
                   className="form-stack"
+                  onInput={() => setError("")}
                   onSubmit={async (e) => {
                     e.preventDefault();
                     setBusy(true);
@@ -1042,24 +1053,34 @@ export default function CourierApp() {
                     }
                   }}
                 >
-                  <label>
-                    مبلغ (تومان)
+                  <label className="naz-floating-field">
+                    <span className="naz-floating-label">مبلغ برداشت (تومان)</span>
                     <input
                       type="number"
                       name="amount"
+                      placeholder=" "
                       min="50000"
                       max={wallet.available}
                       required
                     />
                   </label>
-                  <label>
-                    شماره شبا به نام خودتان
+                  <label className="naz-floating-field">
+                    <span className="naz-floating-label">شماره شبای خودتان</span>
                     <input
                       name="iban"
                       dir="ltr"
-                      placeholder="IR…"
+                      placeholder="IR و ۲۴ رقم"
+                      maxLength={26}
                       required
                       pattern="IR[0-9]{24}"
+                      onChange={(e) => {
+                        e.currentTarget.value = e.currentTarget.value
+                          .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+                          .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)))
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9]/g, "")
+                          .slice(0, 26);
+                      }}
                     />
                   </label>
                   <button
@@ -1126,6 +1147,7 @@ export default function CourierApp() {
               <h2>تیکت جدید</h2>
               <form
                 className="form-stack"
+                onInput={() => setError("")}
                 onSubmit={async (e) => {
                   e.preventDefault();
                   setBusy(true);
@@ -1143,17 +1165,18 @@ export default function CourierApp() {
                   }
                 }}
               >
-                <label>
-                  موضوع
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">موضوع تیکت</span>
                   <input
                     name="subject"
+                    placeholder=" "
                     required
                     maxLength={180}
                     defaultValue={ticketTrip ? `مشکل سفر ${ticketTrip}` : ""}
                   />
                 </label>
-                <label>
-                  دسته‌بندی
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">دسته‌بندی</span>
                   <select
                     name="category"
                     defaultValue={ticketTrip ? "order" : "other"}
@@ -1174,9 +1197,14 @@ export default function CourierApp() {
                     ))}
                   </select>
                 </label>
-                <label>
-                  شرح درخواست
-                  <textarea name="body" required maxLength={5000} />
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">شرح درخواست</span>
+                  <textarea
+                    name="body"
+                    placeholder="جزئیات درخواست را بنویسید"
+                    required
+                    maxLength={5000}
+                  />
                 </label>
                 <button className="primary" disabled={busy}>
                   ارسال تیکت
@@ -1231,6 +1259,7 @@ export default function CourierApp() {
                 {thread.ticket.status !== "closed" && (
                   <form
                     className="form-stack"
+                    onInput={() => setError("")}
                     onSubmit={async (e) => {
                       e.preventDefault();
                       setBusy(true);
@@ -1250,7 +1279,15 @@ export default function CourierApp() {
                       }
                     }}
                   >
-                    <textarea name="body" required placeholder="پاسخ شما…" />
+                    <label className="naz-floating-field">
+                      <span className="naz-floating-label">پاسخ شما</span>
+                      <textarea
+                        name="body"
+                        required
+                        maxLength={5000}
+                        placeholder="پاسخ خود را بنویسید…"
+                      />
+                    </label>
                     <button disabled={busy}>ارسال پاسخ</button>
                   </form>
                 )}

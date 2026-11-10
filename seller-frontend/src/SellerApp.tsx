@@ -78,6 +78,10 @@ const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
 ];
 const money = (n: number) =>
   new Intl.NumberFormat("fa-IR").format(Number(n) || 0);
+const toAsciiDigits = (value: string) =>
+  value
+    .replace(/[۰-۹]/g, (digit) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(digit)))
+    .replace(/[٠-٩]/g, (digit) => String("٠١٢٣٤٥٦٧٨٩".indexOf(digit)));
 const emptyProfile: SellerProfile = {
   name: "",
   phone: "",
@@ -124,15 +128,21 @@ function Field({
   hint?: string;
 }) {
   return (
-    <label className="field">
-      <span className="field-label">{label}</span>
+    <label className="field naz-floating-field">
+      <span className="field-label naz-floating-label">{label}</span>
       {children}
       {hint && <small className="field-hint">{hint}</small>}
     </label>
   );
 }
 function TextInput(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className={`input ${props.className ?? ""}`} />;
+  return (
+    <input
+      {...props}
+      placeholder={props.placeholder ?? " "}
+      className={`input ${props.className ?? ""}`}
+    />
+  );
 }
 function SelectInput(props: SelectHTMLAttributes<HTMLSelectElement>) {
   return <select {...props} className={`input ${props.className ?? ""}`} />;
@@ -143,19 +153,32 @@ function PhotoPicker({
   onChange,
   onFile,
   square = false,
+  required = false,
 }: {
   label: string;
   image: string;
   onChange: (url: string) => void;
   onFile?: (file: File) => void;
   square?: boolean;
+  required?: boolean;
 }) {
+  const [error, setError] = useState("");
   const onSelectFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      onChange(URL.createObjectURL(file));
-      onFile?.(file);
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("تصویر باید JPG، PNG یا WebP باشد.");
+      event.currentTarget.value = "";
+      return;
     }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("حجم تصویر لوگو نباید بیشتر از ۵ مگابایت باشد.");
+      event.currentTarget.value = "";
+      return;
+    }
+    setError("");
+    onChange(URL.createObjectURL(file));
+    onFile?.(file);
   };
   return (
     <label
@@ -164,6 +187,8 @@ function PhotoPicker({
       <input
         type="file"
         accept="image/jpeg,image/png,image/webp"
+        required={required}
+        aria-label={label}
         onChange={onSelectFile}
       />
       {image ? (
@@ -179,6 +204,11 @@ function PhotoPicker({
         <span className="photo-edit">
           <Camera size={15} /> تغییر عکس
         </span>
+      )}
+      {error && (
+        <small className="photo-picker-error" role="alert">
+          {error}
+        </small>
       )}
     </label>
   );
@@ -1088,7 +1118,10 @@ function AuthScreen({
                   placeholder="09xxxxxxxxx"
                   value={login.phone}
                   onChange={(e) =>
-                    setLogin({ ...login, phone: e.target.value })
+                    setLogin({
+                      ...login,
+                      phone: toAsciiDigits(e.target.value).replace(/\D/g, "").slice(0, 11),
+                    })
                   }
                 />
               </Field>
@@ -1159,7 +1192,10 @@ function AuthScreen({
                     placeholder="09xxxxxxxxx"
                     value={register.phone}
                     onChange={(e) =>
-                      setRegister({ ...register, phone: e.target.value })
+                      setRegister({
+                        ...register,
+                        phone: toAsciiDigits(e.target.value).replace(/\D/g, "").slice(0, 11),
+                      })
                     }
                   />
                 </Field>
@@ -1186,7 +1222,10 @@ function AuthScreen({
                     maxLength={10}
                     value={register.nationalId}
                     onChange={(e) =>
-                      setRegister({ ...register, nationalId: e.target.value })
+                      setRegister({
+                        ...register,
+                        nationalId: toAsciiDigits(e.target.value).replace(/\D/g, "").slice(0, 10),
+                      })
                     }
                   />
                 </Field>
@@ -1201,7 +1240,10 @@ function AuthScreen({
                     onChange={(e) =>
                       setRegister({
                         ...register,
-                        iban: e.target.value.toUpperCase(),
+                        iban: toAsciiDigits(e.target.value)
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9]/g, "")
+                          .slice(0, 26),
                       })
                     }
                   />
@@ -1249,11 +1291,12 @@ function AuthScreen({
                   onChange={setLogoUrl}
                   onFile={setShopLogo}
                   square
+                  required
                 />
               </div>
               <button
                 type="submit"
-                disabled={busy || !shopLogo}
+                disabled={busy}
                 className="btn primary full"
               >
                 {busy ? "در حال ثبت…" : "ثبت فروشگاه و ایجاد حساب"}{" "}

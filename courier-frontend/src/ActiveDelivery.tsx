@@ -188,14 +188,16 @@ export default function ActiveDelivery({
             void act(o, "complete", { code });
           }}
         >
-          <label>
-            کد تحویل مشتری
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">کد تحویل مشتری</span>
             <input
+              name="deliveryCode"
               inputMode="numeric"
               autoComplete="one-time-code"
               dir="ltr"
               maxLength={6}
               minLength={6}
+              pattern="[0-9]{6}"
               value={code}
               onChange={(e) =>
                 setCode(
@@ -209,7 +211,7 @@ export default function ActiveDelivery({
             />
           </label>
           <button
-            disabled={busy || code.length !== 6}
+            disabled={busy}
             className="primary trip-main-action"
           >
             <ShieldCheck size={17} />

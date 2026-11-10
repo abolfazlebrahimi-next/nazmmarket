@@ -51,33 +51,37 @@ export default function TripHistory() {
         <small>{money(total)} سفر</small>
       </div>
       <div className="history-filters">
-        <input
-          aria-label="جست‌وجوی شماره سفارش"
-          placeholder="شماره سفارش…"
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setPage(1);
-          }}
-        />
-        <select
-          aria-label="وضعیت سفر"
-          value={status}
-          onChange={(e) => {
-            setStatus(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="all">همهٔ سفرهای گذشته</option>
-          <option value="completed">موفق</option>
-          <option value="cancelled">لغوشده</option>
-          <option value="failed">ناموفق</option>
-        </select>
-        <label>
-          از تاریخ
+        <label className="naz-floating-field history-filter-field">
+          <span className="naz-floating-label">شماره سفارش</span>
           <input
-            aria-label="از تاریخ"
+            placeholder="مثلاً ۱۲۳۴۵۶"
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setPage(1);
+            }}
+          />
+        </label>
+        <label className="naz-floating-field history-filter-field">
+          <span className="naz-floating-label">وضعیت سفر</span>
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="all">همهٔ سفرهای گذشته</option>
+            <option value="completed">موفق</option>
+            <option value="cancelled">لغوشده</option>
+            <option value="failed">ناموفق</option>
+          </select>
+        </label>
+        <label className="naz-floating-field history-filter-field">
+          <span className="naz-floating-label">از تاریخ</span>
+          <input
             type="date"
+            placeholder=" "
             value={from}
             onChange={(e) => {
               setFrom(e.target.value);
@@ -85,11 +89,11 @@ export default function TripHistory() {
             }}
           />
         </label>
-        <label>
-          تا تاریخ
+        <label className="naz-floating-field history-filter-field">
+          <span className="naz-floating-label">تا تاریخ</span>
           <input
-            aria-label="تا تاریخ"
             type="date"
+            placeholder=" "
             value={to}
             onChange={(e) => {
               setTo(e.target.value);

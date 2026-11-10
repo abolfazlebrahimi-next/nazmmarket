@@ -85,10 +85,16 @@ async function request<T>(path: string, options: Options = {}): Promise<T> {
   if (!res.ok) {
     const err = (data as { error?: { message?: string; code?: string } })
       ?.error;
+    const fallback = path.endsWith("/auth/login")
+      ? "شماره موبایل یا رمز عبور اشتباه است."
+      : path.endsWith("/auth/register")
+        ? "ثبت‌نام انجام نشد؛ اطلاعات واردشده را بررسی کنید."
+        : "درخواست انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.";
+    const message = err?.message;
     throw new ApiError(
-      err?.message ?? "خطایی رخ داد؛ دوباره تلاش کنید.",
+      typeof message === "string" && message.trim() ? message : fallback,
       res.status,
-      err?.code ?? "error",
+      typeof err?.code === "string" && err.code.trim() ? err.code : "error",
     );
   }
 

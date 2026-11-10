@@ -50,6 +50,18 @@ input::placeholder,
 textarea::placeholder {
   color: #a8a49e;
 }
+.auth-floating-field,
+.account-floating-field {
+  --naz-field-top: 7px;
+  --naz-field-center: 31px;
+}
+.auth-floating-field > .naz-floating-label {
+  right: 44px;
+}
+.checkout-code-field {
+  --naz-field-top: 7px;
+  --naz-field-center: 29px;
+}
 
 /* ---------- App animations ---------- */
 @keyframes fade-rise {

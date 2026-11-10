@@ -7,7 +7,6 @@ import {
   Heart,
   Info,
   LoaderCircle,
-  Lock,
   LogIn,
   LogOut,
   MessageSquareText,
@@ -594,7 +593,11 @@ function ProfileSheet({ c, close }: { c: AppCtx; close: () => void }) {
       c.toast("اطلاعات حساب ذخیره شد");
       close();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "ذخیره اطلاعات انجام نشد.");
+      setError(
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : "ذخیره اطلاعات حساب انجام نشد؛ دوباره تلاش کنید.",
+      );
     } finally {
       setBusy(false);
     }
@@ -616,30 +619,42 @@ function ProfileSheet({ c, close }: { c: AppCtx; close: () => void }) {
       </div>
 
       <div className="mt-3 space-y-2.5">
-        <input
-          value={first}
-          onChange={(e) => setFirst(e.target.value)}
-          placeholder="نام"
-          aria-label="نام"
-          className="w-full rounded-2xl border border-line px-4 py-3 text-[13px] font-bold outline-none transition focus:border-brand"
-        />
-        <input
-          value={last}
-          onChange={(e) => setLast(e.target.value)}
-          placeholder="نام خانوادگی"
-          aria-label="نام خانوادگی"
-          className="w-full rounded-2xl border border-line px-4 py-3 text-[13px] font-bold outline-none transition focus:border-brand"
-        />
+        <label className="naz-floating-field account-floating-field">
+          <span className="naz-floating-label">نام</span>
+          <input
+            value={first}
+            onChange={(e) => {
+              setFirst(e.target.value);
+              setError("");
+            }}
+            placeholder="مثلاً سارا"
+            aria-label="نام"
+            className="w-full rounded-2xl border border-line px-4 py-3 text-[13px] font-bold outline-none transition focus:border-brand"
+          />
+        </label>
+        <label className="naz-floating-field account-floating-field">
+          <span className="naz-floating-label">نام خانوادگی</span>
+          <input
+            value={last}
+            onChange={(e) => {
+              setLast(e.target.value);
+              setError("");
+            }}
+            placeholder="مثلاً محمدی"
+            aria-label="نام خانوادگی"
+            className="w-full rounded-2xl border border-line px-4 py-3 text-[13px] font-bold outline-none transition focus:border-brand"
+          />
+        </label>
         {!c.isGuest && (
-          <label className="block">
-            <span className="mb-1.5 flex items-center gap-1.5 text-[11px] font-black text-ink">
-              <Lock className="h-3.5 w-3.5 text-muted" /> رمز عبور جدید
-              (اختیاری)
-            </span>
+          <label className="naz-floating-field account-floating-field">
+            <span className="naz-floating-label">رمز عبور جدید (اختیاری)</span>
             <input
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setError("");
+              }}
               placeholder="خالی بگذارید تا تغییر نکند"
               aria-label="رمز عبور جدید"
               dir="ltr"

@@ -583,13 +583,15 @@ footer {
   direction: rtl;
   min-height: 100vh;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: 22px;
   background: radial-gradient(ellipse at top, #d8eee3, transparent 65%);
 }
 .login-card {
-  width: 420px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
   padding: 34px;
   background: white;
   border: 1px solid #e0e9e2;

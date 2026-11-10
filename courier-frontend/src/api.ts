@@ -32,7 +32,19 @@ export async function api<T = any>(
   if (!r.ok) {
     if (r.status === 401 && path != "/auth/login" && path !== "/auth/password")
       window.dispatchEvent(new Event("courier-expired"));
-    const message = d?.error?.message || "ارتباط با سرور برقرار نشد.";
+    const serverMessage = d?.error?.message;
+    const fallback =
+      r.status === 401 && path !== "/auth/login" && path !== "/auth/password"
+        ? "نشست شما پایان یافته است؛ دوباره وارد حساب پیک شوید."
+        : path === "/auth/login"
+          ? "ورود انجام نشد؛ شماره موبایل و رمز عبور را بررسی کنید."
+          : path === "/auth/register"
+            ? "ثبت‌نام پیک انجام نشد؛ اطلاعات واردشده را بررسی کنید."
+            : "درخواست پنل پیک انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.";
+    const message =
+      typeof serverMessage === "string" && serverMessage.trim()
+        ? serverMessage
+        : fallback;
     const reference = d?.error?.requestId;
     throw new Error(
       reference ? `${message} (شناسه پیگیری: ${reference})` : message,

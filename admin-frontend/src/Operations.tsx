@@ -49,7 +49,11 @@ export default function Operations({
   }
   return (
     <div className="report-grid">
-      {error && <p className="alert error">{error}</p>}
+      {error && (
+        <p className="alert error" role="alert">
+          {error}
+        </p>
+      )}
       <section className="panel">
         <h2>تعرفه و کارمزد</h2>
         <form
@@ -57,18 +61,19 @@ export default function Operations({
           onSubmit={(e) => void form(e, "/settings", "PUT")}
           key={JSON.stringify(data.settings)}
         >
-          <label>
-            شرایط جوی (تنظیم مدیر، نه سرویس هواشناسی)
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">شرایط جوی (تنظیم مدیر، نه سرویس هواشناسی)</span>
             <select name="weather" defaultValue={data.settings.weather}>
               <option value="normal">عادی · ۵۰ تا ۸۰ هزار تومان</option>
               <option value="rain">بارانی · تا ۱۰۰ هزار تومان</option>
               <option value="snow">برفی · تا ۱۰۰ هزار تومان</option>
             </select>
           </label>
-          <label>
-            کارمزد پلتفرم از فروش (%)
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">کارمزد پلتفرم از فروش (%)</span>
             <input
               required
+              placeholder=" "
               type="number"
               name="commissionPercent"
               min="0"
@@ -77,10 +82,11 @@ export default function Operations({
               defaultValue={data.settings.commissionPercent}
             />
           </label>
-          <label>
-            کمیسیون از کرایهٔ پیک (%)
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">کمیسیون از کرایهٔ پیک (%)</span>
             <input
               name="courierCommissionPercent"
+              placeholder=" "
               type="number"
               required
               min="0"
@@ -105,13 +111,13 @@ export default function Operations({
           className="product-form"
           onSubmit={(e) => void form(e, "/expenses")}
         >
-          <label>
-            شرح هزینه
-            <input name="description" required />
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">شرح هزینه</span>
+            <input name="description" placeholder=" " required />
           </label>
-          <label>
-            مبلغ (تومان)
-            <input name="amount" required type="number" min="1" />
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">مبلغ (تومان)</span>
+            <input name="amount" placeholder=" " required type="number" min="1" />
           </label>
           <button disabled={busy}>ثبت هزینه واقعی</button>
         </form>
@@ -150,12 +156,21 @@ export default function Operations({
                   );
                 }}
               >
-                <select name="status">
-                  <option value="paid">ثبت پرداخت بانکی انجام‌شده</option>
-                  <option value="rejected">رد درخواست</option>
-                </select>
-                <input name="reference" placeholder="شناسه پرداخت بانکی" />
-                <input name="reason" placeholder="دلیل رد" />
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">وضعیت درخواست برداشت</span>
+                  <select name="status">
+                    <option value="paid">ثبت پرداخت بانکی انجام‌شده</option>
+                    <option value="rejected">رد درخواست</option>
+                  </select>
+                </label>
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">شناسه پرداخت بانکی</span>
+                  <input name="reference" placeholder="مثلاً ۱۲۳۴۵۶" />
+                </label>
+                <label className="naz-floating-field">
+                  <span className="naz-floating-label">دلیل رد درخواست</span>
+                  <input name="reason" placeholder="در صورت رد، دلیل را بنویسید" />
+                </label>
                 <button disabled={busy}>ثبت نتیجه</button>
               </form>
             )}
@@ -204,7 +219,15 @@ export default function Operations({
                   setMessages((await api(`/tickets/${ticket}`)).messages);
               }}
             >
-              <textarea name="body" required placeholder="پاسخ به پیک" />
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">پاسخ به پیک</span>
+                <textarea
+                  name="body"
+                  required
+                  maxLength={5000}
+                  placeholder="متن پاسخ را بنویسید"
+                />
+              </label>
               <label>
                 <input name="close" type="checkbox" /> بستن پس از پاسخ
               </label>

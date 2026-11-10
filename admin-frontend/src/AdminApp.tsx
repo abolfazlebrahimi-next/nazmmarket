@@ -100,14 +100,24 @@ async function api(path: string, init: RequestInit = {}) {
     headers.set("Content-Type", "application/json");
   const token = sessionStorage.getItem("naz_admin");
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch("/api/admin" + path, { ...init, headers });
+  let res: Response;
+  try {
+    res = await fetch("/api/admin" + path, { ...init, headers });
+  } catch {
+    throw new Error("ارتباط با سرور مدیریت برقرار نشد؛ دوباره تلاش کنید.");
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && path != "/login") {
       sessionStorage.removeItem("naz_admin");
       window.dispatchEvent(new Event("admin-expired"));
     }
-    throw new Error(data?.error?.message || "درخواست انجام نشد.");
+    const message = data?.error?.message;
+    throw new Error(
+      typeof message === "string" && message.trim()
+        ? message
+        : "درخواست مدیریت انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.",
+    );
   }
   return data;
 }
@@ -273,17 +283,23 @@ export default function AdminApp() {
           <p className="eyebrow">NAZMARKET / CONTROL CENTER</p>
           <h1>مدیریت یکپارچه نازمارکت</h1>
           <p>ورود مخصوص مدیر مجاز سامانه</p>
-          <label>
-            نام کاربری
-            <input name="username" required autoComplete="username" />
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">نام کاربری</span>
+            <input
+              name="username"
+              required
+              autoComplete="username"
+              placeholder=" "
+            />
           </label>
-          <label>
-            رمز عبور
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">رمز عبور</span>
             <input
               name="password"
               type="password"
               required
               autoComplete="current-password"
+              placeholder=" "
             />
           </label>
           {error && (
@@ -765,17 +781,18 @@ export default function AdminApp() {
           onClose={() => setEditing(undefined)}
         >
           <form className="product-form" onSubmit={saveProduct}>
-            <label>
-              نام محصول
+            <label className="naz-floating-field">
+              <span className="naz-floating-label">نام محصول</span>
               <input
                 name="name"
+                placeholder=" "
                 defaultValue={editing?.name}
                 required
                 maxLength={180}
               />
             </label>
-            <label>
-              دسته‌بندی
+            <label className="naz-floating-field">
+              <span className="naz-floating-label">دسته‌بندی</span>
               <select
                 name="category"
                 defaultValue={editing?.category || "drinks"}
@@ -787,45 +804,49 @@ export default function AdminApp() {
                 ))}
               </select>
             </label>
-            <label>
-              توضیحات
+            <label className="naz-floating-field">
+              <span className="naz-floating-label">توضیحات</span>
               <textarea
                 name="description"
+                placeholder="توضیحات محصول را بنویسید"
                 defaultValue={editing?.description}
                 maxLength={5000}
               />
             </label>
             <div className="form-grid">
-              <label>
-                واحد فروش
-                <input name="unit" defaultValue={editing?.unit} />
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">واحد فروش</span>
+                <input name="unit" placeholder=" " defaultValue={editing?.unit} />
               </label>
-              <label>
-                قیمت پایه (تومان)
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">قیمت پایه (تومان)</span>
                 <input
                   name="base_price"
                   type="number"
+                  placeholder=" "
                   min="1"
                   required
                   defaultValue={editing?.base_price || ""}
                 />
               </label>
-              <label>
-                وزن هر واحد (کیلوگرم)
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">وزن هر واحد (کیلوگرم)</span>
                 <input
                   name="weight_kg"
                   type="number"
+                  placeholder=" "
                   min="0.01"
                   required
                   step="0.1"
                   defaultValue={editing?.weight_kg ?? 0.5}
                 />
               </label>
-              <label>
-                حداکثر تخفیف مجاز (%)
+              <label className="naz-floating-field">
+                <span className="naz-floating-label">حداکثر تخفیف مجاز (%)</span>
                 <input
                   name="max_discount"
                   type="number"
+                  placeholder=" "
                   min="0"
                   max="90"
                   required
@@ -833,8 +854,8 @@ export default function AdminApp() {
                 />
               </label>
             </div>
-            <label>
-              تصویر محصول
+            <label className="naz-floating-field">
+              <span className="naz-floating-label">تصویر محصول</span>
               <input
                 name="image"
                 type="file"
@@ -864,13 +885,15 @@ export default function AdminApp() {
           title={`بررسی مدارک ${review.full_name}`}
           onClose={() => setReview(null)}
         >
-          <label>
-            دلیل رد یا درخواست اصلاح
+          <label className="naz-floating-field">
+            <span className="naz-floating-label">دلیل رد یا درخواست اصلاح</span>
             <textarea
               value={reason}
+              placeholder="توضیح لازم را بنویسید"
               maxLength={500}
               onChange={(e) => setReason(e.target.value)}
             />
+            <small>برای رد یا درخواست اصلاح، ثبت دلیل الزامی است.</small>
           </label>
           <div className="review-actions">
             {[

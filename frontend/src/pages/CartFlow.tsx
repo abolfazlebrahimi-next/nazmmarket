@@ -480,15 +480,18 @@ export function CheckoutView({ c }: { c: AppCtx }) {
                 </button>
               </div>
             ) : (
-              <div className="mt-3 flex gap-2">
-                <input
-                  value={codeInput}
-                  onChange={(e) => setCodeInput(e.target.value)}
-                  placeholder="کد تخفیف فروشگاه"
-                  dir="ltr"
-                  aria-label="کد تخفیف"
-                  className="min-w-0 flex-1 rounded-2xl border border-line px-3.5 py-3 text-left text-[12px] font-bold uppercase outline-none focus:border-brand"
-                />
+              <div className="mt-3 flex items-center gap-2">
+                <label className="naz-floating-field checkout-code-field min-w-0 flex-1">
+                  <span className="naz-floating-label">کد تخفیف</span>
+                  <input
+                    value={codeInput}
+                    onChange={(e) => setCodeInput(e.target.value)}
+                    placeholder="مثلاً NAZ20"
+                    dir="ltr"
+                    aria-label="کد تخفیف"
+                    className="min-w-0 w-full rounded-2xl border border-line px-3.5 py-3 text-left text-[12px] font-bold uppercase outline-none focus:border-brand"
+                  />
+                </label>
                 <button
                   type="button"
                   onClick={() => {
