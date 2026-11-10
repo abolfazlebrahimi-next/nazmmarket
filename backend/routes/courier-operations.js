@@ -152,6 +152,22 @@ router.get("/summary", async (req, res) => {
     timezone: "UTC",
   });
 });
+router.patch("/location", async (req, res) => {
+  if (!req.courier.active || req.courier.verificationStatus !== "approved")
+    return fail(res, 403, "برای ثبت موقعیت عملیاتی، حساب باید تأیید شده باشد.");
+  if (!validPoint(req.body.lat, req.body.lng))
+    return fail(res, 400, "مختصات معتبر نیست.");
+  await db.run(
+    "UPDATE courier_accounts SET lat=?,lng=?,location_updated_at=? WHERE id=?",
+    [
+      Number(req.body.lat),
+      Number(req.body.lng),
+      new Date().toISOString(),
+      req.courier.id,
+    ],
+  );
+  res.json({ ok: true });
+});
 router.patch("/availability", async (req, res) => {
   if (typeof req.body.online !== "boolean")
     return fail(res, 400, "وضعیت فعالیت معتبر نیست.");

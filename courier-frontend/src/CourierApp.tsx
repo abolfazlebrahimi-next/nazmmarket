@@ -29,6 +29,7 @@ import { api, json, TOKEN, type Courier, money, verifyLabel } from "./api";
 import Verification from "./Verification";
 import Dashboard from "./Dashboard";
 import TripHistory from "./TripHistory";
+import DispatchMap from "./DispatchMap";
 import ActiveDelivery, {
   OfferCountdown,
   FinanceBreakdown,
@@ -202,6 +203,21 @@ export default function CourierApp() {
       );
     });
   }
+  async function refreshLocation() {
+    setBusy(true);
+    try {
+      const p = await geo();
+      const location = { lat: p.coords.latitude, lng: p.coords.longitude };
+      await api("/location", json(location, "PATCH"));
+      setCourier((c) => (c ? { ...c, ...location } : c));
+      await loadOrders();
+      setNotice("موقعیت مکانی تازه شد؛ وضعیت آنلاین/آفلاین شما تغییر نکرد.");
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function availability(online: boolean) {
     setBusy(true);
     try {
@@ -303,7 +319,14 @@ export default function CourierApp() {
                 : "تحویل نهایی ثبت و درآمد خالص به کیف پول اضافه شد.",
       );
       await loadOrders();
-      if (action === "claim") setPage("active");
+      if (action === "claim") {
+        setPage("active");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+      if (action === "complete") {
+        setPage("history");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -528,7 +551,7 @@ export default function CourierApp() {
                 <ActiveDelivery
                   key={o.id}
                   order={o}
-                  busy={busy}
+                  busy={busy || !connected}
                   act={act}
                   support={() => {
                     setTicketTrip(o.id);
@@ -675,7 +698,9 @@ export default function CourierApp() {
             title={
               page === "history"
                 ? "هنوز مسیری تکمیل نشده"
-                : "سفارشی برای نمایش نیست"
+                : page === "active"
+                  ? "سفر فعالی ندارید"
+                  : "سفارشی برای نمایش نیست"
             }
             text={
               page === "history"
@@ -847,14 +872,27 @@ export default function CourierApp() {
             courier={courier}
             orders={orders}
             go={go}
-            onLocate={() => void availability(true)}
+            onLocate={() => void refreshLocation()}
             busy={busy || !isApproved}
             message={dispatchMessage}
             approved={isApproved}
           >
+            <p className="spec-hint">
+              با آنلاین شدن، موقعیت با اجازهٔ مرورگر و هر دو دقیقه برای پیشنهاد
+              سفارش تازه می‌شود. با آفلاین شدن این به‌روزرسانی متوقف می‌شود.
+            </p>
             {orderContent}
           </Dashboard>
         )}
+        {page === "active" &&
+          orders.some((o) => o.claimedByMe && o.status !== 5) && (
+            <DispatchMap
+              courier={courier}
+              orders={orders.filter((o) => o.claimedByMe && o.status !== 5)}
+              onLocate={() => void refreshLocation()}
+              busy={busy || !isApproved}
+            />
+          )}
         {page !== "work" && orderContent}
         {page === "history" && <TripHistory />}
         {page === "notifications" && (

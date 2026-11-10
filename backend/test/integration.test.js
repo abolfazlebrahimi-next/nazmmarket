@@ -336,6 +336,17 @@ test(
           .verificationStatus,
         "approved",
       );
+      await ok(
+        "/api/courier/location",
+        dispatchCourier.token,
+        { lat: 35.96721, lng: 50.65043 },
+        "PATCH",
+      );
+      assert.equal(
+        (await ok("/api/courier/auth/me", dispatchCourier.token)).courier
+          .online,
+        false,
+      );
       const offlineOffers = await ok(
         "/api/courier/orders",
         dispatchCourier.token,
@@ -416,6 +427,39 @@ test(
             `/api/courier/orders/${order.id}/complete`,
             loser.token,
             undefined,
+            "POST",
+          )
+        ).status,
+        409,
+      );
+      const queuedOrder = (
+        await ok(
+          "/api/orders",
+          customer.token,
+          { ...payload, items: { [cake.id]: 1 }, firstOrderProductId: null },
+          "POST",
+          201,
+        )
+      ).order;
+      for (const status of [2, 3])
+        await ok(
+          `/api/seller/orders/${queuedOrder.id}/status`,
+          seller.token,
+          { status },
+          "PATCH",
+        );
+      assert.equal(
+        (await ok("/api/courier/orders", winner.token)).orders.some(
+          (o) => o.id === queuedOrder.id,
+        ),
+        false,
+      );
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${queuedOrder.id}/claim`,
+            winner.token,
+            {},
             "POST",
           )
         ).status,
