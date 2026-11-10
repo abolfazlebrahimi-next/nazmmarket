@@ -1,4 +1,5 @@
 import { BadgeCheck, Clock3, Flame, Heart, Minus, Plus, Star, TicketPercent, Trash2, X, Zap } from "lucide-react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import type { Product, Store as StoreType } from "../data";
 import { discountOf, faNum } from "../data";
@@ -60,17 +61,27 @@ export function ProductVisual({
   hideDiscount?: boolean;
 }) {
   const Icon = product.icon;
+  const image = product.imageUrl;
+  const [loadedImage, setLoadedImage] = useState<string | null>(null);
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const imageReady = !!image && loadedImage === image;
+  const imageFailed = !!image && failedImage === image;
   return (
     <div
       className={`relative flex items-center justify-center aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br ${product.bg}`}
     >
-      {product.imageUrl ? (
-        <img
-          src={product.imageUrl}
-          alt={product.name}
-          className="absolute inset-0 h-full w-full object-contain bg-white p-1"
-          loading="lazy"
-        />
+      {image && !imageFailed ? (
+        <>
+          <div aria-hidden="true" className={`absolute inset-2 skeleton-shimmer rounded-xl ${imageReady ? "hidden" : ""}`} />
+          <img
+            src={image}
+            alt={product.name}
+            className={`absolute inset-0 h-full w-full object-contain bg-transparent p-1 transition-opacity duration-200 ${imageReady ? "opacity-100" : "opacity-0"}`}
+            loading="lazy"
+            onLoad={() => setLoadedImage(image)}
+            onError={() => setFailedImage(image)}
+          />
+        </>
       ) : (
         <>
           <div className="absolute -left-5 -top-6 h-20 w-20 rounded-full bg-white/25" />
@@ -190,21 +201,47 @@ export function ProductCard({
   );
 }
 
+export function StoreAvatar({
+  store,
+  className = "",
+}: {
+  store: StoreType;
+  className?: string;
+}) {
+  const image = store.logoUrl ?? store.photoUrl;
+  const [readyImage, setReadyImage] = useState<string | null>(null);
+  const [failedImage, setFailedImage] = useState<string | null>(null);
+  const ready = !!image && readyImage === image;
+  const failed = !!image && failedImage === image;
+  return (
+    <span
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden bg-gradient-to-br ${store.gradient} font-black text-white ${className}`}
+    >
+      {image && !failed && (
+        <span
+          aria-hidden="true"
+          className={`absolute inset-0 skeleton-shimmer ${ready ? "hidden" : ""}`}
+        />
+      )}
+      {(!image || failed) && <span>{store.initial}</span>}
+      {image && !failed && (
+        <img
+          src={image}
+          alt={`لوگوی ${store.name}`}
+          loading="lazy"
+          onLoad={() => setReadyImage(image)}
+          onError={() => setFailedImage(image)}
+          className={`absolute inset-0 h-full w-full bg-white p-1.5 object-contain transition-opacity duration-200 ${ready ? "opacity-100" : "opacity-0"}`}
+        />
+      )}
+    </span>
+  );
+}
+
 export function StoreCard({ store, onOpen }: { store: StoreType; onOpen: () => void }) {
   return (
     <button type="button" onClick={onOpen} className="flex w-full gap-3 border-b border-line bg-white p-4 text-right transition last:border-0 hover:bg-[#fffaf6] active:bg-brand-soft/50">
-      <span className={`relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[20px] bg-gradient-to-br ${store.gradient} text-base font-black text-white shadow-md`}>
-        {store.initial}
-        {(store.logoUrl ?? store.photoUrl) && (
-          <img
-            src={store.logoUrl ?? store.photoUrl}
-            alt={`تصویر ${store.name}`}
-            className="absolute inset-0 h-full w-full object-contain bg-white p-1.5"
-            loading="lazy"
-            onError={(event) => { event.currentTarget.style.display = "none"; }}
-          />
-        )}
-      </span>
+      <StoreAvatar store={store} className="h-16 w-16 rounded-[20px] text-base shadow-md" />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="truncate text-[13px] font-extrabold text-ink">{store.name}</span>

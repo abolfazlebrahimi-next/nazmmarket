@@ -1,4 +1,4 @@
-import { ArrowLeft, Gift } from "lucide-react";
+import { ArrowLeft, Flame, Gift } from "lucide-react";
 import type { ReactNode } from "react";
 export default function ProductRail({
   title,
@@ -9,11 +9,11 @@ export default function ProductRail({
   title: string;
   onAll?: () => void;
   children: ReactNode;
-  tone?: "plain" | "offer" | "blue";
+  tone?: "plain" | "offer" | "deal" | "blue";
 }) {
   return (
     <section
-      className={`market-shelf ${tone === "offer" ? "market-shelf-offer" : tone === "blue" ? "market-shelf-blue" : ""}`}
+      className={`market-shelf ${tone === "offer" ? "market-shelf-offer" : tone === "deal" ? "market-shelf-deals" : tone === "blue" ? "market-shelf-blue" : ""}`}
       aria-label={title}
     >
       <div className="market-shelf-heading">
@@ -21,8 +21,14 @@ export default function ProductRail({
           <h2>{title}</h2>
           {tone === "blue" && (
             <div className="market-shelf-gift-ribbon">
-              <Gift size={15} strokeWidth={2.2} />
+              <Gift size={16} strokeWidth={2} />
               <span>یه خنکیِ دوست‌داشتنی، برای حالِ بهتر!</span>
+            </div>
+          )}
+          {tone === "deal" && (
+            <div className="market-shelf-savings-ribbon">
+              <Flame size={14} />
+              <span>تخفیف واقعی · بیش از ۵٪</span>
             </div>
           )}
         </div>

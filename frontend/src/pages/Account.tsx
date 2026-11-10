@@ -96,109 +96,111 @@ export function AccountView({ c }: { c: AppCtx }) {
   ];
 
   return (
-    <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
-      <div className="border-b border-line bg-white px-5 pb-2 pt-5">
-        <h2 className="text-[17px] font-black text-ink">حساب کاربری</h2>
-        <button
-          type="button"
-          onClick={() => c.setSheet("profile")}
-          aria-label="ویرایش پروفایل"
-          className="mt-3 flex w-full items-center gap-3 pb-3 text-right transition hover:opacity-80"
-        >
-          <span
-            className="flex shrink-0 items-center justify-center rounded-full border-2 border-line bg-brand-soft text-brand"
-            style={{ height: 52, width: 52 }}
-          >
-            <UserRound className="h-6 w-6" />
-          </span>
-          <span className="flex-1">
-            <span className="block text-[16px] font-black text-ink">
-              {name}
-            </span>
-            <span
-              className="mt-0.5 block text-[12px] font-medium text-muted"
-              dir="ltr"
-              style={{ textAlign: "right" }}
-            >
-              {phone}
-            </span>
-          </span>
-        </button>
-      </div>
-
-      {c.isGuest && (
-        <div className="px-4 pt-3 lg:px-5">
-          <div className="flex items-center gap-3 rounded-2xl border border-brand/25 bg-brand-soft/70 p-3.5">
-            <LogIn className="h-5 w-5 shrink-0 text-brand" />
-            <p className="flex-1 text-[11px] font-bold leading-5 text-brand-dark">
-              در حالت مهمان هستید؛ سفارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.
-            </p>
-            <button
-              type="button"
-              onClick={c.logout}
-              className="shrink-0 rounded-xl bg-brand px-3 py-2 text-[11px] font-black text-white"
-            >
-              ورود / ثبت‌نام
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="mt-3 border-y border-line bg-white lg:mx-4 lg:rounded-[24px] lg:border">
-        {rows.map((row) => (
+    <div className="fade-rise mx-auto w-full max-w-3xl px-4 pb-24 pt-4 md:pb-6">
+      <section className="account-panel overflow-hidden rounded-[24px] border border-line bg-white shadow-sm">
+        <div className="border-b border-line bg-white px-5 pb-2 pt-5">
+          <h2 className="text-[17px] font-black text-ink">حساب کاربری</h2>
           <button
-            key={row.label}
             type="button"
-            onClick={() =>
-              row.action ? row.action() : row.sheet && c.setSheet(row.sheet)
-            }
-            className="flex w-full items-center gap-3 border-b border-line px-4 py-4 text-right transition last:border-0 hover:bg-[#fffaf6] active:bg-brand-soft/40"
+            onClick={() => c.setSheet("profile")}
+            aria-label="ویرایش پروفایل"
+            className="mt-3 flex w-full items-center gap-3 pb-3 text-right transition hover:opacity-80"
           >
-            <row.icon
+            <span
+              className="flex shrink-0 items-center justify-center rounded-full border-2 border-line bg-brand-soft text-brand"
+              style={{ height: 52, width: 52 }}
+            >
+              <UserRound className="h-6 w-6" />
+            </span>
+            <span className="flex-1">
+              <span className="block text-[16px] font-black text-ink">
+                {name}
+              </span>
+              <span
+                className="mt-0.5 block text-[12px] font-medium text-muted"
+                dir="ltr"
+                style={{ textAlign: "right" }}
+              >
+                {phone}
+              </span>
+            </span>
+          </button>
+        </div>
+
+        {c.isGuest && (
+          <div className="px-4 pt-3 lg:px-5">
+            <div className="flex items-center gap-3 rounded-2xl border border-brand/25 bg-brand-soft/70 p-3.5">
+              <LogIn className="h-5 w-5 shrink-0 text-brand" />
+              <p className="flex-1 text-[11px] font-bold leading-5 text-brand-dark">
+                در حالت مهمان هستید؛ سفارش‌ها فقط روی همین دستگاه ذخیره می‌شوند.
+              </p>
+              <button
+                type="button"
+                onClick={c.logout}
+                className="shrink-0 rounded-xl bg-brand px-3 py-2 text-[11px] font-black text-white"
+              >
+                ورود / ثبت‌نام
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="border-t border-line bg-white">
+          {rows.map((row) => (
+            <button
+              key={row.label}
+              type="button"
+              onClick={() =>
+                row.action ? row.action() : row.sheet && c.setSheet(row.sheet)
+              }
+              className="flex w-full items-center gap-3 border-b border-line px-4 py-4 text-right transition last:border-0 hover:bg-[#fffaf6] active:bg-brand-soft/40"
+            >
+              <row.icon
+                className="shrink-0 text-ink"
+                strokeWidth={1.8}
+                style={{ height: 22, width: 22 }}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5 text-[13.5px] font-extrabold text-ink">
+                  {row.label}
+                </span>
+                {row.desc && (
+                  <span className="mt-0.5 block text-[11px] font-medium text-muted">
+                    {row.desc}
+                  </span>
+                )}
+              </span>
+              {row.pill && (
+                <span
+                  className={`shrink-0 rounded-full px-3 py-1.5 text-[10.5px] font-black ${row.pillCls}`}
+                >
+                  {row.pill}
+                </span>
+              )}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={c.logout}
+            className="flex w-full items-center gap-3 px-4 py-4 text-right transition hover:bg-red-50/60"
+          >
+            <LogOut
               className="shrink-0 text-ink"
               strokeWidth={1.8}
               style={{ height: 22, width: 22 }}
             />
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1.5 text-[13.5px] font-extrabold text-ink">
-                {row.label}
-              </span>
-              {row.desc && (
-                <span className="mt-0.5 block text-[11px] font-medium text-muted">
-                  {row.desc}
-                </span>
-              )}
+            <span className="flex-1 text-[13.5px] font-extrabold text-ink">
+              {c.isGuest ? "ورود به حساب" : "خروج"}
             </span>
-            {row.pill && (
-              <span
-                className={`shrink-0 rounded-full px-3 py-1.5 text-[10.5px] font-black ${row.pillCls}`}
-              >
-                {row.pill}
-              </span>
-            )}
           </button>
-        ))}
-        <button
-          type="button"
-          onClick={c.logout}
-          className="flex w-full items-center gap-3 px-4 py-4 text-right transition hover:bg-red-50/60"
-        >
-          <LogOut
-            className="shrink-0 text-ink"
-            strokeWidth={1.8}
-            style={{ height: 22, width: 22 }}
-          />
-          <span className="flex-1 text-[13.5px] font-extrabold text-ink">
-            {c.isGuest ? "ورود به حساب" : "خروج"}
-          </span>
-        </button>
-      </div>
-      <p className="px-4 pt-4 text-[10px] font-medium text-muted lg:px-5">
-        نسخه ۲.۰.۰ ·{" "}
-        {c.isGuest
-          ? "حالت مهمان (ذخیره روی این دستگاه)"
-          : "حساب متصل به سرور ناز مارکت"}
-      </p>
+        </div>
+        <p className="border-t border-line bg-[#fafbf9] px-5 py-3 text-[10px] font-medium text-muted">
+          نسخه ۲.۰.۰ ·{" "}
+          {c.isGuest
+            ? "حالت مهمان (ذخیره روی این دستگاه)"
+            : "حساب متصل به سرور ناز مارکت"}
+        </p>
+      </section>
     </div>
   );
 }

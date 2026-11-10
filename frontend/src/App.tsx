@@ -4,7 +4,6 @@ import {
   ClipboardList,
   Home,
   Info,
-  LoaderCircle,
   LogOut,
   MapPin,
   Search,
@@ -858,14 +857,14 @@ export default function App() {
   else content = <HomePage c={c} />;
 
   const navItems: { key: View; label: string; active: boolean }[] = [
-    { key: "home", label: "خانه", active: view === "home" && !sub },
-    { key: "easy", label: "خرید راحت", active: view === "easy" },
-    { key: "orders", label: "سفارش‌ها", active: view === "orders" },
+    { key: "home", label: "خانه", active: !sub && view === "home" },
+    { key: "easy", label: "خرید راحت", active: !sub && view === "easy" },
+    { key: "orders", label: "سفارش‌ها", active: !sub && view === "orders" },
   ];
 
   return (
     <div
-      className={`min-h-dvh bg-app ${view === "home" && !sub ? "market-home-layout" : ""}`}
+      className={`min-h-dvh bg-app ${view === "home" && !sub ? "market-home-layout" : ""} ${view === "easy" && !sub ? "easy-buy-layout" : ""}`}
     >
       {/* ---------- one header for every screen size ---------- */}
       <header
@@ -903,6 +902,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => c.openSub({ name: "stores" })}
+              aria-current={sub?.name === "stores" ? "page" : undefined}
               className={`rounded-xl px-3 py-2 text-[11.5px] font-bold transition ${
                 sub?.name === "stores"
                   ? "bg-brand-soft text-brand-dark"
@@ -1109,17 +1109,35 @@ export default function App() {
 
       {/* footer */}
       {!sub && (
-        <footer className="hidden border-t border-line bg-white md:block">
-          <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-5 py-3.5 lg:px-8">
-            <Wordmark className="!text-[14px]" />
-            <span className="h-4 w-px bg-line" aria-hidden="true" />
-            <p className="text-[10px] font-medium text-muted">
-              خرید آسان از فروشگاه‌های محلی
-            </p>
-            <span className="h-4 w-px bg-line" aria-hidden="true" />
-            <p className="text-[10px] font-medium text-muted">
-              © ۱۴۰۵ ناز مارکت
-            </p>
+        <footer className="market-footer hidden border-t border-line bg-white md:block">
+          <div className="market-footer-grid mx-auto max-w-7xl px-6 py-5 lg:px-8">
+            <div className="market-footer-brand">
+              <Wordmark className="!text-[22px] !text-[#ff982f]" />
+              <p className="mt-2 text-[12px] font-semibold text-ink">
+                خرید سوپرمارکتی فوری از سوپرمارکت‌های محلی و زنجیره‌ای
+              </p>
+              <p className="mt-3 text-[10px] font-medium text-muted">
+                © ۱۴۰۵ نازمارکت · همهٔ حقوق محفوظ است
+              </p>
+            </div>
+            <div className="market-footer-links">
+              <strong>نازمارکت</strong>
+              <button type="button" onClick={() => c.setSheet("rules")}>
+                قوانین و مقررات
+              </button>
+              <button type="button" onClick={() => c.setSheet("privacy")}>
+                حریم خصوصی
+              </button>
+              <button type="button" onClick={() => c.setSheet("support")}>
+                پشتیبانی
+              </button>
+              <small>نسخهٔ ۲.۰.۰</small>
+            </div>
+            <div className="market-footer-service">
+              <MapPin size={24} />
+              <strong>پوشش ارسال</strong>
+              <span>شهرستان نظرآباد</span>
+            </div>
           </div>
         </footer>
       )}
@@ -1228,11 +1246,57 @@ export default function App() {
   );
 }
 
+function SkeletonBlock({ className }: { className: string }) {
+  return (
+    <span aria-hidden="true" className={`skeleton-shimmer ${className}`} />
+  );
+}
+
 function Splash() {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-app">
-      <Wordmark twoLine size="text-[28px]" />
-      <LoaderCircle className="h-5 w-5 animate-spin text-brand" />
+    <div
+      className="loading-screen"
+      role="status"
+      aria-label="در حال بارگذاری فروشگاه"
+    >
+      <header className="loading-header">
+        <Wordmark />
+        <div className="loading-top-actions">
+          <SkeletonBlock className="h-9 w-9 rounded-full" />
+          <SkeletonBlock className="h-9 w-9 rounded-full" />
+        </div>
+      </header>
+      <main className="loading-content">
+        <SkeletonBlock className="loading-banner" />
+        <div className="loading-categories">
+          {Array.from({ length: 8 }, (_, index) => (
+            <div className="loading-category" key={index}>
+              <SkeletonBlock className="rounded-[17px]" />
+              <SkeletonBlock className="rounded-full" />
+            </div>
+          ))}
+        </div>
+        {Array.from({ length: 4 }, (_, row) => (
+          <section className="loading-shelf" key={row}>
+            <SkeletonBlock className="loading-shelf-title" />
+            <div className="loading-shelf-row">
+              {Array.from({ length: 6 }, (_, card) => (
+                <div className="loading-product" key={card}>
+                  <SkeletonBlock className="loading-product-image" />
+                  <SkeletonBlock className="loading-product-line rounded-full" />
+                  <SkeletonBlock className="loading-product-price rounded-full" />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </main>
+      <div className="loading-footer hidden md:block" aria-hidden="true" />
+      <nav className="loading-mobile-nav md:hidden" aria-hidden="true">
+        {Array.from({ length: 5 }, (_, index) => (
+          <SkeletonBlock key={index} className="rounded-full" />
+        ))}
+      </nav>
     </div>
   );
 }

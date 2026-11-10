@@ -20,6 +20,7 @@ import {
   Empty,
   QtyStepper,
   ProductVisual,
+  StoreAvatar,
   pd,
 } from "../components/ui";
 import type { AppCtx } from "../ctx";
@@ -108,21 +109,10 @@ export function CartBody({
               )}
             </div>
             {c.cartStore ? (
-              <span
-                className={`relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br ${c.cartStore.gradient} text-[12px] font-black text-white`}
-              >
-                {c.cartStore.initial}
-                {(c.cartStore.logoUrl ?? c.cartStore.photoUrl) && (
-                  <img
-                    src={c.cartStore.logoUrl ?? c.cartStore.photoUrl}
-                    alt={`لوگوی ${c.cartStore.name}`}
-                    className="absolute inset-0 h-full w-full bg-white p-1 object-contain"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                    }}
-                  />
-                )}
-              </span>
+              <StoreAvatar
+                store={c.cartStore}
+                className="h-12 w-12 rounded-2xl text-[12px]"
+              />
             ) : (
               <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f4f3f0]">
                 <Store className="h-6 w-6 text-[#a8a49e]" />
@@ -336,11 +326,10 @@ export function CheckoutView({ c }: { c: AppCtx }) {
             </p>
             {c.cartStore ? (
               <div className="mt-3 flex items-center gap-3 rounded-2xl border border-line p-3.5">
-                <span
-                  className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br ${c.cartStore.gradient} text-[12px] font-black text-white`}
-                >
-                  {c.cartStore.initial}
-                </span>
+                <StoreAvatar
+                  store={c.cartStore}
+                  className="h-11 w-11 rounded-2xl text-[12px]"
+                />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[12px] font-black text-ink">
                     {c.cartStore.name}

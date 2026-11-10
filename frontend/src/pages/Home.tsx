@@ -119,7 +119,7 @@ export function HomePage({ c }: { c: AppCtx }) {
         </div>
       )}
       {!!amazing.length && (
-        <ProductRail title="تخفیف‌های شگفت‌انگیز" tone="offer">
+        <ProductRail title="تخفیف‌های شگفت‌انگیز" tone="deal">
           {amazing.map((p) => (
             <ProductCard key={p.id} product={p} h={c.cardHandlers(p.storeId)} />
           ))}

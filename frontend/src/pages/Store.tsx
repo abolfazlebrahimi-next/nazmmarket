@@ -17,6 +17,7 @@ import {
   QtyStepper,
   ScreenHeader,
   StoreCard,
+  StoreAvatar,
   Empty,
   pd,
 } from "../components/ui";
@@ -53,19 +54,10 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           </button>
         </div>
         <div className="relative flex items-center gap-3 text-ink">
-          <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[20px] bg-white text-lg font-black text-brand shadow-md">
-            {store.initial}
-            {(store.logoUrl ?? store.photoUrl) && (
-              <img
-                src={store.logoUrl ?? store.photoUrl}
-                alt={`تصویر ${store.name}`}
-                className="absolute inset-0 h-full w-full bg-white object-contain p-1"
-                onError={(event) => {
-                  event.currentTarget.style.display = "none";
-                }}
-              />
-            )}
-          </span>
+          <StoreAvatar
+            store={store}
+            className="h-16 w-16 rounded-[20px] text-lg shadow-md"
+          />
           <div>
             <h1 className="flex items-center gap-1.5 text-[16px] font-black">
               {store.name}
