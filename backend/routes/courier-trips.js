@@ -46,8 +46,8 @@ router.post("/orders/:id/claim", async (req, res) => {
       );
       if (!offer) return false;
       const o = await tx.get(
-        "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 AND o.delivery_mode='courier' FOR UPDATE",
-        [req.params.id],
+        "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 AND o.delivery_mode='courier' AND o.dispatch_paused=0 AND COALESCE(o.dispatch_started_at,o.created_at)>? FOR UPDATE",
+        [req.params.id, new Date(Date.now() - 15 * 60000).toISOString()],
       );
       const distance = o ? distanceKm(c, o) : null;
       if (distance === null || distance > 15) return false;

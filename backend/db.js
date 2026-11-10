@@ -330,6 +330,7 @@ export async function migrate() {
   for (const [column, definition] of Object.entries({
     delivery_mode: "VARCHAR(20) NOT NULL DEFAULT 'courier'",
     dispatch_started_at: "VARCHAR(32) NULL",
+    dispatch_paused: "TINYINT(1) NOT NULL DEFAULT 0",
     destination_lat: "DOUBLE NULL",
     destination_lng: "DOUBLE NULL",
     fare_details: "TEXT NULL",
@@ -340,6 +341,9 @@ export async function migrate() {
     seller_discount: "BIGINT NOT NULL DEFAULT 0",
   }))
     await ensureColumn("orders", column, definition);
+  await db.run(
+    `UPDATE orders o SET dispatch_started_at=COALESCE((SELECT MIN(e.created_at) FROM order_events e WHERE e.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND e.status=3),o.created_at) WHERE o.status=3 AND o.dispatch_started_at IS NULL`,
+  );
   // Preserve real existing products in the central bank once, without importing demo rows.
   await db.transaction(async (tx) => {
     const rows = await tx.all(
@@ -534,6 +538,7 @@ export const mapOrder = (r) => ({
   status: Number(r.status),
   deliveryMode: r.delivery_mode || "courier",
   dispatchStartedAt: r.dispatch_started_at || null,
+  dispatchPaused: Boolean(r.dispatch_paused),
   time: r.time,
   createdAt: r.created_at,
   paymentStatus: r.payment_status ?? "unpaid",

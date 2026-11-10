@@ -1,3 +1,4 @@
+import { dispatchStatus } from "../dispatch-status.js";
 import { sellerPrice } from "../product-rules.js";
 import { normalizeImage } from "../images.js";
 import { recordOrderEvent } from "../order-workflow.js";
@@ -730,14 +731,23 @@ router.get("/orders", async (req, res) => {
   const store = await sellerStore(req.seller.id);
   if (!store) return fail(res, 404, "store_missing", "فروشگاه پیدا نشد.");
   const rows = await db.all(
-    `SELECT o.*, (SELECT d.courier_id FROM order_deliveries d WHERE d.order_id=o.id) AS assigned_courier_id,
+    `SELECT o.*, s.lat AS store_lat,s.lng AS store_lng, (SELECT d.courier_id FROM order_deliveries d WHERE d.order_id=o.id) AS assigned_courier_id,
      COALESCE(o.dispatch_started_at,(SELECT MIN(e.created_at) FROM order_events e WHERE e.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND e.status=3),o.created_at) AS search_started_at,
      u.phone AS customer_phone, CONCAT_WS(' ', u.first_name, u.last_name) AS customer_name
-     FROM orders o JOIN users u ON u.id=o.user_id WHERE o.store_id=? ORDER BY o.created_at DESC`,
+     FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id WHERE o.store_id=? ORDER BY o.created_at DESC`,
     [store.id],
+  );
+  const couriers = await db.all(
+    `SELECT c.id,c.lat,c.lng FROM courier_accounts c WHERE c.active=1 AND c.verification_status='approved' AND c.online=1 AND c.location_updated_at>? AND NOT EXISTS(SELECT 1 FROM order_deliveries d WHERE d.courier_id=c.id AND d.completed_at IS NULL AND d.trip_status NOT IN ('cancelled','failed'))`,
+    [new Date(Date.now() - 15 * 60000).toISOString()],
+  );
+  const declines = await db.all(
+    `SELECT d.* FROM courier_declined_orders d JOIN orders o ON o.id COLLATE utf8mb4_unicode_ci=d.order_id COLLATE utf8mb4_unicode_ci WHERE o.store_id=? AND o.status=3 AND d.created_at>?`,
+    [store.id, new Date(Date.now() - 5 * 60000).toISOString()],
   );
   res.json({
     orders: rows.map((r) => ({
+      dispatch: dispatchStatus(r, couriers, declines),
       ...mapOrder(r),
       courierAssigned: r.assigned_courier_id != null,
       dispatchStartedAt: r.search_started_at,
@@ -764,7 +774,7 @@ router.patch("/orders/:id/status", async (req, res) => {
     );
   const changed = await db.transaction(async (tx) => {
     const result = await tx.run(
-      "UPDATE orders SET status=?,dispatch_started_at=CASE WHEN ?=3 THEN ? ELSE dispatch_started_at END WHERE id=? AND store_id=? AND status=?",
+      "UPDATE orders SET status=?,dispatch_paused=0,dispatch_started_at=CASE WHEN ?=3 THEN ? ELSE dispatch_started_at END WHERE id=? AND store_id=? AND status=?",
       [
         next,
         next,
@@ -789,6 +799,59 @@ router.patch("/orders/:id/status", async (req, res) => {
     req.params.id,
   ]);
   res.json({ order: mapOrder(row) });
+});
+
+router.post("/orders/:id/dispatch", async (req, res) => {
+  if (!["retry", "stop"].includes(req.body?.action))
+    return fail(res, 400, "invalid_action", "عملیات نامعتبر است.");
+  const store = await sellerStore(req.seller.id);
+  const ok = await db.transaction(async (tx) => {
+    const o = await tx.get(
+      "SELECT * FROM orders WHERE id=? AND store_id=? FOR UPDATE",
+      [req.params.id, store?.id ?? 0],
+    );
+    if (!o || Number(o.status) !== 3 || o.delivery_mode !== "courier")
+      return false;
+    if (
+      await tx.get(
+        "SELECT order_id FROM order_deliveries WHERE order_id=? FOR UPDATE",
+        [o.id],
+      )
+    )
+      return false;
+    if (req.body.action === "retry") {
+      await tx.run(
+        "UPDATE orders SET dispatch_paused=0,dispatch_started_at=? WHERE id=?",
+        [new Date().toISOString(), o.id],
+      );
+      await tx.run("DELETE FROM courier_declined_orders WHERE order_id=?", [
+        o.id,
+      ]);
+      await tx.run(
+        "UPDATE courier_offers SET state='pending' WHERE order_id=?",
+        [o.id],
+      );
+    } else {
+      await tx.run("UPDATE orders SET dispatch_paused=1 WHERE id=?", [o.id]);
+      await tx.run(
+        "UPDATE courier_offers SET state='cancelled' WHERE order_id=?",
+        [o.id],
+      );
+    }
+    return true;
+  });
+  if (!ok)
+    return fail(
+      res,
+      409,
+      "dispatch_conflict",
+      "سفارش آماده نیست یا پیک آن را پذیرفته است.",
+    );
+  res.json({
+    order: mapOrder(
+      await db.get("SELECT * FROM orders WHERE id=?", [req.params.id]),
+    ),
+  });
 });
 
 // Self delivery is an explicit store choice, never a courier trip or earnings event.
@@ -860,4 +923,12 @@ router.post("/orders/:id/self-delivery/complete", async (req, res) => {
   });
 });
 
+router.use((_req, res) =>
+  fail(
+    res,
+    404,
+    "seller_route_not_found",
+    "این مسیر فروشنده در نسخهٔ فعلی بک‌اند وجود ندارد؛ بک‌اند را به‌روزرسانی و دوباره راه‌اندازی کنید.",
+  ),
+);
 export default router;

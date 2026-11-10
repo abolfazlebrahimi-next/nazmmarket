@@ -778,6 +778,70 @@ test(
       ).orders.find((o) => o.id === selfOrder.id);
       assert.ok(sellerView.dispatchStartedAt);
       assert.equal(sellerView.dispatchTimedOut, false);
+      assert.equal(
+        (
+          await request(
+            `/api/seller/orders/${selfOrder.id}/self-delivery`,
+            null,
+            {},
+            "POST",
+          )
+        ).status,
+        401,
+      );
+      assert.equal(
+        (
+          await request(
+            "/api/seller/not-a-real-route",
+            seller.token,
+            {},
+            "POST",
+          )
+        ).status,
+        404,
+      );
+      for (const c of couriers) await ok("/api/courier/orders", c.token);
+      await ok(
+        `/api/seller/orders/${selfOrder.id}/dispatch`,
+        seller.token,
+        { action: "stop" },
+        "POST",
+      );
+      assert.equal(
+        (await ok("/api/seller/orders", seller.token)).orders.find(
+          (o) => o.id === selfOrder.id,
+        ).dispatch.state,
+        "paused",
+      );
+      assert.equal(
+        (await ok("/api/courier/orders", winner.token)).orders.some(
+          (o) => o.id === selfOrder.id,
+        ),
+        false,
+      );
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${selfOrder.id}/claim`,
+            winner.token,
+            {},
+            "POST",
+          )
+        ).status,
+        409,
+      );
+      await ok(
+        `/api/seller/orders/${selfOrder.id}/dispatch`,
+        seller.token,
+        { action: "retry" },
+        "POST",
+      );
+      assert.ok(
+        (await ok("/api/courier/orders", winner.token)).orders.some(
+          (o) => o.id === selfOrder.id,
+        ),
+      );
+
       await db.run("UPDATE orders SET dispatch_started_at=? WHERE id=?", [
         new Date(Date.now() - 16 * 60000).toISOString(),
         selfOrder.id,
@@ -786,6 +850,25 @@ test(
         (o) => o.id === selfOrder.id,
       );
       assert.equal(sellerView.dispatchTimedOut, true);
+      assert.equal(sellerView.dispatch.state, "timed_out");
+      assert.equal(
+        (await ok("/api/courier/orders", winner.token)).orders.some(
+          (o) => o.id === selfOrder.id,
+        ),
+        false,
+      );
+      assert.equal(
+        (
+          await request(
+            `/api/courier/orders/${selfOrder.id}/claim`,
+            winner.token,
+            {},
+            "POST",
+          )
+        ).status,
+        409,
+      );
+
       for (const c of couriers) await ok("/api/courier/orders", c.token);
       for (let i = 0; i < 2; i++) {
         const r = await ok(

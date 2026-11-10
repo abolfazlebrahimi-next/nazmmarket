@@ -434,6 +434,38 @@ export default function SellerApp() {
       );
     }
   };
+  useEffect(() => {
+    const expired = () => {
+      setSeller(null);
+      setAuthLoading(false);
+      toast(
+        "نشست فروشنده معتبر نیست؛ دوباره وارد شوید و سپس سفارش را ادامه دهید.",
+      );
+    };
+    window.addEventListener("seller-session-expired", expired);
+    return () => window.removeEventListener("seller-session-expired", expired);
+  }, []);
+  const dispatchOrder = async (
+    order: SellerOrder,
+    action: "retry" | "stop",
+  ) => {
+    if (deliveryBusy) return;
+    setDeliveryBusy(order.id);
+    try {
+      await sellerApi.dispatch(order.id, action);
+      const r = await sellerApi.orders();
+      setSellerOrders(r.orders);
+      toast(
+        action === "retry"
+          ? "درخواست دوباره برای پیک‌های واجد شرایط فعال شد؛ در بررسی بعدی پنل پیک نمایش داده می‌شود."
+          : "جست‌وجو متوقف شد.",
+      );
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "ثبت عملیات ناموفق بود.");
+    } finally {
+      setDeliveryBusy(null);
+    }
+  };
   const [deliveryBusy, setDeliveryBusy] = useState<string | null>(null);
   const selfDelivery = async (order: SellerOrder, complete = false) => {
     if (deliveryBusy) return;
@@ -461,10 +493,11 @@ export default function SellerApp() {
       );
     } catch (err) {
       toast(err instanceof Error ? err.message : "ثبت ارسال انجام نشد.");
-      sellerApi
-        .orders()
-        .then((r) => setSellerOrders(r.orders))
-        .catch(() => {});
+      if (!(err instanceof SellerApiError && err.status === 401))
+        sellerApi
+          .orders()
+          .then((r) => setSellerOrders(r.orders))
+          .catch(() => {});
     } finally {
       setDeliveryBusy(null);
     }
@@ -554,13 +587,20 @@ export default function SellerApp() {
     );
   if (!seller)
     return (
-      <AuthScreen
-        mode={authMode}
-        setMode={setAuthMode}
-        onLogin={submitLogin}
-        onRegister={submitRegister}
-        busy={busy}
-      />
+      <>
+        <AuthScreen
+          mode={authMode}
+          setMode={setAuthMode}
+          onLogin={submitLogin}
+          onRegister={submitRegister}
+          busy={busy}
+        />
+        {notice && (
+          <div className="toast" role="alert">
+            {notice}
+          </div>
+        )}
+      </>
     );
 
   const activeItem = navItems.find((item) => item.id === page) ?? navItems[0];
@@ -688,6 +728,7 @@ export default function SellerApp() {
               onStatus={updateOrder}
               onSelfDelivery={selfDelivery}
               deliveryBusy={deliveryBusy}
+              onDispatch={dispatchOrder}
             />
           )}
           {page === "products" && (
@@ -1445,11 +1486,13 @@ function OrdersPage({
   onStatus,
   onSelfDelivery,
   deliveryBusy,
+  onDispatch,
 }: {
   orders: SellerOrder[];
   onStatus: (order: SellerOrder, status: number) => void;
   onSelfDelivery: (order: SellerOrder, complete?: boolean) => void;
   deliveryBusy: string | null;
+  onDispatch: (order: SellerOrder, action: "retry" | "stop") => void;
 }) {
   const [filter, setFilter] = useState(0);
   const [now, setNow] = useState(Date.now());
@@ -1457,6 +1500,14 @@ function OrdersPage({
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  const searchState = (o: SellerOrder) =>
+    o.dispatchPaused
+      ? "paused"
+      : o.dispatchTimedOut ||
+          (o.dispatchStartedAt &&
+            now - Date.parse(o.dispatchStartedAt) >= 15 * 60000)
+        ? "timed_out"
+        : o.dispatch?.state || "searching";
   const stages = [
     "ثبت سفارش",
     "در حال آماده‌سازی",
@@ -1614,33 +1665,84 @@ function OrdersPage({
                       </span>
                     ) : (
                       <div className="seller-dispatch" role="status">
-                        {order.dispatchTimedOut ||
-                        (order.dispatchStartedAt &&
-                          now - Date.parse(order.dispatchStartedAt) >=
-                            15 * 60000) ? (
-                          <>
-                            <strong>متأسفانه پیکی پیدا نشد</strong>
-                            <p>
-                              هنوز هیچ پیکی سفارش را نپذیرفته است. جست‌وجو ادامه
-                              دارد؛ می‌توانید خودتان ارسال کنید.
-                            </p>
-                          </>
-                        ) : (
+                        {searchState(order) === "searching" ? (
                           <>
                             <strong>
                               <span
                                 className="dispatch-spinner"
                                 aria-hidden="true"
                               />{" "}
-                              در حال پیدا کردن پیک نزدیک
+                              در انتظار پاسخ پیک‌های واجد شرایط
                             </strong>
                             <p>
-                              سفارش برای پیک‌های واجد شرایط نمایش داده می‌شود.
-                              اگر پیکی رد کند، پس از ۵ دقیقه دوباره به او
-                              پیشنهاد می‌شود.
+                              تعداد پیک واجد شرایط:{" "}
+                              {money(order.dispatch?.eligible ?? 0)}؛ رد کرده:{" "}
+                              {money(order.dispatch?.declined ?? 0)}. نمایش در
+                              پنل پیک فقط در حالت آنلاین، موقعیت به‌روز و بدون
+                              سفر فعال انجام می‌شود.
+                            </p>
+                          </>
+                        ) : searchState(order) === "all_declined" ? (
+                          <>
+                            <strong>
+                              همهٔ پیک‌های واجد شرایط این سفارش را رد کرده‌اند
+                            </strong>
+                            <p>
+                              پاسخ پذیرفته‌شده‌ای نداریم. پس از ۵ دقیقه از رد هر
+                              پیک، تا پایان بازهٔ جست‌وجو دوباره به او پیشنهاد
+                              می‌شود؛ یا همین حالا دوباره ارسال کنید.
+                            </p>
+                          </>
+                        ) : searchState(order) === "no_couriers" ? (
+                          <>
+                            <strong>
+                              در حال حاضر پیک واجد شرایط در دسترس نیست
+                            </strong>
+                            <p>
+                              پیک باید تأییدشده، آنلاین، بدون سفر فعال و در شعاع
+                              ۱۵ کیلومتری با موقعیت به‌روز باشد. نمایش این وضعیت
+                              به معنی ارسال درخواست به پیک نیست.
+                            </p>
+                          </>
+                        ) : searchState(order) === "paused" ? (
+                          <>
+                            <strong>جست‌وجوی پیک متوقف شده است</strong>
+                            <p>
+                              برای شروع دوباره، «ارسال دوباره به پیک‌ها» را
+                              بزنید یا خودتان ارسال کنید.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <strong>
+                              متأسفانه پیکی پیدا نشد؛ جست‌وجو متوقف شد
+                            </strong>
+                            <p>
+                              ۱۵ دقیقه بدون پذیرش گذشت. می‌توانید درخواست را
+                              دوباره ارسال کنید یا خودتان ارسال کنید.
                             </p>
                           </>
                         )}
+                        <div className="dispatch-controls">
+                          <button
+                            className="btn small"
+                            disabled={deliveryBusy === order.id}
+                            onClick={() => onDispatch(order, "retry")}
+                          >
+                            ارسال دوباره به پیک‌ها
+                          </button>
+                          {!["paused", "timed_out"].includes(
+                            searchState(order),
+                          ) && (
+                            <button
+                              className="btn small"
+                              disabled={deliveryBusy === order.id}
+                              onClick={() => onDispatch(order, "stop")}
+                            >
+                              توقف جست‌وجو
+                            </button>
+                          )}
+                        </div>
                         <button
                           className="btn primary small"
                           disabled={deliveryBusy === order.id}

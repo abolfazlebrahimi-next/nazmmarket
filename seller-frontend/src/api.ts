@@ -61,6 +61,8 @@ export type SellerOrder = {
   courierAssigned?: boolean;
   dispatchStartedAt?: string;
   dispatchTimedOut?: boolean;
+  dispatchPaused?: boolean;
+  dispatch?: { state: string; eligible: number; declined: number };
   payment: string;
   paymentStatus: string;
   customer: { name: string; phone: string };
@@ -138,6 +140,33 @@ async function call<T>(
   } catch {
     /* non-JSON error */
   }
+  if (response.status === 401 && options.auth !== false) {
+    // An outdated seller router can fall through to customer auth and return
+    // a misleading 401 for a perfectly valid seller session.
+    if (
+      token &&
+      path !== "/auth/me" &&
+      data?.error?.code !== "seller_unauthorized"
+    ) {
+      const check = await fetch(`${API}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (check.ok)
+        throw new SellerApiError(
+          "نشست فروشنده معتبر است، اما این عملیات در بک‌اند فعلی در دسترس نیست. بک‌اند را به‌روزرسانی و ری‌استارت کنید و مقصد API_PROXY_TARGET پنل فروشگاه را بررسی کنید.",
+          409,
+          "backend_version_mismatch",
+        );
+      if (check.status !== 401)
+        throw new SellerApiError(
+          "بررسی نشست ناموفق بود؛ اتصال بک‌اند را بررسی کنید.",
+          check.status,
+          "session_check_failed",
+        );
+    }
+    sellerToken.set(null);
+    window.dispatchEvent(new Event("seller-session-expired"));
+  }
   if (!response.ok)
     throw new SellerApiError(
       data?.error?.message ?? "درخواست انجام نشد.",
@@ -196,6 +225,11 @@ export const sellerApi = {
   }) => call<{ promotion: Promo }>("/promotions", { method: "POST", body }),
   deletePromotion: (id: number) =>
     call<{ ok: boolean }>(`/promotions/${id}`, { method: "DELETE" }),
+  dispatch: (id: string, action: "retry" | "stop") =>
+    call<{ order: SellerOrder }>(`/orders/${encodeURIComponent(id)}/dispatch`, {
+      method: "POST",
+      body: { action },
+    }),
   selfDelivery: (id: string, complete = false) =>
     call<{ order: SellerOrder }>(
       `/orders/${encodeURIComponent(id)}/self-delivery${complete ? "/complete" : ""}`,

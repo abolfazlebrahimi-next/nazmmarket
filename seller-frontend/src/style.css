@@ -2296,3 +2296,8 @@ button:disabled {
     animation: none;
   }
 }
+.dispatch-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
