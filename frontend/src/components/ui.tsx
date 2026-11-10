@@ -50,12 +50,38 @@ export function QtyStepper({ qty, onInc, onDec, small = false }: { qty: number; 
   );
 }
 
-export function ProductVisual({ product, size = "md" }: { product: Product; size?: "md" | "lg" }) {
+export function ProductVisual({
+  product,
+  size = "md",
+  hideDiscount = false,
+}: {
+  product: Product;
+  size?: "md" | "lg";
+  hideDiscount?: boolean;
+}) {
   const Icon = product.icon;
   return (
-    <div className={`relative aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br ${product.bg}`}>
-      {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="absolute inset-0 h-full w-full object-contain bg-white p-1" loading="lazy" /> : <><div className="absolute -left-5 -top-6 h-20 w-20 rounded-full bg-white/25" /><div className="absolute -bottom-8 -right-4 h-24 w-24 rounded-full bg-white/20" /><Icon className={`${size === "lg" ? "h-24 w-24" : "h-11 w-11"} relative drop-shadow-sm ${product.iconColor}`} strokeWidth={1.4} /></>}
-      {discountOf(product) > 0 && (
+    <div
+      className={`relative flex items-center justify-center aspect-square w-full overflow-hidden rounded-2xl bg-gradient-to-br ${product.bg}`}
+    >
+      {product.imageUrl ? (
+        <img
+          src={product.imageUrl}
+          alt={product.name}
+          className="absolute inset-0 h-full w-full object-contain bg-white p-1"
+          loading="lazy"
+        />
+      ) : (
+        <>
+          <div className="absolute -left-5 -top-6 h-20 w-20 rounded-full bg-white/25" />
+          <div className="absolute -bottom-8 -right-4 h-24 w-24 rounded-full bg-white/20" />
+          <Icon
+            className={`${size === "lg" ? "h-24 w-24" : "h-11 w-11"} relative drop-shadow-sm ${product.iconColor}`}
+            strokeWidth={1.4}
+          />
+        </>
+      )}
+      {!hideDiscount && discountOf(product) > 0 && (
         <span className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-lg bg-brand px-1.5 py-1 text-[10px] font-black text-white shadow">
           <Flame className="h-3 w-3 fill-current" /> ٪{pd(discountOf(product))}
         </span>
@@ -64,48 +90,103 @@ export function ProductVisual({ product, size = "md" }: { product: Product; size
   );
 }
 
-export function ProductCard({ product, h, width }: { product: Product; h: CardHandlers; width?: string }) {
+export function ProductCard({
+  product,
+  h,
+  width,
+  firstOrderOffer,
+}: {
+  product: Product;
+  h: CardHandlers;
+  width?: string;
+  firstOrderOffer?: { selected: boolean; onSelect: () => void };
+}) {
   const qty = h.qtyOf(product.id);
+  const offerPrice = product.price - Math.floor(product.price / 2);
   return (
-    <div className={`${width ?? ""} group relative flex shrink-0 snap-start flex-col rounded-3xl border border-line bg-white p-2 shadow-[0_6px_18px_-12px_rgba(30,20,10,0.35)] transition-transform duration-300 hover:-translate-y-1`}>
-      <button type="button" onClick={() => h.onOpen(product)} className="text-right" aria-label={product.name}>
-        <ProductVisual product={product} />
-      </button>
-      <button
-        type="button"
-        onClick={() => h.onFav(product.id)}
-        aria-label="افزودن به علاقه‌مندی‌ها"
-        className="absolute left-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow backdrop-blur transition active:scale-90"
-      >
-        <Heart className={`h-3.5 w-3.5 ${h.isFav(product.id) ? "fill-[#f43f5e] text-[#f43f5e]" : "text-muted"}`} />
-      </button>
-      <div className="flex flex-1 flex-col px-1 pb-1 pt-2">
-        <button type="button" onClick={() => h.onOpen(product)} className="line-clamp-2 min-h-9 text-right text-[11px] font-bold leading-4.5 text-ink">
-          {product.name}
+    <article className={`market-product ${width ?? ""}`}>
+      <div className="market-product-image">
+        <button
+          type="button"
+          className="market-product-open"
+          onClick={() => h.onOpen(product)}
+          aria-label={product.name}
+        >
+          <ProductVisual product={product} hideDiscount />
         </button>
-        <div className="mt-auto pt-1.5">
-          {product.oldPrice && <p className="text-[10px] font-medium text-[#b6b1aa] line-through">{faNum(product.oldPrice)}</p>}
-          <div className="flex items-end justify-between gap-1">
-            <p className="text-[12px] font-black text-ink">
-              {faNum(product.price)} <span className="text-[9px] font-bold text-muted">تومان</span>
-            </p>
-            {qty === 0 ? (
-              <button
-                type="button"
-                onClick={() => h.onAdd(product)}
-                aria-label={`افزودن ${product.name} به سبد`}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-line bg-white text-ink shadow-sm transition hover:border-brand hover:bg-brand hover:text-white active:scale-90"
-              >
-                <Plus className="h-4 w-4" strokeWidth={2.6} />
-              </button>
-            ) : (
-              <QtyStepper small qty={qty} onInc={() => h.onAdd(product)} onDec={() => h.onDec(product.id)} />
-            )}
-          </div>
-          {product.tag && <p className="mt-1.5 w-fit rounded-md bg-brand px-1.5 py-0.5 text-[9px] font-black text-white">{product.tag}</p>}
+        {(firstOrderOffer || discountOf(product) > 0) && (
+          <span className="market-product-discount">
+            {firstOrderOffer ? "۵۰" : pd(discountOf(product))}٪
+          </span>
+        )}
+        <button
+          type="button"
+          className="market-product-favorite"
+          onClick={() => h.onFav(product.id)}
+          aria-label="افزودن به علاقه‌مندی‌ها"
+          aria-pressed={h.isFav(product.id)}
+        >
+          <Heart
+            size={21}
+            className={h.isFav(product.id) ? "fill-red-500 text-red-500" : ""}
+          />
+        </button>
+        <div className="market-product-add">
+          {firstOrderOffer ? (
+            <button
+              type="button"
+              className={`product-add-button ${firstOrderOffer.selected ? "is-selected" : ""}`}
+              onClick={firstOrderOffer.onSelect}
+              aria-label={`انتخاب یک عدد ${product.name} با تخفیف خرید اول`}
+              aria-pressed={firstOrderOffer.selected}
+            >
+              {firstOrderOffer.selected ? (
+                <BadgeCheck size={23} />
+              ) : (
+                <Plus size={23} />
+              )}
+            </button>
+          ) : qty === 0 ? (
+            <button
+              type="button"
+              className="product-add-button"
+              onClick={() => h.onAdd(product)}
+              aria-label={`افزودن ${product.name} به سبد`}
+            >
+              <Plus size={23} />
+            </button>
+          ) : (
+            <QtyStepper
+              small
+              qty={qty}
+              onInc={() => h.onAdd(product)}
+              onDec={() => h.onDec(product.id)}
+            />
+          )}
         </div>
       </div>
-    </div>
+      <button
+        type="button"
+        onClick={() => h.onOpen(product)}
+        className="market-product-name"
+      >
+        {product.name}
+      </button>
+      <div className="market-product-price">
+        <strong>
+          {faNum(firstOrderOffer ? offerPrice : product.price)}{" "}
+          <small>تومان</small>
+        </strong>
+        {(firstOrderOffer || product.oldPrice) && (
+          <del>
+            {faNum(firstOrderOffer ? product.price : product.oldPrice!)}
+          </del>
+        )}
+      </div>
+      {firstOrderOffer && (
+        <p className="market-offer-unit">فقط یک عدد · خرید اول</p>
+      )}
+    </article>
   );
 }
 

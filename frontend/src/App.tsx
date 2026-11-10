@@ -248,15 +248,27 @@ export default function App() {
     save("naz_user", state.user);
   }
 
-  /* Refresh customer order status while the order screen is open. */
+  /* Refresh real purchase history and current availability in easy buy. */
   useEffect(() => {
-    if ((view !== "orders" && sub?.name !== "order-history") || !token) return;
+    if (
+      (view !== "orders" && view !== "easy" && sub?.name !== "order-history") ||
+      !token
+    )
+      return;
     let alive = true;
     const refresh = () =>
-      api.orders
-        .list()
-        .then(({ orders: latestOrders }) => {
-          if (alive) setOrders(latestOrders);
+      Promise.all([
+        api.orders.list(),
+        view === "easy" ? api.catalog() : Promise.resolve(null),
+      ])
+        .then(([{ orders: latestOrders }, catalog]) => {
+          if (!alive) return;
+          setOrders(latestOrders);
+          if (latestOrders.length) setFirstOrderEligible(false);
+          if (catalog) {
+            hydrateCatalog(catalog);
+            setCatalogTick((t) => t + 1);
+          }
         })
         .catch(() => {
           if (alive) setApiOnline(false);
@@ -448,6 +460,8 @@ export default function App() {
   const qtyOf = (id: number) => cart.items[id] ?? 0;
 
   const handleAdd = (p: Product, fromStoreId?: number) => {
+    if (p.active === false || (p.stock != null && qtyOf(p.id) >= p.stock))
+      return showToast("موجودی بیشتری از این کالا در دسترس نیست.");
     fromStoreId = fromStoreId ?? p.storeId;
     if (
       cartCount > 0 &&
@@ -459,7 +473,9 @@ export default function App() {
       return;
     }
     setCart((c) => ({
-      storeId: c.storeId ?? fromStoreId ?? null,
+      storeId: Object.keys(c.items).length
+        ? c.storeId
+        : (fromStoreId ?? c.storeId ?? null),
       items: { ...c.items, [p.id]: (c.items[p.id] ?? 0) + 1 },
     }));
     if (firstOrderEligible && !firstOrderProductId && p.category === "drinks")
@@ -797,10 +813,12 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-dvh bg-app">
+    <div
+      className={`min-h-dvh bg-app ${view === "home" && !sub ? "market-home-layout" : ""}`}
+    >
       {/* ---------- one header for every screen size ---------- */}
       <header
-        className={`${sub ? "hidden md:block" : "block"} relative z-[60] border-b border-line bg-white/95 backdrop-blur md:sticky md:top-0`}
+        className={`${sub ? "hidden md:block" : "block"} ${view === "home" && !sub ? "market-home-header" : ""} relative z-[60] border-b border-line bg-white/95 backdrop-blur md:sticky md:top-0`}
       >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 md:px-6">
           <button
@@ -1004,6 +1022,18 @@ export default function App() {
             </div>
           </div>
         </div>
+        {view === "home" && !sub && (
+          <div className="market-mobile-search">
+            <button
+              type="button"
+              aria-label="جستجو"
+              onClick={() => c.openSub({ name: "search" })}
+            >
+              <Search size={21} />
+              <span>جست‌وجوی کالا یا فروشگاه در نازمارکت</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {!apiOnline && (
