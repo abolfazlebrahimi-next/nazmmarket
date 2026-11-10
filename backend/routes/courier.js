@@ -190,7 +190,9 @@ router.post(
       );
     }
     try {
-      await Promise.all(files.map(secureDocument));
+      // Decode/encrypt one image at a time: seven large photographs in parallel
+      // can exhaust memory and kill the process during verification upload.
+      for (const file of files) await secureDocument(file);
       const result = await db.run(
         "UPDATE courier_accounts SET plate=?,motor_photo=?,national_photo=?,license_photo=?,plate_photo=?,vehicle_info=?,motor_photos=?,verification_status='pending',active=0,rejection_reason='' WHERE id=? AND verification_status IN ('unsubmitted','rejected','needs_correction')",
         [

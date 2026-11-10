@@ -17,12 +17,23 @@ export async function api<T = any>(
     headers.set("Content-Type", "application/json");
   const token = sessionStorage.getItem(TOKEN);
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const r = await fetch("/api/courier" + path, { ...init, headers });
+  let r: Response;
+  try {
+    r = await fetch("/api/courier" + path, { ...init, headers });
+  } catch {
+    throw new Error(
+      "ارتباط با API قطع شد. روشن بودن بک‌اند را بررسی کنید؛ اگر مدارک ارسال کرده‌اید، پیش از ارسال دوباره وضعیت احراز را تازه‌سازی کنید.",
+    );
+  }
   const d = await r.json().catch(() => ({}));
   if (!r.ok) {
     if (r.status === 401 && path != "/auth/login")
       window.dispatchEvent(new Event("courier-expired"));
-    throw new Error(d?.error?.message || "ارتباط با سرور برقرار نشد.");
+    const message = d?.error?.message || "ارتباط با سرور برقرار نشد.";
+    const reference = d?.error?.requestId;
+    throw new Error(
+      reference ? `${message} (شناسه پیگیری: ${reference})` : message,
+    );
   }
   return d;
 }

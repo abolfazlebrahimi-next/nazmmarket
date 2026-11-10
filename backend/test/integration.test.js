@@ -54,7 +54,7 @@ test(
       const b = new FormData();
       for (const [k, v] of Object.entries(values)) b.set(k, String(v));
       for (const k of images)
-        b.set(k, new Blob([image], { type: "image/png" }), k + ".png");
+        b.append(k, new Blob([image], { type: "image/png" }), k + ".png");
       return b;
     };
     const suffix = String(Date.now()).slice(-7),
@@ -282,12 +282,20 @@ test(
             form({ plate: "۱۲۳ الف ۴۵", vehicleInfo: "موتور تست مشکی" }, [
               "national",
               "motor",
+              "motor",
+              "motor",
+              "motor",
               "license",
               "platePhoto",
             ]),
             "POST",
           );
         await submit();
+        const saved = await db.get(
+          "SELECT motor_photos FROM courier_accounts WHERE id=?",
+          [c.courier.id],
+        );
+        assert.equal(JSON.parse(saved.motor_photos).length, 4);
         if (n === 12) {
           for (const status of ["needs_correction", "rejected"]) {
             await ok(

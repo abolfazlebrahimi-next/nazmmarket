@@ -6,6 +6,7 @@
 import "dotenv/config";
 import "express-async-errors";
 import express from "express";
+import { logApiError } from "./error-diagnostics.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { db } from "./db.js";
@@ -69,57 +70,46 @@ app.use("/api", orderRoutes);
 app.use("/api/promos", promoRoutes);
 
 app.use("/api", (_req, res) => {
-  res
-    .status(404)
-    .json({
-      error: { code: "not_found", message: "این مسیر در API وجود ندارد." },
-    });
+  res.status(404).json({
+    error: { code: "not_found", message: "این مسیر در API وجود ندارد." },
+  });
 });
 
 /* error handler — always answers with a Farsi message the UI can show */
 app.use((err, _req, res, _next) => {
-  if (!err.status || err.status >= 500)
-    console.error("[api]", err.code || "server_error");
+  const requestId =
+    !err.status || err.status >= 500 ? logApiError(err) : undefined;
   if (err?.code === "LIMIT_FILE_SIZE") {
-    return res
-      .status(413)
-      .json({
-        error: {
-          code: "file_too_large",
-          message: "حجم هر تصویر حداکثر ۵ مگابایت است.",
-        },
-      });
-  }
-  if (err?.type === "entity.parse.failed") {
-    return res
-      .status(400)
-      .json({
-        error: { code: "bad_json", message: "داده ارسالی معتبر نیست." },
-      });
-  }
-  if (err?.code?.startsWith("LIMIT_"))
-    return res
-      .status(400)
-      .json({
-        error: {
-          code: err.code,
-          message: "فایل‌ها یا تعداد مدارک ارسالی معتبر نیست.",
-        },
-      });
-  if (err?.status && err.status >= 400 && err.status < 500)
-    return res
-      .status(err.status)
-      .json({
-        error: { code: err.code || "invalid_request", message: err.message },
-      });
-  res
-    .status(500)
-    .json({
+    return res.status(413).json({
       error: {
-        code: "server_error",
-        message: "خطای غیرمنتظره در سرور؛ دوباره تلاش کنید.",
+        code: "file_too_large",
+        message: "حجم هر تصویر حداکثر ۵ مگابایت است.",
       },
     });
+  }
+  if (err?.type === "entity.parse.failed") {
+    return res.status(400).json({
+      error: { code: "bad_json", message: "داده ارسالی معتبر نیست." },
+    });
+  }
+  if (err?.code?.startsWith("LIMIT_"))
+    return res.status(400).json({
+      error: {
+        code: err.code,
+        message: "فایل‌ها یا تعداد مدارک ارسالی معتبر نیست.",
+      },
+    });
+  if (err?.status && err.status >= 400 && err.status < 500)
+    return res.status(err.status).json({
+      error: { code: err.code || "invalid_request", message: err.message },
+    });
+  res.status(500).json({
+    error: {
+      code: "server_error",
+      requestId,
+      message: "خطای غیرمنتظره در سرور؛ دوباره تلاش کنید.",
+    },
+  });
 });
 
 export default app;
