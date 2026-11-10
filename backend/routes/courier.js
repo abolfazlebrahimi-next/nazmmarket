@@ -296,8 +296,12 @@ router.get("/orders", async (req, res) => {
     Date.now() - new Date(c.location_updated_at).getTime() < 15 * 60 * 1000 &&
     validPoint(c.lat, c.lng);
   const rows = await db.all(
-    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,d.trip_status,d.arrived_at,d.picked_up_at,u.phone AS customer_phone,sa.phone AS store_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN seller_accounts sa ON sa.id=s.seller_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND d.order_id IS NULL AND NOT EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND declined.courier_id=?)) OR (d.courier_id=? AND o.status IN (3,4,5)) ORDER BY o.created_at DESC LIMIT 500`,
-    [req.courier.id, req.courier.id],
+    `SELECT o.*,s.address AS store_address,s.area AS store_area,s.lat AS store_lat,s.lng AS store_lng,d.courier_id,d.claimed_at,d.completed_at,d.trip_status,d.arrived_at,d.picked_up_at,u.phone AS customer_phone,sa.phone AS store_phone FROM orders o JOIN stores s ON s.id=o.store_id JOIN users u ON u.id=o.user_id LEFT JOIN seller_accounts sa ON sa.id=s.seller_id LEFT JOIN order_deliveries d ON d.order_id=o.id WHERE (o.status=3 AND d.order_id IS NULL AND NOT EXISTS (SELECT 1 FROM courier_declined_orders declined WHERE declined.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND declined.courier_id=? AND declined.created_at>?)) OR (d.courier_id=? AND o.status IN (3,4,5)) ORDER BY o.created_at DESC LIMIT 500`,
+    [
+      req.courier.id,
+      new Date(Date.now() - 5 * 60000).toISOString(),
+      req.courier.id,
+    ],
   );
   let orders = rows
     .map((r) => {
@@ -362,23 +366,20 @@ router.get("/orders", async (req, res) => {
         continue;
       }
       await db.run(
-        "INSERT IGNORE INTO courier_offers (courier_id,order_id,expires_at) VALUES (?,?,?)",
-        [req.courier.id, o.id, new Date(Date.now() + 60000).toISOString()],
+        "INSERT INTO courier_offers (courier_id,order_id,expires_at) VALUES (?,?,?) ON DUPLICATE KEY UPDATE state='pending',expires_at=VALUES(expires_at)",
+        [req.courier.id, o.id, "9999-12-31T23:59:59.999Z"],
       );
       const offer = await db.get(
         "SELECT state,expires_at FROM courier_offers WHERE courier_id=? AND order_id=?",
         [req.courier.id, o.id],
       );
-      if (
-        offer.state === "pending" &&
-        new Date(offer.expires_at).getTime() > Date.now()
-      ) {
-        permitted.push({ ...o, offerExpiresAt: offer.expires_at });
+      if (offer.state === "pending") {
+        permitted.push({ ...o, offerExpiresAt: null });
         await notifyCourier(db, req.courier.id, {
           key: "offer:" + o.id,
           kind: "offer",
           title: "پیشنهاد سفارش جدید",
-          body: `سفارش ${o.id} آمادهٔ پذیرش است؛ مهلت پیشنهاد محدود است.`,
+          body: `سفارش ${o.id} آمادهٔ پذیرش است؛ تا زمان پذیرش یا رد در فهرست می‌ماند.`,
           target: "orders",
         });
       }
@@ -424,7 +425,7 @@ router.post("/orders/:id/decline", async (req, res) => {
       "این پیشنهاد دیگر در دسترس نیست.",
     );
   await db.run(
-    "INSERT IGNORE INTO courier_declined_orders (courier_id,order_id,created_at) VALUES (?,?,?)",
+    "INSERT INTO courier_declined_orders (courier_id,order_id,created_at) VALUES (?,?,?) ON DUPLICATE KEY UPDATE created_at=VALUES(created_at)",
     [req.courier.id, req.params.id, new Date().toISOString()],
   );
   await db.run(

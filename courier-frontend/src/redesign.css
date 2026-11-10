@@ -2857,3 +2857,35 @@ html {
     animation: none;
   }
 }
+/* Navigation uses green line icons without filled selection tiles. */
+.sidebar nav,
+.sidebar nav button,
+.sidebar nav button:hover,
+.sidebar nav button.selected {
+  background: transparent;
+  box-shadow: none;
+}
+.sidebar nav button,
+.sidebar nav button:hover,
+.sidebar nav button.selected,
+.sidebar nav button svg {
+  color: var(--green);
+}
+.sidebar nav button.selected {
+  font-weight: 800;
+}
+.sidebar nav button.selected svg {
+  stroke-width: 2.5;
+}
+.sidebar nav button.selected:before {
+  display: none;
+}
+.sidebar nav .nav-count {
+  background: transparent;
+  color: var(--green);
+}
+.sidebar nav {
+  border: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

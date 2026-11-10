@@ -798,6 +798,38 @@ test(
         ).status,
         409,
       );
+      // Offers remain actionable after the old one-minute expiry. A decline
+      // suppresses only this courier for five minutes, then is offered again.
+      await db.run("UPDATE courier_offers SET expires_at=? WHERE order_id=?", [
+        new Date(Date.now() - 120000).toISOString(),
+        declineOrder.id,
+      ]);
+      const persistentOffer = (
+        await ok("/api/courier/orders", winner.token)
+      ).orders.find((o) => o.id === declineOrder.id);
+      assert.ok(persistentOffer);
+      assert.equal(persistentOffer.offerExpiresAt, null);
+      await db.run(
+        "UPDATE courier_declined_orders SET created_at=? WHERE order_id=?",
+        [new Date(Date.now() - 301000).toISOString(), declineOrder.id],
+      );
+      assert.ok(
+        (await ok("/api/courier/orders", loser.token)).orders.some(
+          (o) => o.id === declineOrder.id,
+        ),
+      );
+      await ok(
+        `/api/courier/orders/${declineOrder.id}/decline`,
+        loser.token,
+        undefined,
+        "POST",
+      );
+      assert.equal(
+        (await ok("/api/courier/orders", loser.token)).orders.some(
+          (o) => o.id === declineOrder.id,
+        ),
+        false,
+      );
       await ok(
         `/api/courier/orders/${declineOrder.id}/claim`,
         winner.token,

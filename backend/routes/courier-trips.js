@@ -44,8 +44,7 @@ router.post("/orders/:id/claim", async (req, res) => {
         "SELECT * FROM courier_offers WHERE courier_id=? AND order_id=? AND state='pending' FOR UPDATE",
         [req.courier.id, req.params.id],
       );
-      if (!offer || new Date(offer.expires_at).getTime() <= Date.now())
-        return false;
+      if (!offer) return false;
       const o = await tx.get(
         "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 FOR UPDATE",
         [req.params.id],
@@ -54,8 +53,12 @@ router.post("/orders/:id/claim", async (req, res) => {
       if (distance === null || distance > 15) return false;
       if (
         await tx.get(
-          "SELECT 1 AS found FROM courier_declined_orders WHERE courier_id=? AND order_id=?",
-          [req.courier.id, req.params.id],
+          "SELECT 1 AS found FROM courier_declined_orders WHERE courier_id=? AND order_id=? AND created_at>?",
+          [
+            req.courier.id,
+            req.params.id,
+            new Date(Date.now() - 5 * 60000).toISOString(),
+          ],
         )
       )
         return false;
@@ -74,7 +77,7 @@ router.post("/orders/:id/claim", async (req, res) => {
       return fail(
         res,
         409,
-        "پیشنهاد منقضی شده، سفر فعال دارید یا سفارش دیگر در دسترس نیست.",
+        "سفر فعال دارید، پیشنهاد را اخیراً رد کرده‌اید یا سفارش دیگر در دسترس نیست.",
       );
     res.json({ ok: true });
   } catch (e) {
