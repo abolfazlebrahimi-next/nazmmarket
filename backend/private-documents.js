@@ -7,7 +7,7 @@ export { privateDir } from "./storage-paths.js";
 export function documentKey() {
   const key = process.env.SELLER_PII_KEY || "";
   if (!/^[a-f\d]{64}$/i.test(key))
-    throw Object.assign(new Error("کلید امنیت مدارک پیک تنظیم نشده است."), {
+    throw Object.assign(new Error("کلید امنیت مدارک سفیر تنظیم نشده است."), {
       status: 503,
     });
   return Buffer.from(key, "hex");
@@ -55,7 +55,7 @@ export async function readDocument(filename) {
   } catch {
     throw Object.assign(
       new Error(
-        "رمزگشایی مدرک ممکن نیست؛ کلید امنیتی با زمان ثبت مدرک متفاوت است یا فایل آسیب دیده. کلید قبلی را بازیابی کنید؛ در غیر این صورت درخواست اصلاح مدارک بدهید تا پیک دوباره ارسال کند.",
+        "رمزگشایی مدرک ممکن نیست؛ کلید امنیتی با زمان ثبت مدرک متفاوت است یا فایل آسیب دیده. کلید قبلی را بازیابی کنید؛ در غیر این صورت درخواست اصلاح مدارک بدهید تا سفیر دوباره ارسال کند.",
       ),
       { status: 409, code: "document_decryption_failed" },
     );

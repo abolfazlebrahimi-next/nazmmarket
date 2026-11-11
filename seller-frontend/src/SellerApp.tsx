@@ -1,3 +1,5 @@
+import PersianDateField from "./PersianDateField";
+import { formatJalaliDay, toPersianDigits } from "../../shared/persianDate";
 import BackendReadiness, { useBackendReadiness } from "./BackendReadiness";
 import StoreMap from "./StoreMap";
 import BankPicker from "./BankPicker";
@@ -237,12 +239,14 @@ export default function SellerApp() {
   const [addPromo, setAddPromo] = useState(false);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const todayIso = new Date().toISOString().slice(0, 10);
   const [promoForm, setPromoForm] = useState({
     code: "",
     title: "",
     kind: "percent",
     amount: "",
     ends: "",
+    maxUses: "1",
   });
   const shownProducts = useMemo(
     () => products.filter((p) => p.name.includes(query.trim())),
@@ -419,7 +423,8 @@ export default function SellerApp() {
         amount: Number(promoForm.amount),
         minSubtotal: 0,
         maxDiscount: 0,
-        expiresAt: promoForm.ends ? `${promoForm.ends}T23:59:59.000Z` : null,
+        expiresAt: promoForm.ends || null,
+        maxUses: promoForm.maxUses === "" ? 1 : Number(promoForm.maxUses),
       });
       setPromos((old) => [promotion, ...old]);
       setPromoForm({
@@ -428,6 +433,7 @@ export default function SellerApp() {
         kind: "percent",
         amount: "",
         ends: "",
+        maxUses: "1",
       });
       setAddPromo(false);
       toast("کد تخفیف در پایگاه‌داده ذخیره شد.");
@@ -489,7 +495,7 @@ export default function SellerApp() {
       setSellerOrders(r.orders);
       toast(
         action === "retry"
-          ? "درخواست دوباره برای پیک‌های واجد شرایط فعال شد؛ در بررسی بعدی پنل پیک نمایش داده می‌شود."
+          ? "درخواست دوباره برای سفیرهای واجد شرایط فعال شد؛ در بررسی بعدی پنل سفیر نمایش داده می‌شود."
           : "جست‌وجو متوقف شد.",
       );
     } catch (err) {
@@ -505,7 +511,7 @@ export default function SellerApp() {
       !window.confirm(
         complete
           ? "آیا سفارش واقعاً به مشتری تحویل داده شده است؟"
-          : "ارسال این سفارش را خودتان انجام می‌دهید؟ پس از تأیید، جست‌وجوی پیک متوقف می‌شود و مسئولیت ارسال با فروشگاه است.",
+          : "ارسال این سفارش را خودتان انجام می‌دهید؟ پس از تأیید، جست‌وجوی سفیر متوقف می‌شود و مسئولیت ارسال با فروشگاه است.",
       )
     )
       return;
@@ -521,7 +527,7 @@ export default function SellerApp() {
       toast(
         complete
           ? "تحویل سفارش ثبت شد."
-          : "ارسال توسط فروشگاه ثبت شد؛ نیازی به کد تحویل پیک نیست.",
+          : "ارسال توسط فروشگاه ثبت شد؛ نیازی به کد تحویل سفیر نیست.",
       );
     } catch (err) {
       toast(err instanceof Error ? err.message : "ثبت ارسال انجام نشد.");
@@ -549,7 +555,7 @@ export default function SellerApp() {
       }));
       toast(
         status === 3
-          ? "سفارش آماده شد؛ پیک‌های تأییدشده و فعال اطراف فروشگاه می‌توانند آن را دریافت کنند."
+          ? "سفارش آماده شد؛ سفیرهای تأییدشده و فعال اطراف فروشگاه می‌توانند آن را دریافت کنند."
           : "وضعیت سفارش ذخیره شد.",
       );
     } catch (err) {
@@ -913,7 +919,7 @@ export default function SellerApp() {
       {addPromo && (
         <Modal
           title="ساخت کد تخفیف"
-          subtitle="کد در فروشگاه ذخیره می‌شود و از طریق کاتالوگ اعمال خواهد شد."
+          subtitle="کد در فروشگاه ذخیره می‌شود؛ هر مشتری فقط یک بار می‌تواند از آن استفاده کند."
           onClose={() => setAddPromo(false)}
         >
           <form className="modal-form" onSubmit={submitPromo}>
@@ -968,15 +974,38 @@ export default function SellerApp() {
                 />
               </Field>
             </div>
-            <Field label="تاریخ پایان (اختیاری)">
-              <TextInput
-                type="date"
-                value={promoForm.ends}
-                onChange={(e) =>
-                  setPromoForm({ ...promoForm, ends: e.target.value })
-                }
-              />
-            </Field>
+            <div className="form-grid">
+              <div className="field">
+                <span className="field-label">تاریخ پایان (اختیاری)</span>
+                <PersianDateField
+                  value={promoForm.ends}
+                  minIso={todayIso}
+                  hint="کد در پایان این روز حذف می‌شود"
+                  onChange={(iso) =>
+                    setPromoForm({ ...promoForm, ends: iso ?? "" })
+                  }
+                />
+                <small className="field-hint">
+                  {promoForm.ends
+                    ? `میلادی: ${toPersianDigits(promoForm.ends)} — تا پایان آن روز معتبر است.`
+                    : "خالی بگذارید تا کد بدون تاریخ پایان بماند."}
+                </small>
+              </div>
+              <Field
+                label="تعداد مجاز مصرف"
+                hint="پیش‌فرض یک‌بارمصرف است؛ صفر یعنی بدون سقف."
+              >
+                <TextInput
+                  type="number"
+                  min="0"
+                  max="1000000"
+                  value={promoForm.maxUses}
+                  onChange={(e) =>
+                    setPromoForm({ ...promoForm, maxUses: e.target.value })
+                  }
+                />
+              </Field>
+            </div>
             <div className="modal-actions">
               <button
                 type="button"
@@ -1562,8 +1591,8 @@ function OrdersPage({
   const stages = [
     "ثبت سفارش",
     "در حال آماده‌سازی",
-    "آماده تحویل به پیک",
-    "تحویل به پیک موتوری",
+    "آماده تحویل به سفیر",
+    "تحویل به سفیر",
     "تکمیل سفارش",
   ];
   return (
@@ -1690,8 +1719,8 @@ function OrdersPage({
                   <small>
                     <ShieldCheck size={14} />{" "}
                     {order.deliveryMode === "seller"
-                      ? "ارسال توسط فروشگاه؛ بدون کد تحویل پیک"
-                      : "ارسال با پیک تأییدشده یا توسط خود فروشگاه"}
+                      ? "ارسال توسط فروشگاه؛ بدون کد تحویل سفیر"
+                      : "ارسال با سفیر تأییدشده یا توسط خود فروشگاه"}
                   </small>
                   {order.status === 1 && (
                     <button
@@ -1706,13 +1735,13 @@ function OrdersPage({
                       className="btn primary small"
                       onClick={() => onStatus(order, 3)}
                     >
-                      <Check size={15} /> آماده تحویل به پیک
+                      <Check size={15} /> آماده تحویل به سفیر
                     </button>
                   )}
                   {order.status === 3 &&
                     (order.courierAssigned ? (
                       <span className="status-pill status-3">
-                        پیک پذیرفت؛ در انتظار رسیدن پیک به فروشگاه
+                        سفیر پذیرفت؛ در انتظار رسیدن سفیر به فروشگاه
                       </span>
                     ) : (
                       <div className="seller-dispatch" role="status">
@@ -1723,50 +1752,50 @@ function OrdersPage({
                                 className="dispatch-spinner"
                                 aria-hidden="true"
                               />{" "}
-                              در انتظار پاسخ پیک‌های واجد شرایط
+                              در انتظار پاسخ سفیرهای واجد شرایط
                             </strong>
                             <p>
-                              تعداد پیک واجد شرایط:{" "}
+                              تعداد سفیر واجد شرایط:{" "}
                               {money(order.dispatch?.eligible ?? 0)}؛ رد کرده:{" "}
                               {money(order.dispatch?.declined ?? 0)}. نمایش در
-                              پنل پیک فقط در حالت آنلاین، موقعیت به‌روز و بدون
+                              پنل سفیر فقط در حالت آنلاین، موقعیت به‌روز و بدون
                               سفر فعال انجام می‌شود.
                             </p>
                           </>
                         ) : searchState(order) === "all_declined" ? (
                           <>
                             <strong>
-                              همهٔ پیک‌های واجد شرایط این سفارش را رد کرده‌اند
+                              همهٔ سفیرهای واجد شرایط این سفارش را رد کرده‌اند
                             </strong>
                             <p>
                               پاسخ پذیرفته‌شده‌ای نداریم. پس از ۵ دقیقه از رد هر
-                              پیک، تا پایان بازهٔ جست‌وجو دوباره به او پیشنهاد
+                              سفیر، تا پایان بازهٔ جست‌وجو دوباره به او پیشنهاد
                               می‌شود؛ یا همین حالا دوباره ارسال کنید.
                             </p>
                           </>
                         ) : searchState(order) === "no_couriers" ? (
                           <>
                             <strong>
-                              در حال حاضر پیک واجد شرایط در دسترس نیست
+                              در حال حاضر سفیر واجد شرایط در دسترس نیست
                             </strong>
                             <p>
-                              پیک باید تأییدشده، آنلاین، بدون سفر فعال و در شعاع
+                              سفیر باید تأییدشده، آنلاین، بدون سفر فعال و در شعاع
                               ۱۵ کیلومتری با موقعیت به‌روز باشد. نمایش این وضعیت
-                              به معنی ارسال درخواست به پیک نیست.
+                              به معنی ارسال درخواست به سفیر نیست.
                             </p>
                           </>
                         ) : searchState(order) === "paused" ? (
                           <>
-                            <strong>جست‌وجوی پیک متوقف شده است</strong>
+                            <strong>جست‌وجوی سفیر متوقف شده است</strong>
                             <p>
-                              برای شروع دوباره، «ارسال دوباره به پیک‌ها» را
+                              برای شروع دوباره، «ارسال دوباره به سفیرها» را
                               بزنید یا خودتان ارسال کنید.
                             </p>
                           </>
                         ) : (
                           <>
                             <strong>
-                              متأسفانه پیکی پیدا نشد؛ جست‌وجو متوقف شد
+                              متأسفانه سفیری پیدا نشد؛ جست‌وجو متوقف شد
                             </strong>
                             <p>
                               ۱۵ دقیقه بدون پذیرش گذشت. می‌توانید درخواست را
@@ -1782,7 +1811,7 @@ function OrdersPage({
                             }
                             onClick={() => onDispatch(order, "retry")}
                           >
-                            ارسال دوباره به پیک‌ها
+                            ارسال دوباره به سفیرها
                           </button>
                           {!["paused", "timed_out"].includes(
                             searchState(order),
@@ -1834,7 +1863,7 @@ function OrdersPage({
                       </div>
                     ) : (
                       <span className="status-pill status-4">
-                        در مسیر مشتری؛ ارسال با پیک
+                        در مسیر مشتری؛ ارسال با سفیر
                       </span>
                     ))}
                   {order.status === 5 && (
@@ -1842,7 +1871,7 @@ function OrdersPage({
                       <Check size={14} />
                       {order.deliveryMode === "seller"
                         ? "تحویل نهایی توسط فروشگاه"
-                        : "تحویل نهایی توسط پیک"}
+                        : "تحویل نهایی توسط سفیر"}
                     </span>
                   )}
                 </div>
@@ -1950,8 +1979,8 @@ function DiscountsPage({
     >
       <div className="toolbar">
         <div className="toolbar-note">
-          <TicketPercent size={17} /> کدهای فعال برای مشتریان این فروشگاه قابل
-          استفاده‌اند.
+          <TicketPercent size={17} /> هر کد به ازای هر مشتری یک‌بار مصرف است و پس
+          از رسیدن به سقف مصرف، خودکار از فهرست مشتری‌ها حذف می‌شود.
         </div>
         <button className="btn primary" onClick={onAdd}>
           <Plus size={17} /> ساخت کد تخفیف
@@ -1981,10 +2010,17 @@ function DiscountsPage({
                     : `${money(p.amount)} تومان`}
                 </small>
               </div>
-              <span className="promo-date">
-                {p.expiresAt
-                  ? new Date(p.expiresAt).toLocaleDateString("fa-IR")
-                  : "بدون تاریخ پایان"}
+              <span className="promo-meta">
+                <span className="promo-date">
+                  {p.expiresAt
+                    ? `پایان: ${formatJalaliDay(p.expiresAt)}`
+                    : "بدون تاریخ پایان"}
+                </span>
+                <span className="promo-cap">
+                  {p.maxUses > 0
+                    ? `مصرف: ${toPersianDigits(p.usageCount)} از ${toPersianDigits(p.maxUses)}`
+                    : `مصرف‌شده: ${toPersianDigits(p.usageCount)}`}
+                </span>
               </span>
               {p.id != null && (
                 <button

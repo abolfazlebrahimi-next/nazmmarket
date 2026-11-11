@@ -53,6 +53,7 @@ export function CartBody({
   if (c.cartCount === 0) {
     return (
       <Empty
+        align="start"
         icon={ShoppingCart}
         title="سبد خریدی ندارید!"
         desc="کالاهای مورد نیاز خود را از فروشگاه‌های نظرآباد به سبد اضافه کنید."

@@ -1,3 +1,4 @@
+@import url("../../shared/persianDateField.css");
 @import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap");
 :root {
   font-family: "Vazirmatn", Tahoma, sans-serif;
@@ -2389,4 +2390,36 @@ button:disabled {
   color: #16865b;
   margin: 0 0 14px;
   line-height: 1.9;
+}
+
+.promo-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.promo-cap {
+  font-size: 8.5px;
+  color: var(--muted);
+}
+
+/* Session check shown before the panel mounts. */
+.auth-loading {
+  display: grid;
+  min-height: 100vh;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  background: var(--canvas);
+  color: var(--muted);
+  font-size: 10px;
+}
+.auth-loading .brand-mark {
+  animation: auth-pulse 1.4s ease-in-out infinite;
+}
+@keyframes auth-pulse {
+  50% {
+    opacity: 0.45;
+    transform: translateY(2px);
+  }
 }

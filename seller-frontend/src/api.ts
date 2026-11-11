@@ -46,6 +46,9 @@ export type Promo = {
   maxDiscount: number;
   active: boolean;
   expiresAt?: string;
+  /** Total redemptions allowed; `0` means unlimited. */
+  maxUses: number;
+  usageCount: number;
 };
 export type SellerOrder = {
   id: string;
@@ -235,6 +238,7 @@ export const sellerApi = {
     minSubtotal: number;
     maxDiscount: number;
     expiresAt: string | null;
+    maxUses: number;
   }) => call<{ promotion: Promo }>("/promotions", { method: "POST", body }),
   deletePromotion: (id: number) =>
     call<{ ok: boolean }>(`/promotions/${id}`, { method: "DELETE" }),

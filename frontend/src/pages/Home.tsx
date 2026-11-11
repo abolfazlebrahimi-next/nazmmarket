@@ -81,6 +81,7 @@ export function HomePage({ c }: { c: AppCtx }) {
       )}
       <section className="market-category-section" aria-label="دسته‌بندی کالاها">
         <div className="market-category-heading">
+          <h2>دسته‌بندی‌ها</h2>
           <button
             type="button"
             className="market-category-all"
@@ -89,7 +90,6 @@ export function HomePage({ c }: { c: AppCtx }) {
           >
             مشاهده همه <ChevronLeft size={15} />
           </button>
-          <h2>دسته‌بندی‌ها</h2>
         </div>
         <div className="market-category-shortcuts no-scrollbar">
           {categories.slice(1).map((cat) => (
@@ -237,7 +237,11 @@ export function StoresPage({ c }: { c: AppCtx }) {
   });
   return (
     <div className="fade-rise mx-auto w-full max-w-4xl pb-6">
-      <ScreenHeader title="فروشگاه‌ها" onBack={() => c.closeSub()} />
+      <ScreenHeader
+        title="فروشگاه‌ها"
+        onBack={() => c.closeSub()}
+        hideBackOnDesktop
+      />
       <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
         {(
           [
@@ -287,6 +291,7 @@ export function FavoritesPage({ c }: { c: AppCtx }) {
       <ScreenHeader
         title="کالاهای مورد علاقه‌ی من"
         onBack={() => c.closeSub()}
+        hideBackOnDesktop
       />
       {favs.length === 0 ? (
         <Empty
@@ -311,7 +316,11 @@ export function FavoritesPage({ c }: { c: AppCtx }) {
 export function MapPage({ c }: { c: AppCtx }) {
   return (
     <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
-      <ScreenHeader title="انتخاب لوکیشن دقیق" onBack={() => c.closeSub()} />
+      <ScreenHeader
+        title="انتخاب لوکیشن دقیق"
+        onBack={() => c.closeSub()}
+        hideBackOnDesktop
+      />
       <div className="p-4">
         <div className="relative rounded-[26px] border border-line">
           <MapPicker

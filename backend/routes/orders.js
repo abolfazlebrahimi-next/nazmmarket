@@ -6,7 +6,14 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { db, mapOrder } from "../db.js";
 import { requireAuth } from "../auth.js";
-import { computeDiscount } from "../pricing.js";
+import {
+  alreadyRedeemed,
+  consumePromo,
+  findPromo,
+  promoDiscount,
+  promoExhausted,
+  releasePromo,
+} from "../promos.js";
 const router = Router();
 router.use(requireAuth);
 const orderTime = () =>
@@ -182,14 +189,29 @@ router.post("/orders", async (req, res) => {
       ? String(body.promoCode).trim().toUpperCase()
       : null;
     const promo = promoCode
-      ? await db.get(
-          `SELECT * FROM seller_promos WHERE store_id=? AND code=? AND active=1 AND (expires_at IS NULL OR expires_at>=?)`,
-          [storeId, promoCode, new Date().toISOString()],
-        )
+      ? await findPromo(db, {
+          code: promoCode,
+          userId: req.user.id,
+          storeId,
+        })
       : null;
     if (promoCode && !promo)
       return res.status(400).json({
         error: { code: "invalid_promo", message: "کد تخفیف معتبر نیست." },
+      });
+    if (promo && promoExhausted(promo))
+      return res.status(409).json({
+        error: {
+          code: "promo_exhausted",
+          message: "ظرفیت این کد تخفیف تکمیل شده است.",
+        },
+      });
+    if (promo && (await alreadyRedeemed(db, promo, req.user.id)))
+      return res.status(409).json({
+        error: {
+          code: "promo_used",
+          message: "این کد تخفیف یک‌بارمصرف است و قبلاً استفاده شده.",
+        },
       });
     if (promo && subtotal < Number(promo.min_subtotal))
       return res.status(400).json({
@@ -198,17 +220,9 @@ router.post("/orders", async (req, res) => {
           message: "مبلغ سبد خرید به حداقل استفاده از کد تخفیف نرسیده است.",
         },
       });
-    const sellerDiscount = promo
-      ? computeDiscount(
-          {
-            ...promo,
-            amount: Number(promo.amount),
-            min_subtotal: Number(promo.min_subtotal),
-            max_discount: Number(promo.max_discount),
-          },
-          subtotal,
-        )
-      : 0;
+    const codeDiscount = promo ? promoDiscount(promo, subtotal) : 0;
+    const sellerDiscount = promo?.scope === "store" ? codeDiscount : 0;
+    const platformDiscount = promo?.scope === "platform" ? codeDiscount : 0;
     const firstOrderProductId =
       body.firstOrderProductId == null
         ? null
@@ -292,7 +306,10 @@ router.post("/orders", async (req, res) => {
         firstOrderProductId,
         Boolean(priorOrder || redeemed),
       );
-      const discount = Math.min(subtotal, sellerDiscount + firstOrderDiscount);
+      const discount = Math.min(
+        subtotal,
+        sellerDiscount + platformDiscount + firstOrderDiscount,
+      );
       const settings = await platformSettings(tx);
       const quote = deliveryQuote({
         from: storeRow,
@@ -337,7 +354,7 @@ router.post("/orders", async (req, res) => {
         ],
       );
       await tx.run(
-        "UPDATE orders SET destination_lat=?,destination_lng=?,fare_details=?,courier_fee=?,courier_commission_rate=?,platform_commission=?,first_offer_discount=?,seller_discount=? WHERE id=?",
+        "UPDATE orders SET destination_lat=?,destination_lng=?,fare_details=?,courier_fee=?,courier_commission_rate=?,platform_commission=?,first_offer_discount=?,seller_discount=?,platform_discount=? WHERE id=?",
         [
           addressRow?.lat ?? null,
           addressRow?.lng ?? null,
@@ -349,10 +366,19 @@ router.post("/orders", async (req, res) => {
           ),
           firstOrderDiscount,
           sellerDiscount,
+          platformDiscount,
           id,
         ],
       );
       await recordOrderEvent(tx, id, 1, "customer", req.user.id);
+      if (promo)
+        await consumePromo(tx, {
+          promo,
+          userId: req.user.id,
+          orderId: id,
+          discount: codeDiscount,
+          createdAt,
+        });
       if (firstOrderDiscount > 0)
         await tx.run(
           "INSERT INTO first_offer_redemptions (user_id,order_id,product_id,discount,created_at) VALUES (?,?,?,?,?)",
@@ -367,6 +393,13 @@ router.post("/orders", async (req, res) => {
     });
     res.status(201).json({ order: mapOrder(row) });
   } catch (err) {
+    if (err?.code === "ER_DUP_ENTRY" && promoCode)
+      return res.status(409).json({
+        error: {
+          code: "promo_used",
+          message: "این کد تخفیف هم‌زمان روی این حساب استفاده شده است.",
+        },
+      });
     if (err.status)
       return res
         .status(err.status)
@@ -402,6 +435,8 @@ router.patch("/orders/:id/cancel", async (req, res) => {
         "وضعیت سفارش تغییر کرده و دیگر قابل لغو نیست.",
       );
     await recordOrderEvent(tx, row.id, 0, "customer", req.user.id);
+    // A cancelled order returns its single-use discount code to the account.
+    await releasePromo(tx, row.id);
     const items = Array.isArray(row.items)
       ? row.items
       : JSON.parse(row.items || "[]");

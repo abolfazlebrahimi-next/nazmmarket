@@ -10,7 +10,7 @@ const statusSteps = [
   "ثبت سفارش",
   "در حال آماده‌سازی",
   "آماده تحویل",
-  "تحویل به پیک",
+  "تحویل به سفیر",
   "تکمیل سفارش",
 ];
 const statusLabel = (status: number) =>
@@ -21,7 +21,7 @@ const statusLabel = (status: number) =>
         "ثبت سفارش",
         "در حال آماده‌سازی",
         "آماده تحویل",
-        "تحویل به پیک",
+        "تحویل به سفیر",
         "تکمیل‌شده",
       ][status] ?? "نامشخص");
 const progressFor = (status: number) =>
@@ -99,9 +99,9 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
 
       {o.status === 4 && o.deliveryMode !== "seller" && (
         <section className="my-4 rounded-2xl border border-mint/20 bg-mint/5 p-4">
-          <p className="text-xs font-bold">کد تأیید تحویل به پیک</p>
+          <p className="text-xs font-bold">کد تأیید تحویل به سفیر</p>
           <p className="my-2 text-[10px] text-muted">
-            این کد را فقط پس از دریافت بسته در اختیار پیک قرار دهید.
+            این کد را فقط پس از دریافت بسته در اختیار سفیر قرار دهید.
           </p>
           {deliveryCode && (
             <p
@@ -141,7 +141,7 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
       )}
       {o.status === 4 && o.deliveryMode === "seller" && (
         <p className="my-4 rounded-2xl bg-mint/5 p-4 text-xs text-mint">
-          سفارش توسط فروشگاه ارسال می‌شود؛ نیازی به کد تحویل پیک نیست.
+          سفارش توسط فروشگاه ارسال می‌شود؛ نیازی به کد تحویل سفیر نیست.
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-1.5">

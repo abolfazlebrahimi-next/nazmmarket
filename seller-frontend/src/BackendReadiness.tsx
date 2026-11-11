@@ -41,7 +41,7 @@ export default function BackendReadiness({
   if (state === "ready")
     return (
       <p className="backend-ready" role="status">
-        اتصال به بک‌اند دارای قابلیت ارسال فروشگاه و مدیریت جست‌وجوی پیک تأیید
+        اتصال به بک‌اند دارای قابلیت ارسال فروشگاه و مدیریت جست‌وجوی سفیر تأیید
         شد.
       </p>
     );

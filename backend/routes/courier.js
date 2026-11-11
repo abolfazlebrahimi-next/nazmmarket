@@ -64,7 +64,7 @@ async function requireCourier(req, res, next) {
         res,
         401,
         "courier_unauthorized",
-        "برای ادامه وارد پنل پیک شوید.",
+        "برای ادامه وارد پنل سفیر شوید.",
       );
     const row = await db.get(
       `SELECT a.*
@@ -76,7 +76,7 @@ async function requireCourier(req, res, next) {
         res,
         401,
         "courier_unauthorized",
-        "نشست پیک معتبر یا فعال نیست.",
+        "نشست سفیر معتبر یا فعال نیست.",
       );
     req.courier = shapeCourier(row);
     req.courierToken = token;
@@ -121,7 +121,7 @@ router.post("/auth/register", async (req, res) => {
         res,
         409,
         "phone_taken",
-        "با این شماره قبلاً درخواست پیک ثبت شده است.",
+        "با این شماره قبلاً درخواست سفیر ثبت شده است.",
       );
     throw error;
   }
@@ -145,7 +145,7 @@ router.post("/auth/login", loginThrottle, async (req, res) => {
       res,
       401,
       "invalid_credentials",
-      "شماره موبایل یا رمز عبور پیک نادرست است.",
+      "شماره موبایل یا رمز عبور سفیر نادرست است.",
     );
 
   const token = crypto.randomBytes(32).toString("hex");

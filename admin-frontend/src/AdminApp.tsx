@@ -1,4 +1,6 @@
 import Operations from "./Operations";
+import Promotions from "./Promotions";
+import Customers from "./Customers";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   LayoutDashboard,
@@ -14,7 +16,15 @@ import {
   ShieldCheck,
   X,
   Pencil,
+  Menu,
+  Wallet,
+  TicketPercent,
+  TrendingUp,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { formatJalali } from "../../shared/persianDate";
+
+type NavItem = [string, string, LucideIcon];
 type Product = {
   id: number;
   name: string;
@@ -41,8 +51,8 @@ const statuses = [
   "لغوشده",
   "ثبت سفارش",
   "در حال آماده‌سازی",
-  "آماده تحویل به پیک",
-  "تحویل به پیک موتوری",
+  "آماده تحویل به سفیر",
+  "تحویل به سفیر",
   "تکمیل سفارش",
 ];
 const verification: Record<string, string> = {
@@ -52,6 +62,66 @@ const verification: Record<string, string> = {
   rejected: "ردشده",
   needs_correction: "نیازمند اصلاح مدارک",
 };
+const pageHints: Record<string, string> = {
+  dashboard: "نمای کلی عملکرد امروز",
+  orders: "پیگیری و مداخله در چرخهٔ سفارش",
+  users: "مشتریان، شماره تماس و سابقهٔ خرید",
+  promotions: "کدهای تخفیف سراسری و اختصاصی",
+  products: "بانک مرکزی کالاها",
+  stores: "تأیید و کنترل فروشگاه‌ها",
+  couriers: "بررسی مدارک و فعال‌سازی سفیرها",
+  operations: "کارمزد، برداشت‌ها و پشتیبانی",
+};
+type StatGroup = { title: string; note: string; keys: string[]; hero?: string[] };
+const statGroups: StatGroup[] = [
+  {
+    title: "فروش و مالی",
+    note: "مبالغ ثبت‌شده در سفارش‌های تکمیل‌شده",
+    keys: [
+      "sales",
+      "dailySales",
+      "monthlySales",
+      "commissionRevenue",
+      "netProfit",
+      "discounts",
+      "promoSpend",
+    ],
+    hero: ["sales", "netProfit"],
+  },
+  {
+    title: "مشتریان",
+    note: "بر اساس ورود در ۳۰ روز اخیر",
+    keys: [
+      "users",
+      "activeUsers",
+      "inactiveUsers",
+      "customersWithOrders",
+      "firstTimeCustomers",
+    ],
+    hero: ["users"],
+  },
+  {
+    title: "فروشندگان و کالا",
+    note: "حساب، فروشگاه تأییدشده و بانک کالا",
+    keys: ["sellers", "activeSellers", "inactiveSellers", "stores", "products"],
+    hero: ["activeSellers"],
+  },
+  {
+    title: "ارسال و کدهای تخفیف",
+    note: "وضعیت سفیرها و مصرف کدها",
+    keys: [
+      "couriers",
+      "approvedCouriers",
+      "pendingCouriers",
+      "rejectedCouriers",
+      "correctionCouriers",
+      "promoCodes",
+      "activePromoCodes",
+      "promoRedemptions",
+    ],
+    hero: ["pendingCouriers"],
+  },
+];
 const categories = [
   ["drinks", "نوشیدنی"],
   ["dairy", "لبنیات"],
@@ -66,19 +136,25 @@ const categories = [
 const money = (n: any) => new Intl.NumberFormat("fa-IR").format(Number(n) || 0);
 const labels: Record<string, string> = {
   netProfit: "سود خالص عملیاتی ثبت‌شده (تومان)",
-  courierCosts: "هزینه پیک (تومان)",
+  courierCosts: "هزینه سفیر (تومان)",
   operatingExpenses: "هزینه‌های عملیاتی (تومان)",
   commissionRevenue: "درآمد کارمزد (تومان)",
+  promoCodes: "کدهای تخفیف سراسری",
+  activePromoCodes: "کدهای فعال",
+  promoRedemptions: "مصرف کدهای تخفیف",
+  promoSpend: "یارانهٔ کدهای تخفیف (تومان)",
+  customersWithOrders: "مشتریان دارای سفارش",
+  firstTimeCustomers: "کاربران بدون سفارش",
   users: "کل کاربران",
   activeUsers: "کاربران فعال",
   inactiveUsers: "کاربران غیرفعال",
   sellers: "کل فروشندگان",
   activeSellers: "فروشندگان فعال",
   inactiveSellers: "فروشندگان غیرفعال",
-  couriers: "کل پیک‌ها",
+  couriers: "کل سفیرها",
   pendingCouriers: "در انتظار احراز هویت",
-  approvedCouriers: "پیک تأییدشده",
-  rejectedCouriers: "پیک ردشده",
+  approvedCouriers: "سفیر تأییدشده",
+  rejectedCouriers: "سفیر ردشده",
   correctionCouriers: "نیازمند اصلاح مدارک",
   products: "بانک محصولات",
   stores: "فروشگاه‌ها",
@@ -147,7 +223,8 @@ export default function AdminApp() {
     [tableTotal, setTableTotal] = useState(0),
     [tablePage, setTablePage] = useState(1);
   const [review, setReview] = useState<Courier | null>(null),
-    [reason, setReason] = useState("");
+    [reason, setReason] = useState(""),
+    [navOpen, setNavOpen] = useState(false);
   async function load() {
     setBusy(true);
     setError("");
@@ -181,7 +258,7 @@ export default function AdminApp() {
     setTablePage(1);
   }, [page, query, filter]);
   useEffect(() => {
-    if (!logged || !["orders", "users"].includes(page)) return;
+    if (!logged || page !== "orders") return;
     let live = true;
     const read = () =>
       api(
@@ -244,15 +321,32 @@ export default function AdminApp() {
   }
   const match = (r: unknown) =>
     JSON.stringify(r).toLowerCase().includes(query.toLowerCase());
-  const nav = [
-    ["dashboard", "نمای کلی", LayoutDashboard],
-    ["operations", "مالی و پشتیبانی", ShieldCheck],
-    ["products", "بانک محصولات", Boxes],
-    ["couriers", "احراز هویت پیک", Bike],
-    ["orders", "سفارش‌ها", ShoppingBag],
-    ["stores", "فروشندگان", Store],
-    ["users", "کاربران", Users],
-  ] as const;
+  const navGroups: { title: string; items: NavItem[] }[] = [
+    {
+      title: "نظارت",
+      items: [
+        ["dashboard", "نمای کلی", LayoutDashboard],
+        ["orders", "سفارش‌ها", ShoppingBag],
+        ["users", "کاربران", Users],
+      ],
+    },
+    {
+      title: "رشد فروش",
+      items: [
+        ["promotions", "کدهای تخفیف", TicketPercent],
+        ["products", "بانک محصولات", Boxes],
+        ["stores", "فروشندگان", Store],
+      ],
+    },
+    {
+      title: "عملیات",
+      items: [
+        ["couriers", "احراز هویت سفیر", Bike],
+        ["operations", "مالی و پشتیبانی", ShieldCheck],
+      ],
+    },
+  ];
+  const nav: NavItem[] = navGroups.flatMap((group) => group.items);
   if (!logged)
     return (
       <main className="login-wrap">
@@ -314,7 +408,13 @@ export default function AdminApp() {
       </main>
     );
   return (
-    <div className="admin-shell">
+    <div className={`admin-shell${navOpen ? " nav-open" : ""}`}>
+      <button
+        type="button"
+        className="nav-scrim"
+        aria-label="بستن منو"
+        onClick={() => setNavOpen(false)}
+      />
       <aside className="sidebar">
         <div className="brand">
           <span className="brand-icon">
@@ -324,27 +424,45 @@ export default function AdminApp() {
             <b>نازمارکت</b>
             <small>مرکز کنترل و مدیریت</small>
           </div>
+          <button
+            type="button"
+            className="nav-close"
+            aria-label="بستن منو"
+            onClick={() => setNavOpen(false)}
+          >
+            <X size={18} />
+          </button>
         </div>
-        <p className="eyebrow">فضای مدیریت</p>
         <nav>
-          {nav.map(([id, label, Icon]) => (
-            <button
-              key={id}
-              className={page === id ? "selected" : ""}
-              onClick={() => {
-                setPage(id);
-                setQuery("");
-                setFilter("all");
-              }}
-            >
-              <Icon size={19} />
-              {label}
-              {id === "couriers" && data.stats.pendingCouriers > 0 && (
-                <span className="count">
-                  {money(data.stats.pendingCouriers)}
-                </span>
-              )}
-            </button>
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.title}>
+              <p className="eyebrow">{group.title}</p>
+              {group.items.map(([id, label, Icon]) => (
+                <button
+                  key={id}
+                  className={page === id ? "selected" : ""}
+                  onClick={() => {
+                    setPage(id);
+                    setQuery("");
+                    setFilter("all");
+                    setNavOpen(false);
+                  }}
+                >
+                  <Icon size={19} />
+                  {label}
+                  {id === "couriers" && data.stats.pendingCouriers > 0 && (
+                    <span className="count">
+                      {money(data.stats.pendingCouriers)}
+                    </span>
+                  )}
+                  {id === "orders" && data.stats.status1 > 0 && (
+                    <span className="count count-soft">
+                      {money(data.stats.status1)}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -369,19 +487,30 @@ export default function AdminApp() {
       </aside>
       <main className="content">
         <header className="topbar">
-          <span>
-            <i className="online-dot" /> پنل مدیریت اصلی
+          <span className="topbar-left">
+            <button
+              type="button"
+              className="nav-toggle"
+              aria-label="باز کردن منو"
+              onClick={() => setNavOpen(true)}
+            >
+              <Menu size={19} />
+            </button>
+            <i className="online-dot" /> داده‌های زندهٔ سامانه
+            <em>{formatJalali(new Date())}</em>
           </span>
-          <button disabled={busy} onClick={() => void load()}>
-            <RefreshCw size={16} className={busy ? "spin" : ""} />{" "}
-            {busy ? "به‌روزرسانی…" : "به‌روزرسانی"}
-          </button>
+          <span className="topbar-actions">
+            <small>به‌روزرسانی خودکار هر ۶۰ ثانیه</small>
+            <button disabled={busy} onClick={() => void load()}>
+              <RefreshCw size={16} className={busy ? "spin" : ""} />{" "}
+              {busy ? "به‌روزرسانی…" : "به‌روزرسانی"}
+            </button>
+          </span>
         </header>
         <div className="page-head">
           <div>
-            <p className="eyebrow">کنترل، نظارت و هماهنگی</p>
+            <p className="eyebrow">{pageHints[page] ?? "کنترل، نظارت و هماهنگی"}</p>
             <h1>{nav.find((n) => n[0] === page)?.[1]}</h1>
-            <p>مدیریت فروش، محصولات و ارسال؛ در یک فضای یکپارچه</p>
           </div>
           {page === "products" && (
             <button className="primary" onClick={() => setEditing(null)}>
@@ -402,18 +531,70 @@ export default function AdminApp() {
             {error}
           </div>
         )}
-        {page === "dashboard" ? (
+        {page === "promotions" ? (
+          <Promotions api={api} />
+        ) : page === "dashboard" ? (
           <>
-            <div className="stats-grid">
-              {Object.entries(data.stats).map(([key, value]) => (
-                <article
-                  className={`stat ${["sales", "orders", "users", "pendingCouriers"].includes(key) ? "highlight" : ""}`}
-                  key={key}
-                >
-                  <span>{labels[key] || key}</span>
-                  <strong>{money(value)}</strong>
-                  <small>بر اساس داده‌های ثبت‌شده</small>
+            <div className="focus-strip">
+              {([
+                ["dailySales", "فروش امروز", Wallet],
+                ["monthlySales", "فروش این ماه", TrendingUp],
+                ["status1", "سفارش در جریان", ShoppingBag],
+                ["pendingCouriers", "در انتظار احراز سفیر", Bike],
+              ] as [string, string, LucideIcon][]).map(([key, title, Icon]) => {
+                const I = Icon;
+                return (
+                  <article className="focus" key={key}>
+                    <span className="focus-icon">
+                      <I size={18} />
+                    </span>
+                    <div>
+                      <span>{String(title)}</span>
+                      <strong>{money(data.stats[key])}</strong>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="pipeline">
+              {statuses.map((label, index) => (
+                <article className={`pipe stage-${index}`} key={label}>
+                  <header>
+                    <span>{label}</span>
+                    <strong>{money(data.stats["status" + index])}</strong>
+                  </header>
+                  <i>
+                    <b
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          (Number(data.stats["status" + index] || 0) /
+                            Math.max(1, Number(data.stats.orders || 0))) *
+                            100,
+                        )}%`,
+                      }}
+                    />
+                  </i>
                 </article>
+              ))}
+            </div>
+            <div className="stat-groups">
+              {statGroups.map((group) => (
+                <section className="panel" key={group.title}>
+                  <h2>{group.title}</h2>
+                  <div className="stats-grid">
+                    {group.keys.map((key) => (
+                      <article
+                        className={`stat ${group.hero?.includes(key) ? "highlight" : ""}`}
+                        key={key}
+                      >
+                        <span>{labels[key] || key}</span>
+                        <strong>{money(data.stats[key])}</strong>
+                        <small>{group.note}</small>
+                      </article>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
             <p className="definition">{data.activeDefinition}</p>
@@ -430,9 +611,9 @@ export default function AdminApp() {
                 />
               </section>
               <section className="panel">
-                <h2>عملکرد پیک‌ها</h2>
+                <h2>عملکرد سفیرها</h2>
                 <Table
-                  headings={["پیک", "دریافت‌شده", "تحویل نهایی"]}
+                  headings={["سفیر", "دریافت‌شده", "تحویل نهایی"]}
                   rows={data.courierReport.map((r: Row) => [
                     r.full_name,
                     money(r.orders),
@@ -706,24 +887,7 @@ export default function AdminApp() {
                 </p>
               </section>
             )}
-            {page === "users" && (
-              <section className="panel">
-                <Table
-                  headings={["نام", "موبایل", "تاریخ عضویت", "وضعیت"]}
-                  rows={tableRows.map((u: Row) => [
-                    `${u.first_name} ${u.last_name}`,
-                    u.phone,
-                    new Date(u.created_at).toLocaleDateString("fa-IR"),
-                    <span
-                      className={`badge ${u.active ? "approved" : "rejected"}`}
-                    >
-                      {u.active ? "فعال" : "غیرفعال"}
-                    </span>,
-                  ])}
-                />
-                <p className="definition">وضعیت بر مبنای ورود در ۳۰ روز اخیر</p>
-              </section>
-            )}
+            {page === "users" && <Customers api={api} />}
             {page === "stores" && (
               <section className="panel">
                 <Table
@@ -933,7 +1097,7 @@ export default function AdminApp() {
                       {
                         customer: "مشتری",
                         seller: "فروشنده",
-                        courier: "پیک موتوری",
+                        courier: "سفیر",
                         migration: "انتقال اطلاعات",
                       } as Row
                     )[e.actor_role]
@@ -972,7 +1136,7 @@ export default function AdminApp() {
         </Modal>
       )}
       {document && (
-        <Modal title="مدرک محرمانه پیک" onClose={() => setDocument("")}>
+        <Modal title="مدرک محرمانه سفیر" onClose={() => setDocument("")}>
           <img className="document-view" src={document} alt="مدرک احراز هویت" />
           <p className="definition">
             این مدرک فقط برای بررسی هویت و برای مدیر مجاز نمایش داده می‌شود.

@@ -1,4 +1,5 @@
 import { dispatchStatus } from "../dispatch-status.js";
+import { promoDateBound } from "../promos.js";
 import { sellerPrice } from "../product-rules.js";
 import { normalizeImage } from "../images.js";
 import { recordOrderEvent } from "../order-workflow.js";
@@ -655,6 +656,11 @@ router.post("/promotions", async (req, res) => {
   const amount = Math.floor(Number(b.amount)),
     minSubtotal = Math.floor(Number(b.minSubtotal ?? 0));
   const maxDiscount = Math.floor(Number(b.maxDiscount ?? 0));
+  // Every store code is single-use by default; `0` explicitly means unlimited.
+  const maxUses =
+    b.maxUses === undefined || b.maxUses === null || b.maxUses === ""
+      ? 1
+      : Math.floor(Number(b.maxUses));
   if (
     !/^[A-Z0-9_-]{3,40}$/.test(code) ||
     !title ||
@@ -664,27 +670,36 @@ router.post("/promotions", async (req, res) => {
     !Number.isSafeInteger(minSubtotal) ||
     minSubtotal < 0 ||
     !Number.isSafeInteger(maxDiscount) ||
-    maxDiscount < 0
+    maxDiscount < 0 ||
+    !Number.isSafeInteger(maxUses) ||
+    maxUses < 0 ||
+    maxUses > 1000000
   )
     return fail(
       res,
       400,
       "invalid_promotion",
-      "کد، عنوان و مبلغ تخفیف را بررسی کنید.",
+      "کد، عنوان، مبلغ تخفیف و تعداد مجاز مصرف را بررسی کنید.",
     );
-  const expiryDate = b.expiresAt ? new Date(b.expiresAt) : null;
-  if (expiryDate && !Number.isFinite(expiryDate.getTime()))
+  const expiresAt = promoDateBound(b.expiresAt, "end");
+  if (expiresAt === undefined)
     return fail(
       res,
       400,
       "invalid_expiration",
       "تاریخ پایان کد تخفیف معتبر نیست.",
     );
-  const expiresAt = expiryDate?.toISOString() ?? null;
+  if (expiresAt && expiresAt <= new Date().toISOString())
+    return fail(
+      res,
+      400,
+      "expired_promotion",
+      "تاریخ پایان کد تخفیف گذشته است؛ امروز یا بعد از آن را انتخاب کنید.",
+    );
   try {
     const result = await db.run(
-      `INSERT INTO seller_promos (seller_id, store_id, code, title, description, kind, amount, min_subtotal, max_discount, active, expires_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+      `INSERT INTO seller_promos (seller_id, store_id, code, title, description, kind, amount, min_subtotal, max_discount, active, expires_at, max_uses, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
       [
         req.seller.id,
         store.id,
@@ -696,6 +711,7 @@ router.post("/promotions", async (req, res) => {
         minSubtotal,
         maxDiscount,
         expiresAt,
+        maxUses,
         new Date().toISOString(),
       ],
     );
@@ -845,7 +861,7 @@ router.post("/orders/:id/dispatch", async (req, res) => {
       res,
       409,
       "dispatch_conflict",
-      "سفارش آماده نیست یا پیک آن را پذیرفته است.",
+      "سفارش آماده نیست یا سفیر آن را پذیرفته است.",
     );
   res.json({
     order: mapOrder(
@@ -887,7 +903,7 @@ router.post("/orders/:id/self-delivery", async (req, res) => {
       res,
       409,
       "self_delivery_conflict",
-      "سفارش آماده نیست یا پیک آن را پذیرفته است؛ فهرست را تازه‌سازی کنید.",
+      "سفارش آماده نیست یا سفیر آن را پذیرفته است؛ فهرست را تازه‌سازی کنید.",
     );
   res.json({
     order: mapOrder(

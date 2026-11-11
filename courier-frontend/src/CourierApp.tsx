@@ -7,7 +7,6 @@ import {
   UserRound,
   Eye,
   EyeOff,
-  ArrowLeft,
   X,
   KeyRound,
   WifiOff,
@@ -49,6 +48,8 @@ export default function CourierApp() {
     [notifications, setNotifications] = useState<Row[]>([]),
     [unread, setUnread] = useState(0),
     [notificationError, setNotificationError] = useState(""),
+    [notifOpen, setNotifOpen] = useState(false),
+    [openNotice, setOpenNotice] = useState(0),
     [ticketTrip, setTicketTrip] = useState(""),
     [orders, setOrders] = useState<Row[]>([]),
     [busy, setBusy] = useState(false),
@@ -343,7 +344,7 @@ export default function CourierApp() {
         action === "claim"
           ? "پیشنهاد پذیرفته شد؛ اکنون به سمت فروشگاه حرکت کنید."
           : action === "decline"
-            ? "پیشنهاد رد شد؛ اگر هنوز در جست‌وجوی پیک باشد، در «سفارش‌های من» برای پذیرش دوباره باقی می‌ماند."
+            ? "پیشنهاد رد شد؛ اگر هنوز در جست‌وجوی سفیر باشد، در «سفارش‌های من» برای پذیرش دوباره باقی می‌ماند."
             : action === "arrive"
               ? "رسیدن شما به فروشگاه ثبت شد."
               : action === "pickup"
@@ -386,6 +387,27 @@ export default function CourierApp() {
     setNotice("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
+  /**
+   * The bell opens the notification list as a menu inside the current page and
+   * treats the whole inbox as read the moment it opens.
+   */
+  async function toggleNotifications() {
+    if (notifOpen) {
+      setNotifOpen(false);
+      setOpenNotice(0);
+      return;
+    }
+    setNotifOpen(true);
+    void loadNotifications();
+    if (unread > 0) {
+      try {
+        await api("/notifications/all/read", json({}, "PATCH"));
+        await loadNotifications();
+      } catch {
+        /* the next 10s poll retries; the drawer still shows the list */
+      }
+    }
+  }
   if (boot)
     return (
       <div className="boot">
@@ -398,12 +420,12 @@ export default function CourierApp() {
       <main className="login-page">
         <section className="login-story">
           <div className="brand">
-            <Bike /> نازمارکت · همراه پیک
+            <Bike /> نازمارکت · همراه سفیر
           </div>
           <img
             className="login-illustration"
             src="/courier-ride.webp"
-            alt="پیک نازمارکت با موتور سبز و جعبه ارسال"
+            alt="سفیر نازمارکت با موتور سبز و جعبه ارسال"
             width="800"
             height="800"
           />
@@ -418,7 +440,7 @@ export default function CourierApp() {
           <span className="hero-icon">
             <Bike size={30} />
           </span>
-          <h2>{mode === "login" ? "ورود به حساب پیک" : "ساخت حساب پیک"}</h2>
+          <h2>{mode === "login" ? "ورود به حساب سفیر" : "ساخت حساب سفیر"}</h2>
           {mode === "register" && (
             <p className="muted">
               احراز هویت را پس از ورود از تنظیمات تکمیل می‌کنید.
@@ -552,7 +574,7 @@ export default function CourierApp() {
           ? "موقعیت شما معتبر یا به‌روز نیست؛ موقعیت مکانی را تازه‌سازی کنید."
           : dispatchStatus === "offers_available"
             ? "پیشنهادهای آمادهٔ دریافت در ادامه هستند. دریافت پیشنهادها هر ۱۰ ثانیه بررسی می‌شود."
-            : "در شعاع ۱۵ کیلومتری شما سفارش آماده‌ای پیدا نشد. فروشنده باید سفارش را به «آماده تحویل به پیک» برساند و مختصات فروشگاه ثبت شده باشد. بررسی خودکار هر ۱۰ ثانیه انجام می‌شود.";
+            : "در شعاع ۱۵ کیلومتری شما سفارش آماده‌ای پیدا نشد. فروشنده باید سفارش را به «آماده تحویل به سفیر» برساند و مختصات فروشگاه ثبت شده باشد. بررسی خودکار هر ۱۰ ثانیه انجام می‌شود.";
   const shown = orders.filter((o) =>
     page === "history"
       ? o.status === 5
@@ -565,10 +587,9 @@ export default function CourierApp() {
     orders: "سفارش‌های پیشنهادی و جاری",
     wallet: "درآمد و کیف پول",
     settings: "تنظیمات حساب",
-    verify: "احراز هویت پیک",
+    verify: "احراز هویت سفیر",
     tickets: "پشتیبانی و تیکت",
     history: "تاریخچهٔ سفرها",
-    notifications: "مرکز اعلان‌ها",
     password: "تغییر رمز عبور",
     active: "مدیریت سفر فعال",
   };
@@ -655,7 +676,7 @@ export default function CourierApp() {
           </span>
           <div>
             <b>نازمارکت</b>
-            <small>همراه پیک موتوری</small>
+            <small>همراه سفیر</small>
           </div>
         </div>
         <div className="profile-card">
@@ -692,14 +713,6 @@ export default function CourierApp() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-promo">
-          <img src="/courier-ride.webp" alt="" width="800" height="800" />
-          <b>هر مسیر، یک فرصت تازه</b>
-          <p>با نازمارکت، همراه شهر باش.</p>
-          <button onClick={() => go("orders")}>
-            دیدن سفارش‌ها <ArrowLeft size={15} />
-          </button>
-        </div>
         <div className="sidebar-footer">
           <ShieldCheck size={17} />
           {verifyLabel[courier.verificationStatus]}
@@ -716,13 +729,14 @@ export default function CourierApp() {
               )}
             </span>
             <b>{courier.fullName}</b>
-            <small>خوش آمدید به همراه پیک</small>
+            <small>خوش آمدید به همراه سفیر</small>
           </span>
           <div className="topbar-tools">
             <button
-              className="notification-button"
-              onClick={() => go("notifications")}
+              className={`notification-button${notifOpen ? " is-open" : ""}`}
+              onClick={() => void toggleNotifications()}
               aria-label="مرکز اعلان‌ها"
+              aria-expanded={notifOpen}
             >
               <Bell size={21} />
               {unread > 0 && <span>{money(unread)}</span>}
@@ -737,7 +751,7 @@ export default function CourierApp() {
                 day: "numeric",
                 month: "long",
               })}{" "}
-              · همراه پیک نازمارکت
+              · همراه سفیر نازمارکت
             </p>
             <h1>{titles[page]}</h1>
             <p className="muted">
@@ -822,73 +836,6 @@ export default function CourierApp() {
           )}
         {page !== "work" && orderContent}
         {page === "history" && <TripHistory />}
-        {page === "notifications" && (
-          <section className="panel">
-            <div className="section-heading">
-              <h2>
-                <Bell size={20} />
-                اعلان‌های شما
-              </h2>
-              <button
-                onClick={async () => {
-                  try {
-                    await api("/notifications/all/read", json({}, "PATCH"));
-                    await loadNotifications();
-                  } catch (e) {
-                    setError((e as Error).message);
-                  }
-                }}
-              >
-                خواندن همه
-              </button>
-            </div>
-            {notificationError ? (
-              <p className="alert error">
-                {notificationError}
-                <button onClick={() => void loadNotifications()}>
-                  تلاش مجدد
-                </button>
-              </p>
-            ) : !notifications.length ? (
-              <Empty
-                title="اعلانی ثبت نشده"
-                text="خبرهای سفر، بررسی مدارک و پاسخ پشتیبانی اینجا قرار می‌گیرند."
-              />
-            ) : (
-              notifications.map((n) => (
-                <button
-                  className={`notification-row ${n.is_read ? "" : "unread"}`}
-                  key={n.id}
-                  onClick={async () => {
-                    try {
-                      await api(
-                        `/notifications/${n.id}/read`,
-                        json({}, "PATCH"),
-                      );
-                      await loadNotifications();
-                      go(n.target);
-                    } catch (e) {
-                      setError((e as Error).message);
-                    }
-                  }}
-                >
-                  <Bell size={19} />
-                  <div>
-                    <b>{n.title}</b>
-                    <p>{n.body}</p>
-                    <small>
-                      {new Date(n.created_at).toLocaleString("fa-IR")}
-                    </small>
-                  </div>
-                </button>
-              ))
-            )}
-            <p className="spec-hint">
-              این مرکز اعلان داخل پنل است؛ Push موبایل و اعلان هنگام بسته بودن
-              برنامه هنوز متصل نیست.
-            </p>
-          </section>
-        )}
         {page === "password" && (
           <section className="panel">
             <h2>تغییر رمز عبور</h2>
@@ -996,7 +943,11 @@ export default function CourierApp() {
                 <button
                   className="settings-link"
                   key={String(id)}
-                  onClick={() => go(String(id))}
+                  onClick={() =>
+                    id === "notifications"
+                      ? void toggleNotifications()
+                      : go(String(id))
+                  }
                 >
                   <span>
                     <I size={23} />
@@ -1335,9 +1286,91 @@ export default function CourierApp() {
           </div>
         )}
         <footer>
-          نازمارکت · همراه پیک · مبالغ به تومان · فاصله و زمان تخمینی‌اند
+          نازمارکت · همراه سفیر · مبالغ به تومان · فاصله و زمان تخمینی‌اند
         </footer>
       </main>
+      {notifOpen && (
+        <div className="notif-layer">
+          <button
+            type="button"
+            className="notif-backdrop"
+            aria-label="بستن اعلان‌ها"
+            onClick={() => {
+              setNotifOpen(false);
+              setOpenNotice(0);
+            }}
+          />
+          <aside className="notif-drawer" role="dialog" aria-modal="true" aria-label="مرکز اعلان‌ها">
+            <header>
+              <div>
+                <h3>
+                  <Bell size={18} /> مرکز اعلان‌ها
+                </h3>
+                <small>
+                  {unread > 0
+                    ? `${money(unread)} اعلان تازه`
+                    : "همهٔ اعلان‌ها خوانده شد"}
+                </small>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotifOpen(false);
+                  setOpenNotice(0);
+                }}
+                aria-label="بستن"
+              >
+                <X size={18} />
+              </button>
+            </header>
+            <div className="notif-body">
+              {notificationError ? (
+                <p className="alert error">
+                  {notificationError}
+                  <button onClick={() => void loadNotifications()}>تلاش مجدد</button>
+                </p>
+              ) : !notifications.length ? (
+                <div className="notif-empty">
+                  اعلانی ثبت نشده است. خبرهای سفر، بررسی مدارک و پاسخ پشتیبانی
+                  همین‌جا نمایش داده می‌شوند.
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <div
+                    key={n.id}
+                    className={`notif-row${n.is_read ? "" : " unread"}${openNotice === Number(n.id) ? " is-open" : ""}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setOpenNotice((current) =>
+                          current === Number(n.id) ? 0 : Number(n.id),
+                        )
+                      }
+                      aria-expanded={openNotice === Number(n.id)}
+                    >
+                      <span className="notif-dot" aria-hidden="true" />
+                      <span className="notif-text">
+                        <b>{n.title}</b>
+                        <small>
+                          {new Date(n.created_at).toLocaleString("fa-IR")}
+                        </small>
+                      </span>
+                    </button>
+                    {openNotice === Number(n.id) && <p>{n.body}</p>}
+                  </div>
+                ))
+              )}
+            </div>
+            <footer>
+              <span>با باز کردن این فهرست، همهٔ اعلان‌ها خوانده می‌شوند.</span>
+              <button type="button" onClick={() => void loadNotifications()}>
+                تازه‌سازی
+              </button>
+            </footer>
+          </aside>
+        </div>
+      )}
       {incoming && (
         <IncomingOffer
           key={incoming.id}

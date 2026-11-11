@@ -964,17 +964,15 @@ export default function App() {
             >
               <Search className="h-4 w-4" />
             </button>
-            {!!cartCount && (
-              <button
-                type="button"
-                className="mobile-header-cart"
-                aria-label={`سبد خرید، ${pd(cartCount)} کالا`}
-                onClick={() => go("cart")}
-              >
-                <ShoppingCart size={16} />
-                <span>{pd(cartCount)}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              className={`mobile-header-cart${cartCount ? " has-items" : ""}`}
+              aria-label={`سبد خرید، ${pd(cartCount)} کالا`}
+              onClick={() => go("cart")}
+            >
+              <ShoppingCart size={16} />
+              {!!cartCount && <span>{pd(cartCount)}</span>}
+            </button>
             <div className="relative">
               <button
                 type="button"

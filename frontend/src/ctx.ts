@@ -15,7 +15,7 @@ export type Sub =
   | { name: "search" }
   | { name: "favorites" }
   | { name: "order-history" }
-  | { name: "account-detail"; id: "codes" | "payments" | "reviews" }
+  | { name: "account-detail"; id: "codes" | "payments" }
   | { name: "map" }
   | { name: "stores" }
   | { name: "address" }

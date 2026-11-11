@@ -276,7 +276,7 @@ test(
           {
             phone: phone(n),
             password: "courier-password-123",
-            fullName: "پیک تست",
+            fullName: "سفیر تست",
             vehicle: "motorcycle",
           },
           "POST",

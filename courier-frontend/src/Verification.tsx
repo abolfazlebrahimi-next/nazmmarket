@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PersianDateField from "./PersianDateField";
 import {
   Camera,
   Check,
@@ -306,17 +307,15 @@ export default function Verification({
                     }
                   />
                 </label>
-                <label className="naz-floating-field">
-                  <span className="naz-floating-label">تاریخ تولد</span>
-                  <input
-                    type="date"
-                    placeholder=" "
+                <div className="jalali-field">
+                  <span className="jalali-field-caption">تاریخ تولد (شمسی)</span>
+                  <PersianDateField
                     value={birthDate}
-                    max={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => setBirthDate(e.target.value)}
+                    maxIso={new Date().toISOString().slice(0, 10)}
+                    onChange={(iso) => setBirthDate(iso ?? "")}
                   />
-                  <small>تاریخ مطابق تقویم نمایش‌داده‌شدهٔ مرورگر</small>
-                </label>
+                  <small>تاریخ تولد نمی‌تواند مربوط به آینده باشد.</small>
+                </div>
                 <label className="naz-floating-field">
                   <span className="naz-floating-label">برند موتور</span>
                   <input

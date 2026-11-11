@@ -1,0 +1,244 @@
+/* Jalali (Persian) date picker shared by the seller, admin and courier panels.
+   The trigger imitates the panel's own text input; every size and colour is a
+   custom property so each panel can match its typography with a few overrides:
+
+     .naz-jalali { --jd-h: 46px; --jd-fs: 13px; }
+*/
+.naz-jalali {
+  --jd-h: 39px;
+  --jd-fs: 10px;
+  --jd-pad: 0 11px;
+  --jd-rad: 9px;
+  --jd-line: #e3e9e4;
+  --jd-paper: #fff;
+  --jd-bg: #fff;
+  --jd-ink: #344139;
+  --jd-muted: #9aa6a0;
+  --jd-accent: #16865b;
+  --jd-accent-soft: #f1f6f2;
+  --jd-pop-w: 268px;
+  --jd-cell: 29px;
+  --jd-head-fs: 11px;
+  --jd-title-fs: 11px;
+  --jd-sub-fs: 9px;
+  --jd-week-fs: 8.5px;
+  --jd-day-fs: 10px;
+  --jd-btn: 26px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.naz-jalali-trigger {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--jd-h);
+  padding: var(--jd-pad);
+  border: 1px solid var(--jd-line);
+  border-radius: var(--jd-rad);
+  background: var(--jd-bg);
+  color: var(--jd-ink);
+  font-size: var(--jd-fs);
+  font-weight: 650;
+  text-align: right;
+  transition: 0.16s;
+}
+.naz-jalali-trigger:hover {
+  border-color: #b9cdc0;
+}
+.naz-jalali-trigger:focus-visible {
+  outline: 0;
+  border-color: var(--jd-accent);
+  box-shadow: 0 0 0 3px rgba(22, 134, 91, 0.13);
+}
+.naz-jalali-trigger:not(.has-value) .naz-jalali-value {
+  color: var(--jd-muted);
+  font-weight: 500;
+}
+.naz-jalali-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: calc(var(--jd-btn) - 4px);
+  height: calc(var(--jd-btn) - 4px);
+  border-radius: calc(var(--jd-rad) - 2px);
+  background: var(--jd-accent-soft);
+  color: var(--jd-accent);
+}
+.naz-jalali-icon svg {
+  width: calc(var(--jd-fs) + 6px);
+  height: calc(var(--jd-fs) + 6px);
+}
+.naz-jalali-clear {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--jd-btn);
+  height: var(--jd-btn);
+  padding: 0;
+  border: 1px solid var(--jd-line);
+  border-radius: calc(var(--jd-rad) - 1px);
+  background: var(--jd-paper);
+  color: var(--jd-muted);
+  font-size: calc(var(--jd-fs) + 4px);
+  line-height: 1;
+}
+.naz-jalali-clear:hover {
+  border-color: #f0b9b2;
+  color: #c0392b;
+  background: var(--jd-paper);
+}
+.naz-jalali-pop {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  right: 0;
+  width: var(--jd-pop-w);
+  padding: calc(var(--jd-cell) / 3) calc(var(--jd-cell) / 2.7)
+    calc(var(--jd-cell) / 2.7);
+  border: 1px solid var(--jd-line);
+  border-radius: calc(var(--jd-rad) + 4px);
+  background: var(--jd-paper);
+  box-shadow: 0 18px 44px rgba(25, 45, 34, 0.16);
+  color: var(--jd-ink);
+  line-height: 1.6;
+  text-align: right;
+  animation: naz-jalali-in 0.16s ease both;
+}
+@keyframes naz-jalali-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+.naz-jalali-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: calc(var(--jd-cell) / 3.6);
+}
+.naz-jalali-head > button {
+  display: grid;
+  place-items: center;
+  width: var(--jd-btn);
+  height: var(--jd-btn);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--jd-rad) - 1px);
+  background: var(--jd-accent-soft);
+  color: var(--jd-ink);
+  font-size: calc(var(--jd-fs) + 4px);
+  line-height: 1;
+}
+.naz-jalali-head > button:hover {
+  background: #e6f1ea;
+  color: var(--jd-accent);
+}
+.naz-jalali-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.naz-jalali-title b {
+  font-size: var(--jd-title-fs);
+}
+.naz-jalali-title span {
+  font-size: var(--jd-sub-fs);
+  font-weight: 400;
+  color: var(--jd-muted);
+}
+.naz-jalali-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+.naz-jalali-week > span {
+  padding-bottom: 4px;
+  color: var(--jd-muted);
+  font-size: var(--jd-week-fs);
+  font-weight: 700;
+}
+.naz-jalali-days > button,
+.naz-jalali-days > span {
+  display: grid;
+  place-items: center;
+  height: var(--jd-cell);
+  padding: 0;
+  border: 0;
+  border-radius: calc(var(--jd-rad) - 1px);
+  background: none;
+  color: var(--jd-ink);
+  font-size: var(--jd-day-fs);
+  font-weight: 650;
+}
+.naz-jalali-days > button:hover:not(:disabled) {
+  background: #eef6f0;
+  color: var(--jd-accent);
+}
+.naz-jalali-days > button.is-today {
+  box-shadow: inset 0 0 0 1px #bfe0cd;
+}
+.naz-jalali-days > button.is-selected,
+.naz-jalali-days > button.is-selected:hover {
+  background: var(--jd-accent);
+  color: #fff;
+}
+.naz-jalali-days > button:disabled {
+  color: #c7cfc9;
+  background: none;
+  cursor: not-allowed;
+}
+.naz-jalali-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: calc(var(--jd-cell) / 3.2);
+  padding-top: calc(var(--jd-cell) / 3.6);
+  border-top: 1px dashed var(--jd-line);
+}
+.naz-jalali-foot > button {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: calc(var(--jd-rad) - 2px);
+  background: var(--jd-accent-soft);
+  color: var(--jd-accent);
+  font-size: calc(var(--jd-fs) - 0.5px);
+  font-weight: 750;
+}
+.naz-jalali-foot > button:hover:not(:disabled) {
+  background: #e3f1e8;
+}
+.naz-jalali-foot > button:disabled {
+  color: #c7cfc9;
+}
+.naz-jalali-foot > span {
+  color: var(--jd-muted);
+  font-size: var(--jd-sub-fs);
+}
+.naz-jalali-pop input,
+.naz-jalali-pop select,
+.naz-jalali-pop textarea {
+  width: auto;
+}
+@media (max-width: 560px) {
+  .naz-jalali-pop {
+    position: fixed;
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+    max-width: 340px;
+    margin-inline: auto;
+  }
+}

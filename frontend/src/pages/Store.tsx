@@ -147,7 +147,11 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
   );
   return (
     <div className="fade-rise mx-auto w-full max-w-6xl pb-6">
-      <ScreenHeader title={cat?.name ?? ""} onBack={() => c.closeSub()} />
+      <ScreenHeader
+        title={cat?.name ?? ""}
+        onBack={() => c.closeSub()}
+        hideBackOnDesktop
+      />
       <label className="category-search mx-4 mt-3 flex h-11 items-center gap-2 rounded-2xl bg-[#f4f4f3] px-3.5 text-muted">
         <Search className="h-4 w-4 shrink-0" />
         <input
@@ -303,9 +307,6 @@ export function ProductModal({ c }: { c: AppCtx }) {
   const p = c.productModal;
   if (!p) return null;
   const qty = c.qtyOf(p.id);
-  const suggestions = products
-    .filter((item) => item.category === p.category && item.id !== p.id)
-    .slice(0, 8);
   const addAction =
     qty === 0 ? (
       <button
@@ -336,7 +337,7 @@ export function ProductModal({ c }: { c: AppCtx }) {
         onClick={c.closeProduct}
         className="fade-in absolute inset-0 hidden bg-ink/50 backdrop-blur-[2px] md:block"
       />
-      <div className="relative flex h-full w-full flex-col bg-white md:h-auto md:max-h-[90dvh] md:max-w-[430px] md:overflow-y-auto md:rounded-[26px] md:p-4 md:shadow-2xl">
+      <div className="no-scrollbar relative flex h-full w-full flex-col bg-white md:h-auto md:max-h-[90dvh] md:max-w-[430px] md:overflow-y-auto md:rounded-[26px] md:p-4 md:shadow-2xl">
         <div className="product-detail-toolbar sticky top-0 z-20 flex h-12 shrink-0 items-center gap-3 border-b border-line bg-white/95 px-4 backdrop-blur md:hidden">
           <BackButton onBack={c.closeProduct} />
           <span className="flex-1 truncate text-[13px] font-black text-ink">
@@ -351,7 +352,7 @@ export function ProductModal({ c }: { c: AppCtx }) {
             <HeartIcon filled={c.isFav(p.id)} />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto pb-5 md:overflow-visible md:pb-0">
+        <div className="no-scrollbar flex-1 overflow-y-auto overscroll-contain pb-5 md:overflow-visible md:pb-0">
           <div className="relative mx-4 mt-4 md:mx-0 md:mt-0">
             <ProductVisual product={p} size="lg" />
             <button
@@ -405,26 +406,6 @@ export function ProductModal({ c }: { c: AppCtx }) {
               {addAction}
             </div>
           </div>
-          <section className="product-modal-suggestions mt-6">
-            <div className="flex items-center justify-between px-4">
-              <h4 className="text-[13px] font-black text-ink">
-                محصولات پیشنهادی
-              </h4>
-              <span className="text-[10px] font-medium text-muted">
-                از همین دسته
-              </span>
-            </div>
-            <div className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-2">
-              {suggestions.map((item) => (
-                <ProductCard
-                  key={item.id}
-                  product={item}
-                  h={c.cardHandlers()}
-                  width="w-[184px]"
-                />
-              ))}
-            </div>
-          </section>
         </div>
         <div className="sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-3 border-t border-line bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
           <div>

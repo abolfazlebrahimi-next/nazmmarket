@@ -93,17 +93,43 @@ router.get("/users", async (req, res) => {
     q = String(req.query.q || "")
       .trim()
       .slice(0, 100),
+    orders = String(req.query.orders || "all"),
+    sort = String(req.query.sort || "newest"),
     since = new Date(Date.now() - 30 * 86400000).toISOString();
-  const clause = q
-      ? " WHERE (phone LIKE ? OR first_name LIKE ? OR last_name LIKE ?)"
-      : "",
-    values = q ? Array(3).fill("%" + q + "%") : [];
+  const where = q
+    ? ["(u.phone LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR CONCAT_WS(' ', u.first_name, u.last_name) LIKE ?)"]
+    : [];
+  const values = q ? Array(4).fill("%" + q + "%") : [];
+  if (orders === "with") where.push("stat.orders > 0");
+  if (orders === "without") where.push("stat.orders = 0");
+  const clause = where.length ? " WHERE " + where.join(" AND ") : "";
+  const orderClause =
+    sort === "orders"
+      ? "ORDER BY stat.orders DESC, u.id DESC"
+      : sort === "spend"
+        ? "ORDER BY stat.spend DESC, u.id DESC"
+        : sort === "oldest"
+          ? "ORDER BY u.id ASC"
+          : "ORDER BY u.id DESC";
+  // One aggregated sub-select keeps the full customer list readable with names,
+  // phone, order count and spend without an N+1 query per row.
+  const select = `FROM users u
+    LEFT JOIN (
+      SELECT user_id, COUNT(*) AS orders,
+             COALESCE(SUM(CASE WHEN status=5 THEN total ELSE 0 END),0) AS spend,
+             MAX(created_at) AS last_order
+      FROM orders GROUP BY user_id
+    ) stat ON stat.user_id = u.id`;
   const total = Number(
-    (await db.get("SELECT COUNT(*) n FROM users" + clause, values)).n,
+    (await db.get("SELECT COUNT(*) n " + select + clause, values)).n,
   );
   res.json({
     rows: await db.all(
-      `SELECT u.id,u.phone,u.first_name,u.last_name,u.created_at,EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.id AND s.created_at>=?) AS active FROM users u${clause} ORDER BY id DESC LIMIT ${size} OFFSET ${(page - 1) * size}`,
+      `SELECT u.id,u.phone,u.first_name,u.last_name,u.created_at,u.wallet,
+        COALESCE(stat.orders,0) AS orders, COALESCE(stat.spend,0) AS spend,
+        stat.last_order AS lastOrder,
+        EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.id AND s.created_at>=?) AS active
+       ${select}${clause} ${orderClause} LIMIT ${size} OFFSET ${(page - 1) * size}`,
       [since, ...values],
     ),
     total,
@@ -163,13 +189,9 @@ router.get("/dashboard", async (_req, res) => {
       (await db.get("SELECT COUNT(*) n FROM orders WHERE status=?", [status]))
         .n,
     );
-  const [orders, users, stores, sellerReport, courierReport] =
+  const [orders, stores, sellerReport, courierReport, promoStats] =
     await Promise.all([
       db.all("SELECT * FROM orders ORDER BY created_at DESC LIMIT 200"),
-      db.all(
-        "SELECT u.id,u.phone,u.first_name,u.last_name,u.created_at,EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.id AND s.created_at>=?) AS active FROM users u ORDER BY id DESC LIMIT 200",
-        [since],
-      ),
       db.all(
         "SELECT id,name,address,is_active FROM stores WHERE seller_id IS NOT NULL ORDER BY id DESC",
       ),
@@ -179,9 +201,16 @@ router.get("/dashboard", async (_req, res) => {
       db.all(
         "SELECT c.id,c.full_name,COUNT(d.order_id) AS orders,SUM(CASE WHEN d.completed_at IS NOT NULL THEN 1 ELSE 0 END) AS completed FROM courier_accounts c LEFT JOIN order_deliveries d ON d.courier_id=c.id GROUP BY c.id,c.full_name",
       ),
+      db.get(
+        "SELECT (SELECT COUNT(*) FROM platform_promos) AS codes," +
+          " (SELECT COUNT(*) FROM platform_promos WHERE active=1) AS activeCodes," +
+          " (SELECT COUNT(*) FROM promo_redemptions) AS redemptions," +
+          " (SELECT COALESCE(SUM(discount),0) FROM promo_redemptions) AS promoSpend," +
+          " (SELECT COUNT(DISTINCT user_id) FROM orders) AS customersWithOrders",
+      ),
     ]);
   const financial = await db.get(
-    "SELECT COALESCE(SUM(platform_commission),0) commission,COALESCE(SUM(first_offer_discount),0) subsidy,COALESCE(SUM(delivery),0) delivery FROM orders WHERE status=5",
+    "SELECT COALESCE(SUM(platform_commission),0) commission,COALESCE(SUM(first_offer_discount + platform_discount),0) subsidy,COALESCE(SUM(delivery),0) delivery FROM orders WHERE status=5",
   );
   const payout = Number(
     (await db.get("SELECT COALESCE(SUM(amount),0) n FROM courier_ledger")).n,
@@ -198,12 +227,17 @@ router.get("/dashboard", async (_req, res) => {
   stats.courierCosts = payout;
   stats.operatingExpenses = expenses;
   stats.commissionRevenue = Number(financial.commission);
+  stats.promoCodes = Number(promoStats?.codes ?? 0);
+  stats.activePromoCodes = Number(promoStats?.activeCodes ?? 0);
+  stats.promoRedemptions = Number(promoStats?.redemptions ?? 0);
+  stats.promoSpend = Number(promoStats?.promoSpend ?? 0);
+  stats.customersWithOrders = Number(promoStats?.customersWithOrders ?? 0);
+  stats.firstTimeCustomers = stats.users - stats.customersWithOrders;
   res.json({
     stats,
     activeDefinition:
-      "کاربر فعال: ورود در ۳۰ روز گذشته؛ فروشنده فعال: حساب و فروشگاه فعال. مبنای گزارش روزانه و ماهانه: UTC؛ فروش مربوط به سفارش تکمیل‌شده است. سود عملیاتی فقط براساس مبالغ و هزینه‌های ثبت‌شده، پیش از مالیات و هزینه‌های ثبت‌نشده است؛ سفارش‌های قدیمی نیازمند تطبیق‌اند.",
+      "کاربر فعال: ورود در ۳۰ روز گذشته؛ فروشنده فعال: حساب و فروشگاه فعال. مبنای گزارش روزانه و ماهانه: UTC؛ فروش مربوط به سفارش تکمیل‌شده است. سود عملیاتی فقط براساس مبالغ و هزینه‌های ثبت‌شده، پیش از مالیات و هزینه‌های ثبت‌نشده است؛ سفارش‌های قدیمی نیازمند تطبیق‌اند. کدهای تخفیف به ازای هر حساب یک‌بار مصرف‌اند و یارانهٔ کد نازمارکت از کارمزد فروشنده کسر نمی‌شود.",
     orders: orders.map(mapOrder),
-    users,
     stores,
     sellerReport,
     courierReport,
@@ -371,7 +405,7 @@ router.get("/couriers/:id/profile", async (req, res) => {
     "SELECT personal_details FROM courier_accounts WHERE id=?",
     [req.params.id],
   );
-  if (!row) return fail(res, 404, "پیک پیدا نشد.");
+  if (!row) return fail(res, 404, "سفیر پیدا نشد.");
   res.json({
     profile: row.personal_details
       ? decryptPrivateJSON(row.personal_details)

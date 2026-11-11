@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, History, RefreshCw } from "lucide-react";
 import { api, money } from "./api";
+import PersianDateField from "./PersianDateField";
 type Row = Record<string, any>;
 export default function TripHistory() {
   const [rows, setRows] = useState<Row[]>([]),
@@ -77,30 +78,31 @@ export default function TripHistory() {
             <option value="failed">ناموفق</option>
           </select>
         </label>
-        <label className="naz-floating-field history-filter-field">
-          <span className="naz-floating-label">از تاریخ</span>
-          <input
-            type="date"
-            placeholder=" "
+        <div className="history-filter-field jalali-field">
+          <span className="jalali-field-caption">از تاریخ (شمسی)</span>
+          <PersianDateField
             value={from}
-            onChange={(e) => {
-              setFrom(e.target.value);
+            maxIso={to || undefined}
+            placeholder="همهٔ تاریخ‌ها"
+            onChange={(iso) => {
+              setFrom(iso ?? "");
               setPage(1);
             }}
           />
-        </label>
-        <label className="naz-floating-field history-filter-field">
-          <span className="naz-floating-label">تا تاریخ</span>
-          <input
-            type="date"
-            placeholder=" "
+        </div>
+        <div className="history-filter-field jalali-field">
+          <span className="jalali-field-caption">تا تاریخ (شمسی)</span>
+          <PersianDateField
             value={to}
-            onChange={(e) => {
-              setTo(e.target.value);
+            minIso={from || undefined}
+            maxIso={new Date().toISOString().slice(0, 10)}
+            placeholder="تا امروز"
+            onChange={(iso) => {
+              setTo(iso ?? "");
               setPage(1);
             }}
           />
-        </label>
+        </div>
       </div>
       {loading ? (
         <p role="status" className="muted">

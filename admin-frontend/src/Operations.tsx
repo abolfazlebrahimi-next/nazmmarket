@@ -83,7 +83,7 @@ export default function Operations({
             />
           </label>
           <label className="naz-floating-field">
-            <span className="naz-floating-label">کمیسیون از کرایهٔ پیک (%)</span>
+            <span className="naz-floating-label">کمیسیون از کرایهٔ سفیر (%)</span>
             <input
               name="courierCommissionPercent"
               placeholder=" "
@@ -100,7 +100,7 @@ export default function Operations({
           </button>
         </form>
         <p className="definition">
-          سود عملیاتی = کارمزد + کرایه دریافتی − دستمزد پیک − یارانه خرید اول −
+          سود عملیاتی = کارمزد + کرایه دریافتی − دستمزد سفیر − یارانه خرید اول −
           هزینه ثبت‌شده. مالیات و هزینه ثبت‌نشده در این عدد نیست. کارمزد پیش‌فرض
           صفر است.
         </p>
@@ -128,7 +128,7 @@ export default function Operations({
         ))}
       </section>
       <section className="panel">
-        <h2>درخواست‌های برداشت پیک</h2>
+        <h2>درخواست‌های برداشت سفیر</h2>
         {data.withdrawals.length === 0 && <p>درخواستی ثبت نشده است.</p>}
         {data.withdrawals.map((w: Row) => (
           <article className="finance-row" key={w.id}>
@@ -178,7 +178,7 @@ export default function Operations({
         ))}
       </section>
       <section className="panel">
-        <h2>تیکت پیک‌ها</h2>
+        <h2>تیکت سفیرها</h2>
         {!data.tickets.length && <p>تیکتی ثبت نشده است.</p>}
         {data.tickets.map((t: Row) => (
           <button
@@ -201,7 +201,7 @@ export default function Operations({
             <div className="messages">
               {messages.map((m) => (
                 <p key={m.id}>
-                  <b>{m.role === "admin" ? "مدیریت" : "پیک"}:</b> {m.body}
+                  <b>{m.role === "admin" ? "مدیریت" : "سفیر"}:</b> {m.body}
                 </p>
               ))}
             </div>
@@ -220,7 +220,7 @@ export default function Operations({
               }}
             >
               <label className="naz-floating-field">
-                <span className="naz-floating-label">پاسخ به پیک</span>
+                <span className="naz-floating-label">پاسخ به سفیر</span>
                 <textarea
                   name="body"
                   required

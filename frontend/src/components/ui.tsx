@@ -308,18 +308,64 @@ export function Modal({ onClose, children, label }: { onClose: () => void; child
 export function BackButton({onBack,className=""}:{onBack:()=>void;className?:string}) {
   return <button type="button" onClick={onBack} aria-label="بازگشت" className={`back-button ${className}`}><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>;
 }
-export function ScreenHeader({ title, onBack, end }: { title: string; onBack: () => void; end?: ReactNode }) {
-  return <div className="screen-heading"><BackButton onBack={onBack}/><h1>{title}</h1>{end}</div>;
+export function ScreenHeader({
+  title,
+  onBack,
+  end,
+  hideBackOnDesktop = false,
+}: {
+  title: string;
+  onBack: () => void;
+  end?: ReactNode;
+  /**
+   * Browse screens are reachable from the desktop header, so the back chevron
+   * beside the title is dropped there and kept on touch layouts only.
+   */
+  hideBackOnDesktop?: boolean;
+}) {
+  return (
+    <div className={`screen-heading${hideBackOnDesktop ? " no-desktop-back" : ""}`}>
+      <BackButton onBack={onBack} />
+      <h1>{title}</h1>
+      {end}
+    </div>
+  );
 }
 
-export function Empty({ icon: Icon, title, desc, actionLabel, onAction }: { icon: typeof X; title: string; desc: string; actionLabel?: string; onAction?: () => void }) {
+/**
+ * Placeholder for an empty list. `align="start"` pins the block to the
+ * top-inline corner instead of floating it in the middle of a tall panel, which
+ * is what the cart and sheet surfaces want.
+ */
+export function Empty({
+  icon: Icon,
+  title,
+  desc,
+  actionLabel,
+  onAction,
+  align = "center",
+}: {
+  icon: typeof X;
+  title: string;
+  desc: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  align?: "center" | "start";
+}) {
+  const start = align === "start";
   return (
-    <div className="px-6 py-16 text-center sm:py-24">
-      <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#f4f3f0]">
+    <div
+      className={`flex flex-col gap-0 px-6 ${
+        start ? "items-start py-6 text-start" : "items-center py-16 text-center sm:py-24"
+      }`}
+    >
+      <span className="flex h-20 w-20 items-center justify-center rounded-full bg-[#f4f3f0]">
         <Icon className="h-9 w-9 text-muted" />
       </span>
       <p className="mt-4 text-[14px] font-black text-ink">{title}</p>
-      <p className="mx-auto mt-1.5 max-w-64 text-[11px] font-medium leading-5 text-muted">{desc}</p>
+      <p className={`mt-1.5 max-w-64 text-[11px] font-medium leading-5 text-muted ${start ? "" : "mx-auto"}`}>
+        {desc}
+      </p>
       {actionLabel && onAction && (
         <button type="button" onClick={onAction} className="mt-5 rounded-2xl bg-brand px-5 py-3 text-[12px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-95">
           {actionLabel}

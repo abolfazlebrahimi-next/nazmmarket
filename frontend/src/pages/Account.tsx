@@ -80,11 +80,6 @@ export function AccountView({ c }: { c: AppCtx }) {
       action: () => c.openSub({ name: "account-detail", id: "codes" }),
     },
     {
-      icon: MessageSquareText,
-      label: "نظرات من",
-      action: () => c.openSub({ name: "account-detail", id: "reviews" }),
-    },
-    {
       icon: ReceiptText,
       label: "مبالغ سفارش‌ها",
       action: () => c.openSub({ name: "account-detail", id: "payments" }),
@@ -432,21 +427,20 @@ export function AccountDetailPage({
   kind,
 }: {
   c: AppCtx;
-  kind: "codes" | "payments" | "reviews";
+  kind: "codes" | "payments";
 }) {
-  const title =
-    kind === "codes"
-      ? "کدهای تخفیف من"
-      : kind === "payments"
-        ? "مبالغ سفارش‌ها"
-        : "نظرات من";
+  const title = kind === "codes" ? "کدهای تخفیف من" : "مبالغ سفارش‌ها";
   const copy = (text: string) => {
     void navigator.clipboard?.writeText(text);
     c.toast("کد تخفیف کپی شد");
   };
   return (
     <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
-      <ScreenHeader title={title} onBack={() => c.closeSub()} />
+      <ScreenHeader
+        title={title}
+        onBack={() => c.closeSub()}
+        hideBackOnDesktop
+      />
       {kind === "codes" && (
         <div className="space-y-3 p-4">
           {discountCodes.length === 0 ? (
@@ -550,13 +544,6 @@ export function AccountDetailPage({
             desc="پرداخت‌های سفارش‌های شما در این صفحه نمایش داده می‌شوند."
           />
         ))}
-      {kind === "reviews" && (
-        <Empty
-          icon={MessageSquareText}
-          title="هنوز نظری ثبت نکرده‌اید"
-          desc="پس از دریافت سفارش، می‌توانید تجربه‌ی خود را برای فروشگاه و کالاها ثبت کنید."
-        />
-      )}
     </div>
   );
 }

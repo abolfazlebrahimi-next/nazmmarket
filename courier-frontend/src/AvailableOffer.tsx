@@ -33,7 +33,7 @@ export default function AvailableOffer({
           </div>
         </div>
         <span className={`badge ${order.declinedByMe ? "declined" : "pending"}`}>
-          {order.declinedByMe ? "قابل‌پذیرش دوباره" : "در انتظار پیک"}
+          {order.declinedByMe ? "قابل‌پذیرش دوباره" : "در انتظار سفیر"}
         </span>
       </div>
 
@@ -95,7 +95,7 @@ export default function AvailableOffer({
 
       {order.declinedByMe && (
         <p className="available-offer-note" role="status">
-          این پیشنهاد را رد کرده بودید؛ چون هنوز پیک دیگری آن را نپذیرفته،
+          این پیشنهاد را رد کرده بودید؛ چون هنوز سفیر دیگری آن را نپذیرفته،
           می‌توانید همین‌جا دوباره قبولش کنید.
         </p>
       )}

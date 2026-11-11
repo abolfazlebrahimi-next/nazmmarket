@@ -52,8 +52,9 @@ const allStores = async (q, type) => {
 const activePromos = async () =>
   (
     await db.all(
-      `SELECT p.*, s.name AS store_name FROM seller_promos p JOIN stores s ON s.id=p.store_id
+      `SELECT p.*, 'store' AS scope, s.name AS store_name FROM seller_promos p JOIN stores s ON s.id=p.store_id
    WHERE p.active=1 AND s.is_active=1 AND (p.expires_at IS NULL OR p.expires_at >= ?)
+     AND (p.max_uses = 0 OR p.usage_count < p.max_uses)
    ORDER BY p.created_at DESC`,
       [new Date().toISOString()],
     )

@@ -216,6 +216,29 @@ export async function migrate() {
       CONSTRAINT fk_order_deliveries_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
       CONSTRAINT fk_order_deliveries_owner FOREIGN KEY (courier_id) REFERENCES courier_accounts(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS platform_promos (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      code VARCHAR(40) NOT NULL, title VARCHAR(180) NOT NULL,
+      description VARCHAR(255) NOT NULL DEFAULT '', kind VARCHAR(20) NOT NULL,
+      amount BIGINT NOT NULL, min_subtotal BIGINT NOT NULL DEFAULT 0, max_discount BIGINT NOT NULL DEFAULT 0,
+      audience VARCHAR(20) NOT NULL DEFAULT 'all', active TINYINT(1) NOT NULL DEFAULT 1,
+      max_uses INT NOT NULL DEFAULT 0, usage_count INT NOT NULL DEFAULT 0,
+      starts_at VARCHAR(32) NULL, expires_at VARCHAR(32) NULL, created_at VARCHAR(32) NOT NULL,
+      UNIQUE KEY uq_platform_promo_code (code), KEY idx_platform_promos_active (active, expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS platform_promo_users (
+      promo_id BIGINT UNSIGNED NOT NULL, user_id BIGINT UNSIGNED NOT NULL, created_at VARCHAR(32) NOT NULL,
+      PRIMARY KEY (promo_id, user_id),
+      CONSTRAINT fk_platform_promo_users_promo FOREIGN KEY (promo_id) REFERENCES platform_promos(id) ON DELETE CASCADE,
+      CONSTRAINT fk_platform_promo_users_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS promo_redemptions (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      scope VARCHAR(10) NOT NULL, promo_id BIGINT UNSIGNED NOT NULL, user_id BIGINT UNSIGNED NOT NULL,
+      order_id VARCHAR(40) NOT NULL, discount BIGINT NOT NULL DEFAULT 0, created_at VARCHAR(32) NOT NULL,
+      UNIQUE KEY uq_promo_redemption (scope, promo_id, user_id), KEY idx_promo_redemptions_order (order_id),
+      CONSTRAINT fk_promo_redemptions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   ];
   for (const sql of schema) await db.run(sql);
 
@@ -339,6 +362,7 @@ export async function migrate() {
     platform_commission: "BIGINT NOT NULL DEFAULT 0",
     first_offer_discount: "BIGINT NOT NULL DEFAULT 0",
     seller_discount: "BIGINT NOT NULL DEFAULT 0",
+    platform_discount: "BIGINT NOT NULL DEFAULT 0",
   }))
     await ensureColumn("orders", column, definition);
   await db.run(
@@ -396,6 +420,22 @@ export async function migrate() {
     "orders",
     "payment_status",
     "VARCHAR(20) NOT NULL DEFAULT 'unpaid'",
+  );
+  // Discount codes: total capacity + consumption counter for store codes too.
+  await ensureColumn(
+    "seller_promos",
+    "max_uses",
+    "INT NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "seller_promos",
+    "usage_count",
+    "INT NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "seller_promos",
+    "starts_at",
+    "VARCHAR(32) NULL",
   );
   await ensureIndex("stores", "uq_stores_seller", "seller_id", true);
   await ensureIndex(
@@ -501,6 +541,10 @@ export const mapPromo = (r) => ({
   maxDiscount: Number(r.max_discount),
   active: Boolean(r.active),
   ...(r.expires_at ? { expiresAt: r.expires_at } : {}),
+  scope: r.scope ?? "store",
+  maxUses: Number(r.max_uses ?? 0),
+  usageCount: Number(r.usage_count ?? 0),
+  ...(r.audience ? { audience: r.audience } : {}),
 });
 
 export const mapUser = (r) => ({
@@ -543,6 +587,7 @@ export const mapOrder = (r) => ({
   time: r.time,
   createdAt: r.created_at,
   paymentStatus: r.payment_status ?? "unpaid",
+  platformDiscount: Number(r.platform_discount ?? 0),
 });
 
 export { catalog };

@@ -235,7 +235,7 @@ export default function DispatchMap({
   return (
     <section
       className={`dispatch-map map-${state}`}
-      aria-label="نقشه موقعیت پیک و فروشگاه‌ها"
+      aria-label="نقشه موقعیت سفیر و فروشگاه‌ها"
     >
       <div className="dispatch-map-canvas" ref={host} />
       <div className="map-caption">

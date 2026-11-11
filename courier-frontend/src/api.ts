@@ -35,12 +35,12 @@ export async function api<T = any>(
     const serverMessage = d?.error?.message;
     const fallback =
       r.status === 401 && path !== "/auth/login" && path !== "/auth/password"
-        ? "نشست شما پایان یافته است؛ دوباره وارد حساب پیک شوید."
+        ? "نشست شما پایان یافته است؛ دوباره وارد حساب سفیر شوید."
         : path === "/auth/login"
           ? "ورود انجام نشد؛ شماره موبایل و رمز عبور را بررسی کنید."
           : path === "/auth/register"
-            ? "ثبت‌نام پیک انجام نشد؛ اطلاعات واردشده را بررسی کنید."
-            : "درخواست پنل پیک انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.";
+            ? "ثبت‌نام سفیر انجام نشد؛ اطلاعات واردشده را بررسی کنید."
+            : "درخواست پنل سفیر انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.";
     const message =
       typeof serverMessage === "string" && serverMessage.trim()
         ? serverMessage
