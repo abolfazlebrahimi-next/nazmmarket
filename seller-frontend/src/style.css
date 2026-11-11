@@ -2077,6 +2077,59 @@ button:disabled {
   align-items: center;
   gap: 8px;
 }
+/* «باز هستیم / بسته‌ایم» — the seller's own open/closed switch. */
+.open-close-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid #f0e2df;
+  border-radius: 16px;
+  background: #fdf6f4;
+}
+.open-close-bar.is-open {
+  border-color: #d7ead9;
+  background: #eef7f0;
+}
+.open-close-bar > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.open-close-bar strong {
+  font-size: 12px;
+  color: #a4452f;
+}
+.open-close-bar.is-open strong {
+  color: #16865b;
+}
+.open-close-bar small {
+  font-size: 9.5px;
+  line-height: 1.9;
+  color: #8c9c90;
+}
+.open-toggle {
+  flex-shrink: 0;
+  border: 1px solid #e2b5ab;
+  border-radius: 12px;
+  background: #fff;
+  color: #c0503f;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+.open-toggle:active {
+  transform: scale(0.96);
+}
+.open-toggle.is-open {
+  border-color: #16865b;
+  background: #16865b;
+  color: #fff;
+}
 .text-action {
   background: transparent;
   border: 0;

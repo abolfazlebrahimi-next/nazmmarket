@@ -114,6 +114,8 @@ export interface AppCtx {
   }): Promise<void>;
   reorder(o: Order): void;
   orders: Order[];
+  /** Re-pulls the order list after a customer action (cancel / change store). */
+  refreshOrders(): Promise<void>;
   firstOrderEligible: boolean;
   firstOrderProductId: number | null;
   setFirstOrderProductId(id: number | null): void;

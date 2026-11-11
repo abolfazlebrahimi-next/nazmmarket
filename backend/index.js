@@ -2,9 +2,13 @@ import "./env.js";
 import app from "./app.js";
 import { migrate } from "./db.js";
 import { PORT } from "./config.js";
+import { reassignSweep } from "./reassign.js";
 try {
   await migrate();
   app.listen(PORT, "0.0.0.0", () => console.log(`API listening on ${PORT}`));
+  // Unconfirmed orders (status 1) hop to another store every ten minutes.
+  await reassignSweep();
+  setInterval(() => void reassignSweep(), 60 * 1000);
 } catch (error) {
   console.error("[api] MySQL startup failed:", error);
   // Turn the two most common setup failures into a recipe instead of a stack

@@ -342,6 +342,21 @@ router.get("/store", async (req, res) => {
   if (!store) return fail(res, 404, "store_missing", "فروشگاه پیدا نشد.");
   res.json({ store: mapStore(store) });
 });
+/* باز/بسته بودن فروشگاه: وقتی فروشنده «بسته‌ایم» را انتخاب می‌کند، سفارش
+   جدیدی به فروشگاه نمی‌رسد و در واگذاری خودکار سفارش‌های بی‌پاسخ هم نادیده
+   گرفته می‌شود. */
+router.patch("/store/open", async (req, res) => {
+  const store = await sellerStore(req.seller.id);
+  if (!store) return fail(res, 404, "store_missing", "فروشگاه پیدا نشد.");
+  const open = Boolean((req.body ?? {}).open);
+  await db.run("UPDATE stores SET is_open=? WHERE id=? AND seller_id=?", [
+    open ? 1 : 0,
+    store.id,
+    req.seller.id,
+  ]);
+  const updated = await sellerStore(req.seller.id);
+  res.json({ store: mapStore(updated) });
+});
 router.put("/store", (req, res, next) =>
   storeImages(req, res, (err) =>
     err ? next(err) : updateStore(req, res, next),

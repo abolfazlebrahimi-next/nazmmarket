@@ -96,6 +96,8 @@ export type Store = {
   lat?: number;
   lng?: number;
   hours?: string;
+  /** Seller closed the shop for new orders («بسته‌ایم»). Missing = open. */
+  isOpen?: boolean;
 };
 
 type WireProduct = Omit<Product, "icon"> & { icon?: string };

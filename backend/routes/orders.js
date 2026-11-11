@@ -5,6 +5,10 @@ import { recordOrderEvent } from "../order-workflow.js";
 import { Router } from "express";
 import crypto from "node:crypto";
 import { db, mapOrder, walletMovement } from "../db.js";
+import {
+  CUSTOMER_REASSIGN_AFTER_MS,
+  reassignUnconfirmedOrder,
+} from "../reassign.js";
 import { requireAuth } from "../auth.js";
 import {
   alreadyRedeemed,
@@ -356,8 +360,9 @@ router.post("/orders", requireAuth, async (req, res) => {
       }
       await tx.run(
         `INSERT INTO orders (id, user_id, store_id, store_name, items, subtotal, discount, delivery, total,
-          address_title, address_text, slot, payment, payment_status, promo_code, status, time, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          address_title, address_text, slot, payment, payment_status, promo_code, status, time, created_at,
+          reassign_started_at, reassign_count, reassign_history)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 0, ?)`,
         [
           id,
           req.user.id,
@@ -376,6 +381,10 @@ router.post("/orders", requireAuth, async (req, res) => {
           promoCode,
           orderTime(),
           createdAt,
+          createdAt,
+          JSON.stringify([
+            { storeId, storeName: storeRow.name, at: createdAt, by: "customer" },
+          ]),
         ],
       );
       await tx.run(
@@ -429,6 +438,56 @@ router.post("/orders", requireAuth, async (req, res) => {
       return res
         .status(err.status)
         .json({ error: { code: err.code, message: err.message } });
+    throw err;
+  }
+});
+/* تغییر فروشگاه توسط مشتری: بیست دقیقه پس از ثبت سفارش، تا وقتی فروشگاه
+   تایید نکرده، مشتری می‌تواند سفارش را به فروشگاه دیگری با همان کالاها بسپارد. */
+router.patch("/orders/:id/reassign", requireAuth, async (req, res) => {
+  const row = await db.get("SELECT * FROM orders WHERE id=? AND user_id=?", [
+    req.params.id,
+    req.user.id,
+  ]);
+  if (!row)
+    return res
+      .status(404)
+      .json({ error: { code: "not_found", message: "سفارش پیدا نشد." } });
+  if (Number(row.status) !== 1)
+    return res.status(409).json({
+      error: {
+        code: "not_reassignable",
+        message: "این سفارش دیگر قابل تغییر فروشگاه نیست.",
+      },
+    });
+  const age = Date.now() - Date.parse(row.created_at);
+  if (Number.isFinite(age) && age < CUSTOMER_REASSIGN_AFTER_MS)
+    return res.status(409).json({
+      error: {
+        code: "too_early",
+        message:
+          "تغییر فروشگاه از بیست دقیقه پس از ثبت سفارش ممکن است؛ فروشگاه هنوز فرصت تایید دارد.",
+      },
+    });
+  try {
+    const moved = await reassignUnconfirmedOrder(row, "customer");
+    if (!moved)
+      return res.status(409).json({
+        error: {
+          code: "no_other_store",
+          message:
+            "فعلا فروشگاه دیگری با همین کالاها آماده تحویل نیست؛ کمی بعد دوباره تلاش کنید.",
+        },
+      });
+    const fresh = await db.get("SELECT * FROM orders WHERE id=?", [row.id]);
+    res.json({ order: mapOrder(fresh) });
+  } catch (err) {
+    if (err?.code === "reassign_stock_race")
+      return res.status(409).json({
+        error: {
+          code: "no_other_store",
+          message: "موجودی فروشگاه مقصد تغییر کرد؛ کمی بعد دوباره تلاش کنید.",
+        },
+      });
     throw err;
   }
 });

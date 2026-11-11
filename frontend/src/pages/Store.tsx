@@ -48,6 +48,12 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
     <div
       className={`fade-rise mx-auto w-full max-w-6xl ${c.cartCount > 0 ? "pb-24" : "pb-6"}`}
     >
+      {store.isOpen === false && (
+        <p className="mx-4 mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] font-black leading-6 text-amber-800">
+          این فروشگاه موقتا بسته است و فعلا سفارش جدید نمی‌پذیرد؛ می‌توانید از
+          فروشگاه‌های دیگر خرید کنید.
+        </p>
+      )}
       <div className="relative px-4 pb-3 pt-16">
         <div className="absolute inset-x-4 top-3 flex items-center justify-between">
           <BackButton onBack={() => c.closeSub()} className="back-on-cover" />
@@ -165,32 +171,27 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
           event.preventDefault();
           openSearch();
         }}
-        className="category-search mx-4 mt-3 flex h-11 items-center gap-2 rounded-2xl bg-[#f4f4f3] px-3.5 text-muted"
+        className="search-field mx-4 mt-3"
       >
-        <Search className="h-4 w-4 shrink-0" />
+        <Search className="h-4.5 w-4.5 shrink-0 text-muted" />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={`جست‌وجو در ${cat?.name ?? "این دسته"}`}
           aria-label={`جست‌وجو در دستهٔ ${cat?.name ?? "کالاها"}`}
-          className="min-w-0 flex-1 border-0 bg-transparent text-[12px] font-medium text-ink outline-none placeholder:text-muted"
+          className="search-input"
+          type="search"
         />
         {query && (
           <button
             type="button"
             aria-label="پاک کردن جست‌وجو"
             onClick={() => setQuery("")}
+            className="shrink-0 text-muted"
           >
             <X size={16} />
           </button>
         )}
-        <button
-          type="submit"
-          aria-label="جستجو"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-sm"
-        >
-          <Search size={16} />
-        </button>
       </form>
       {list.length ? (
         <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">

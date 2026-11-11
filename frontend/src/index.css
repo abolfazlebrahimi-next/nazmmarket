@@ -823,7 +823,6 @@ textarea::placeholder {
   flex-direction: column;
   align-items: center;
   gap: 7px;
-  position: relative;
   background: none;
   border: 0;
   color: #26352e;
@@ -1182,9 +1181,11 @@ textarea::placeholder {
 .product-modal-suggestions .market-product-price small {
   font-size: 10px;
 }
-.category-search:focus-within {
-  outline: 2px solid #16865b33;
-  outline-offset: 2px;
+/* The saving line is dark green on light shelves; on the coloured deal/blue
+   shelves it must switch to a light green or it disappears into the gradient. */
+.market-shelf-deals .market-product-saving,
+.market-shelf-blue .market-product-saving {
+  color: #7fe6a6;
 }
 #first-order-products {
   scroll-margin-top: 150px;

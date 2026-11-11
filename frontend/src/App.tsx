@@ -523,6 +523,8 @@ export default function App() {
     if (p.active === false || (p.stock != null && qtyOf(p.id) >= p.stock))
       return showToast("موجودی بیشتری از این کالا در دسترس نیست.");
     fromStoreId = fromStoreId ?? p.storeId;
+    if (storeById(fromStoreId ?? null)?.isOpen === false)
+      return showToast("این فروشگاه موقتا بسته است و فعلا سفارش جدید نمی‌پذیرد.");
     if (
       cartCount > 0 &&
       fromStoreId &&
@@ -611,6 +613,8 @@ export default function App() {
       setStorePicker(true);
       return showToast("ابتدا فروشگاه را انتخاب کنید");
     }
+    if (storeById(cart.storeId)?.isOpen === false)
+      return showToast("این فروشگاه موقتا بسته است و فعلا سفارش جدید نمی‌پذیرد.");
     try {
       const { order } = await api.orders.place({
         storeId: cart.storeId,
@@ -644,6 +648,15 @@ export default function App() {
     showToast("اقلام سفارش قبلی به سبد اضافه شد");
     if (isDesktop()) setCartDrawer(true);
     else setView("cart");
+  };
+
+  const refreshOrders = async () => {
+    try {
+      const { orders: latest } = await api.orders.list();
+      setOrders(latest);
+    } catch {
+      /* keep the last list; the next poll retries */
+    }
   };
 
   const go = (v: View) => {
@@ -741,6 +754,7 @@ export default function App() {
     placeOrder,
     reorder,
     orders,
+    refreshOrders,
     firstOrderEligible,
     firstOrderProductId,
     setFirstOrderProductId,
@@ -878,6 +892,23 @@ export default function App() {
     { key: "easy", label: "خرید راحت", active: !sub && view === "easy" },
     { key: "orders", label: "سفارش‌ها", active: !sub && view === "orders" },
   ];
+
+  /* Login/register is its own full page — never a popup over the store. */
+  if (showAuth) {
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setShowAuth(false)}
+          aria-label="بازگشت به فروشگاه"
+          className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink shadow-lg transition active:scale-90"
+        >
+          <X className="h-5 w-5" />
+        </button>
+        <AuthPage onAuth={handleAuth} />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1256,28 +1287,6 @@ export default function App() {
       <ReplacePrompt c={c} />
       <AccountSheetHost c={c} />
       {cartDrawer && <CartDrawer c={c} />}
-
-      {showAuth && (
-        <div
-          className="fixed inset-0 z-[100] overflow-y-auto bg-ink/45 backdrop-blur-sm"
-          onClick={() => setShowAuth(false)}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="relative flex min-h-dvh items-center justify-center px-4 py-8 sm:px-6"
-          >
-            <button
-              type="button"
-              onClick={() => setShowAuth(false)}
-              aria-label="بستن ورود"
-              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink shadow-lg transition active:scale-90"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <AuthPage onAuth={handleAuth} />
-          </div>
-        </div>
-      )}
 
       {toast && (
         <div

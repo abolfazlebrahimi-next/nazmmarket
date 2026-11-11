@@ -227,6 +227,20 @@ export const api = {
     }) =>
       request<{ order: Order }>("/orders", { method: "POST", body: payload }),
     list: () => request<{ orders: Order[] }>("/orders"),
+    /** Customer cancels while the store has not confirmed (status 1). */
+    cancel: (id: string) =>
+      request<{ order: Order }>(`/orders/${encodeURIComponent(id)}/cancel`, {
+        method: "PATCH",
+      }),
+    /**
+     * Customer hands the order to another store (available twenty minutes in,
+     * while still unconfirmed). Fails with no_other_store when nobody can take
+     * the same items over.
+     */
+    reassign: (id: string) =>
+      request<{ order: Order }>(`/orders/${encodeURIComponent(id)}/reassign`, {
+        method: "PATCH",
+      }),
     deliveryCode: (id: string) =>
       request<{ code: string; expiresAt: string }>(
         `/orders/${encodeURIComponent(id)}/delivery-code`,

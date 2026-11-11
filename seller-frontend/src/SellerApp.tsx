@@ -226,6 +226,7 @@ export default function SellerApp() {
   const [notice, setNotice] = useState("");
   const [profile, setProfile] = useState<SellerProfile>(emptyProfile);
   const [stats, setStats] = useState<DashboardStats>(blankStats);
+  const [storeOpen, setStoreOpen] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [promos, setPromos] = useState<Promo[]>([]);
   const [sellerOrders, setSellerOrders] = useState<SellerOrder[]>([]);
@@ -259,6 +260,24 @@ export default function SellerApp() {
   };
   const setProfileField = (key: keyof SellerProfile, value: string) =>
     setProfile((old) => ({ ...old, [key]: value }));
+  /* «باز هستیم / بسته‌ایم»: فروشگاه بسته نه سفارش تازه می‌گیرد نه در واگذاری
+     خودکار سفارش‌های بی‌پاسخ انتخاب می‌شود. */
+  const toggleStoreOpen = async () => {
+    const next = !storeOpen;
+    try {
+      const { store } = await sellerApi.setStoreOpen(next);
+      setStoreOpen(store.isOpen ?? next);
+      toast(
+        next
+          ? "فروشگاه باز شد؛ سفارش‌های جدید به شما می‌رسد."
+          : "فروشگاه بسته شد؛ فعلا سفارش جدیدی دریافت نمی‌کنید.",
+      );
+    } catch (e) {
+      toast(
+        e instanceof SellerApiError ? e.message : "تغییر وضعیت انجام نشد.",
+      );
+    }
+  };
   const goTo = (target: Page) => {
     setPage(target);
     setMobileNav(false);
@@ -298,6 +317,7 @@ export default function SellerApp() {
       .then(([dashboard, productResult, promoResult, orderResult]) => {
         if (!live) return;
         setStats(dashboard.stats);
+        setStoreOpen(dashboard.store.isOpen ?? true);
         setProfile(profileFromStore({ ...seller, store: dashboard.store }));
         setProducts(productResult.products);
         setPromos(promoResult.promotions);
@@ -784,6 +804,8 @@ export default function SellerApp() {
               promos={promos}
               stats={stats}
               goTo={goTo}
+              storeOpen={storeOpen}
+              onToggleOpen={toggleStoreOpen}
             />
           )}
           {page === "orders" && (
@@ -1378,12 +1400,16 @@ function Overview({
   promos,
   stats,
   goTo,
+  storeOpen,
+  onToggleOpen,
 }: {
   profile: SellerProfile;
   products: Product[];
   promos: Promo[];
   stats: DashboardStats;
   goTo: (p: Page) => void;
+  storeOpen: boolean;
+  onToggleOpen: () => void;
 }) {
   return (
     <>
@@ -1451,6 +1477,24 @@ function Overview({
             <span className="live-pill">
               {profile.isActive ? "فعال" : "در انتظار تأیید مدیریت / غیرفعال"}
             </span>
+          </div>
+          <div className={`open-close-bar ${storeOpen ? "is-open" : ""}`}>
+            <div>
+              <strong>{storeOpen ? "باز هستیم" : "بسته‌ایم"}</strong>
+              <small>
+                {storeOpen
+                  ? "سفارش‌های جدید به فروشگاه شما می‌رسد."
+                  : "فعلا سفارش جدید نمی‌پذیرید؛ سفارش‌های تازه و واگذارشده به فروشگاه دیگری می‌روند."}
+              </small>
+            </div>
+            <button
+              type="button"
+              className={`open-toggle ${storeOpen ? "is-open" : ""}`}
+              onClick={onToggleOpen}
+              aria-pressed={storeOpen}
+            >
+              {storeOpen ? "بستن فروشگاه" : "باز کردن فروشگاه"}
+            </button>
           </div>
           <div className="summary-details">
             <span>

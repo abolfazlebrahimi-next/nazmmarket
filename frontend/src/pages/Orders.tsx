@@ -39,7 +39,30 @@ const statusLabel = (o: Order) =>
 function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
   const [deliveryCode, setDeliveryCode] = useState(""),
     [codeError, setCodeError] = useState(""),
-    [loadingCode, setLoadingCode] = useState(false);
+    [loadingCode, setLoadingCode] = useState(false),
+    [actionBusy, setActionBusy] = useState(false),
+    [actionError, setActionError] = useState("");
+  /* تا بیست دقیقه فروشگاه فرصت تایید دارد؛ بعد از آن مشتری می‌تواند لغو کند
+     یا سفارش را به فروشگاه دیگری بسپارد — فقط تا قبل از تایید فروشگاه. */
+  const minutesOld = o.createdAt
+    ? Math.floor((Date.now() - Date.parse(o.createdAt)) / 60000)
+    : 0;
+  const runAction = async (action: () => Promise<unknown>, okMsg: string) => {
+    if (actionBusy) return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await action();
+      c.toast(okMsg);
+      await c.refreshOrders();
+    } catch (e) {
+      setActionError(
+        e instanceof Error ? e.message : "انجام نشد؛ دوباره تلاش کنید.",
+      );
+    } finally {
+      setActionBusy(false);
+    }
+  };
   return (
     <div className="rounded-[26px] border border-line bg-white p-4 shadow-[0_10px_26px_-20px_rgba(30,20,10,0.5)] transition-shadow hover:shadow-[0_16px_36px_-20px_rgba(30,20,10,0.55)] sm:p-5">
       <div className="flex items-start justify-between gap-2">
@@ -79,6 +102,54 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
             فروشگاه دیگری انتخاب کنید
             <ChevronLeft className="h-3.5 w-3.5" />
           </button>
+        </div>
+      )}
+
+      {o.status === 1 && minutesOld >= 20 && (
+        <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-3.5">
+          <p className="text-[11.5px] font-black text-amber-800">
+            هنوز توسط {o.storeName} تایید نشده است
+          </p>
+          <p className="mt-1.5 text-[10.5px] font-medium leading-5 text-amber-700/85">
+            چون فروشگاه سفارش را تایید نکرده، می‌توانید آن را لغو کنید یا به
+            فروشگاه دیگری با همان کالاها بسپارید.
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={actionBusy}
+              onClick={() => {
+                if (window.confirm("این سفارش لغو شود؟"))
+                  void runAction(
+                    () => api.orders.cancel(o.id),
+                    "سفارش لغو شد؛ مبلغ پرداختی به کیف پول بازگشت.",
+                  );
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3.5 py-2 text-[11px] font-black text-red-600 transition active:scale-95 disabled:opacity-50"
+            >
+              <X className="h-3.5 w-3.5" />
+              لغو سفارش
+            </button>
+            <button
+              type="button"
+              disabled={actionBusy}
+              onClick={() =>
+                void runAction(
+                  () => api.orders.reassign(o.id),
+                  "سفارش به فروشگاه دیگری با همان کالاها منتقل شد.",
+                )
+              }
+              className="inline-flex items-center gap-1.5 rounded-xl bg-mint px-3.5 py-2 text-[11px] font-black text-white transition active:scale-95 disabled:opacity-50"
+            >
+              <Store className="h-3.5 w-3.5" />
+              تغییر فروشگاه
+            </button>
+          </div>
+          {actionError && (
+            <p role="alert" className="mt-2 text-[10px] font-bold text-red-600">
+              {actionError}
+            </p>
+          )}
         </div>
       )}
 

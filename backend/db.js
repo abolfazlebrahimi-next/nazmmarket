@@ -280,6 +280,9 @@ export async function migrate() {
     ["logo_url", "VARCHAR(512) NULL"],
     ["hours", "VARCHAR(160) NOT NULL DEFAULT ''"],
     ["is_active", "TINYINT(1) NOT NULL DEFAULT 0"],
+    // Sellers can close their shop for new orders («بسته‌ایم»); closed stores
+    // are skipped when unconfirmed orders are reassigned.
+    ["is_open", "TINYINT(1) NOT NULL DEFAULT 1"],
   ])
     await ensureColumn("stores", column, definition);
   for (const [column, definition] of [
@@ -369,6 +372,13 @@ export async function migrate() {
     // and the order card has to tell them apart.
     rejected_by: "VARCHAR(20) NULL",
     reject_reason: "VARCHAR(255) NULL",
+    // Auto-reassignment: while an order waits in status 1, a store has ten
+    // minutes to confirm it. When the clock runs out the order moves to
+    // another store carrying the same master products — and again every ten
+    // minutes after that until someone confirms.
+    reassign_started_at: "VARCHAR(32) NULL",
+    reassign_count: "INT NOT NULL DEFAULT 0",
+    reassign_history: "TEXT NULL",
   }))
     await ensureColumn("orders", column, definition);
   await db.run(
@@ -534,6 +544,7 @@ export const mapStore = (r) => ({
   ...(r.lat != null ? { lat: Number(r.lat), lng: Number(r.lng) } : {}),
   hours: r.hours ?? "",
   isActive: Boolean(r.is_active),
+  isOpen: Boolean(r.is_open ?? 1),
 });
 
 export const mapPromo = (r) => ({
@@ -638,6 +649,9 @@ export const mapOrder = (r) => ({
   firstOfferDiscount: Number(r.first_offer_discount ?? 0),
   rejectedBy: r.rejected_by ?? null,
   rejectReason: r.reject_reason ?? null,
+  reassignCount: Number(r.reassign_count ?? 0),
+  reassignStartedAt: r.reassign_started_at ?? null,
+  reassignHistory: parseJson(r.reassign_history, []),
 });
 
 export { catalog };

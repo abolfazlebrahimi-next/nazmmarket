@@ -14,6 +14,8 @@ export type SellerStore = {
   photoUrl?: string;
   logoUrl?: string;
   isActive: boolean;
+  /** The seller's own «باز هستیم / بسته‌ایم» state for new orders. */
+  isOpen: boolean;
 };
 export type Seller = {
   id: number;
@@ -212,6 +214,12 @@ export const sellerApi = {
   dashboard: () =>
     call<{ store: SellerStore; stats: DashboardStats }>("/dashboard"),
   getStore: () => call<{ store: SellerStore }>("/store"),
+  /** «باز هستیم» / «بسته‌ایم» — closed stores get no new or reassigned orders. */
+  setStoreOpen: (open: boolean) =>
+    call<{ store: SellerStore }>("/store/open", {
+      method: "PATCH",
+      body: { open },
+    }),
   saveStore: (body: FormData) =>
     call<{ store: SellerStore }>("/store", { method: "PUT", body }),
   products: () => call<{ products: Product[] }>("/products"),
