@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Check,
   Copy,
@@ -23,6 +23,9 @@ import { api } from "../api/client";
 import type { AppCtx } from "../ctx";
 import type { User } from "../data";
 import { discountCodes, faNum } from "../data";
+import type { DiscountCode } from "../discountCodes";
+import { readDiscountCodes, discountValue, discountConditions } from "../discountCodes";
+import { formatJalaliDay } from "../../../shared/persianDate";
 
 export function AccountView({ c }: { c: AppCtx }) {
   const fullName = [c.user?.firstName, c.user?.lastName]
@@ -422,6 +425,143 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
   }
 }
 
+/**
+ * The account's own code shelf. Signed-in customers get `GET /api/promos`,
+ * which merges store codes with the platform codes aimed at their account and
+ * says whether they already used one; guests only see the public store codes
+ * from the catalog, because "used" means nothing without an account.
+ */
+function DiscountCodeList({ c }: { c: AppCtx }) {
+  const [mine, setMine] = useState<DiscountCode[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!c.user || c.isGuest) {
+      setMine(null);
+      return;
+    }
+    let alive = true;
+    setLoading(true);
+    api.promos
+      .list()
+      .then((r) => {
+        if (alive) setMine(readDiscountCodes(r.promos));
+      })
+      .catch(() => {
+        /* the catalog list stays on screen when the request fails */
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [c.user, c.isGuest]);
+
+  const rows = mine ?? discountCodes;
+  if (!rows.length)
+    return (
+      <div className="p-4">
+        <Empty
+          icon={TicketPercent}
+          title="کد تخفیف فعالی ندارید"
+          desc="کدهای معتبر فروشگاه و کدهای سراسری نازمارکت پس از فعال‌شدن، اینجا نمایش داده می‌شوند."
+        />
+      </div>
+    );
+
+  return (
+    <div className="space-y-3 p-4">
+      {loading && (
+        <p className="flex items-center gap-2 text-[10.5px] font-medium text-muted">
+          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+          به‌روزرسانی کدها…
+        </p>
+      )}
+      {rows.map((d) => (
+        <CodeCard key={`${d.scope}:${d.code}`} c={c} code={d} />
+      ))}
+    </div>
+  );
+}
+
+function CodeCard({ c, code: d }: { c: AppCtx; code: DiscountCode }) {
+  // Read the id once so the click handler does not have to re-narrow it.
+  const storeId = d.storeId;
+  const conditions = discountConditions(d, faNum);
+  const expiry = d.expiresAt ? formatJalaliDay(d.expiresAt) : "";
+  const copy = () => {
+    void navigator.clipboard?.writeText(d.code);
+    c.toast("کد تخفیف کپی شد");
+  };
+  return (
+    <article
+      className={`flex items-start gap-3 rounded-3xl border border-line bg-white p-4 shadow-sm ${
+        d.used ? "opacity-60" : ""
+      }`}
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+        <TicketPercent className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <p className="text-[12px] font-black text-ink">{d.title}</p>
+          <span className="rounded-lg bg-[#f4f3f0] px-1.5 py-0.5 text-[9px] font-black text-muted">
+            {d.scope === "platform"
+              ? "سراسری · نازمارکت"
+              : `ویژهٔ ${d.storeName ?? "این فروشگاه"}`}
+          </span>
+          {d.used && (
+            <span className="rounded-lg bg-[#fdeeec] px-1.5 py-0.5 text-[9px] font-black text-[#b0392c]">
+              مصرف شده
+            </span>
+          )}
+        </div>
+        {!!d.desc && (
+          <p className="mt-1 text-[10.5px] font-medium leading-5 text-muted">
+            {d.desc}
+          </p>
+        )}
+        <p dir="ltr" className="mt-1 text-left text-[11px] font-black tracking-wider text-brand">
+          {d.code} · {discountValue(d, faNum)}
+        </p>
+        {(!!conditions.length || !!expiry) && (
+          <p className="mt-1 text-[9.5px] font-medium leading-5 text-muted">
+            {[...conditions, expiry ? `اعتبار تا ${expiry}` : ""].filter(Boolean).join(" · ")}
+          </p>
+        )}
+        {d.scope === "platform" && (
+          <p className="mt-1 text-[9.5px] font-medium text-muted">
+            در هر فروشگاه معتبر است؛ پس از افزودن کالا در مرحلهٔ تسویه واردش کنید.
+          </p>
+        )}
+      </div>
+      <div className="flex shrink-0 flex-col gap-1.5">
+        {!d.used && (
+          <button
+            type="button"
+            onClick={copy}
+            className="rounded-lg bg-[#f4f3f0] px-3 py-1.5 text-[10px] font-black text-ink"
+          >
+            کپی کد
+          </button>
+        )}
+        {d.scope === "store" && storeId !== null && (
+          <button
+            type="button"
+            onClick={() => {
+              c.openSub({ name: "store", id: storeId });
+              c.toast("پس از افزودن کالا، کد را در مرحلهٔ تسویه وارد کنید.");
+            }}
+            className="rounded-lg bg-brand px-3 py-1.5 text-[10px] font-black text-white"
+          >
+            فروشگاه
+          </button>
+        )}
+      </div>
+    </article>
+  );
+}
+
 export function AccountDetailPage({
   c,
   kind,
@@ -430,10 +570,6 @@ export function AccountDetailPage({
   kind: "codes" | "payments";
 }) {
   const title = kind === "codes" ? "کدهای تخفیف من" : "مبالغ سفارش‌ها";
-  const copy = (text: string) => {
-    void navigator.clipboard?.writeText(text);
-    c.toast("کد تخفیف کپی شد");
-  };
   return (
     <div className="fade-rise mx-auto w-full max-w-3xl pb-6">
       <ScreenHeader
@@ -442,62 +578,7 @@ export function AccountDetailPage({
         hideBackOnDesktop
       />
       {kind === "codes" && (
-        <div className="space-y-3 p-4">
-          {discountCodes.length === 0 ? (
-            <Empty
-              icon={TicketPercent}
-              title="کد تخفیف فعالی ندارید"
-              desc="کدهای معتبر فروشگاه پس از تعریف و فعال‌سازی توسط فروشنده، اینجا نمایش داده می‌شوند."
-            />
-          ) : (
-            discountCodes.map((d) => (
-              <article
-                key={d.code}
-                className="flex items-center gap-3 rounded-3xl border border-line bg-white p-4 shadow-sm"
-              >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
-                  <TicketPercent className="h-5 w-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[12px] font-black text-ink">{d.title}</p>
-                  <p className="mt-1 text-[10.5px] font-medium text-muted">
-                    {d.desc} · ویژهٔ {d.storeName}
-                  </p>
-                  <p
-                    dir="ltr"
-                    className="mt-1 text-left text-[11px] font-black tracking-wider text-brand"
-                  >
-                    {d.code} ·{" "}
-                    {d.kind === "percent"
-                      ? `${d.amount}٪`
-                      : `${faNum(d.amount)} تومان`}
-                  </p>
-                </div>
-                <div className="flex shrink-0 flex-col gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => copy(d.code)}
-                    className="rounded-lg bg-[#f4f3f0] px-3 py-1.5 text-[10px] font-black text-ink"
-                  >
-                    کپی کد
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      c.openSub({ name: "store", id: d.storeId });
-                      c.toast(
-                        "پس از افزودن کالا، کد را در مرحلهٔ تسویه وارد کنید.",
-                      );
-                    }}
-                    className="rounded-lg bg-brand px-3 py-1.5 text-[10px] font-black text-white"
-                  >
-                    فروشگاه
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
+        <DiscountCodeList c={c} />
       )}
       {kind === "payments" &&
         (c.orders.length ? (

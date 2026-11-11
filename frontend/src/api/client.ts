@@ -1,3 +1,4 @@
+import type { WireDiscountCode } from "../discountCodes";
 import type {
   Address,
   CartState,
@@ -111,15 +112,7 @@ export type CatalogResponse = {
   stores: StoreType[];
   categories: { id: string; name: string; icon?: string }[];
   brands?: { name: string; color: string }[];
-  promos: {
-    code: string;
-    title: string;
-    desc: string;
-    amount: number;
-    storeId: number;
-    storeName: string;
-    kind: string;
-  }[];
+  promos: WireDiscountCode[];
 };
 
 export type AuthResponse = { token: string; user: User; addresses: Address[] };
@@ -252,10 +245,7 @@ export const api = {
         method: "POST",
         body: { code, subtotal, storeId },
       }),
-    list: () =>
-      request<{
-        promos: { code: string; title: string; desc: string; amount: number }[];
-      }>("/promos"),
+    list: () => request<{ promos: WireDiscountCode[] }>("/promos"),
   },
 
   wallet: {

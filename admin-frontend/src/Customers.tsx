@@ -25,7 +25,30 @@ const orderBy: Record<string, string> = {
   oldest: "oldest",
   orders: "orders",
   spend: "spend",
+  codes: "codes",
 };
+
+/** The directory's whole server-side query, so no control is ever left out. */
+const query = ({
+  page,
+  search,
+  orders,
+  codes,
+  sort,
+}: {
+  page: number;
+  search: string;
+  orders: string;
+  codes: string;
+  sort: string;
+}) =>
+  new URLSearchParams({
+    page: String(page),
+    q: search,
+    orders,
+    codes,
+    sort: orderBy[sort] ?? "newest",
+  }).toString();
 
 /**
  * The full customer list: who signed up, how many orders they placed, how much
@@ -38,7 +61,8 @@ export default function Customers({ api }: { api: Api }) {
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(30);
   const [search, setSearch] = useState("");
-  const [orders, setOrders] = useState("all");
+  const [orders, setOrders] = useState("all"),
+    [codes, setCodes] = useState("all");
   const [sort, setSort] = useState("newest");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true),
@@ -47,9 +71,7 @@ export default function Customers({ api }: { api: Api }) {
   useEffect(() => {
     let live = true;
     setLoading(true);
-    api(
-      `/users?page=${page}&q=${encodeURIComponent(search)}&orders=${orders}&sort=${orderBy[sort] ?? "newest"}`,
-    )
+    api(`/users?${query({ page, search, orders, codes, sort })}`)
       .then((r) => {
         if (!live) return;
         setRows(r.rows ?? []);
@@ -66,13 +88,14 @@ export default function Customers({ api }: { api: Api }) {
     return () => {
       live = false;
     };
-  }, [api, page, search, orders, sort]);
-  useEffect(() => setPage(1), [search, orders, sort]);
+  }, [api, page, search, orders, codes, sort]);
+  useEffect(() => setPage(1), [search, orders, codes, sort]);
 
   const summary = useMemo(
     () => ({
       buyers: rows.filter((r) => Number(r.orders) > 0).length,
       spend: rows.reduce((sum, r) => sum + Number(r.spend ?? 0), 0),
+      codeUses: rows.reduce((sum, r) => sum + Number(r.codeUses ?? 0), 0),
     }),
     [rows],
   );
@@ -84,9 +107,7 @@ export default function Customers({ api }: { api: Api }) {
     const list: Row[] = [];
     try {
       for (let p = 1; p <= 200; p++) {
-        const r = await api(
-          `/users?page=${p}&q=${encodeURIComponent(search)}&orders=${orders}&sort=${orderBy[sort] ?? "newest"}`,
-        );
+        const r = await api(`/users?${query({ page: p, search, orders, codes, sort })}`);
         list.push(...(r.rows ?? []));
         if (list.length >= Number(r.total ?? 0) || (r.rows ?? []).length === 0)
           break;
@@ -98,12 +119,24 @@ export default function Customers({ api }: { api: Api }) {
     // 200 pages of 30 is the ceiling; say so instead of shipping a short file.
     setExportCapped(out.length < total);
     const csv = [
-      ["نام", "موبایل", "سفارش‌ها", "مبلغ (تومان)", "آخرین سفارش", "عضویت", "وضعیت"],
+      [
+        "نام",
+        "موبایل",
+        "سفارش‌ها",
+        "مبلغ (تومان)",
+        "کدهای مصرفی",
+        "یارانهٔ کد (تومان)",
+        "آخرین سفارش",
+        "عضویت",
+        "وضعیت",
+      ],
       ...out.map((u) => [
         label(u),
         u.phone,
         String(Number(u.orders ?? 0)),
         String(Number(u.spend ?? 0)),
+        String(Number(u.codeUses ?? 0)),
+        String(Number(u.codeDiscount ?? 0)),
         u.lastOrder ? formatJalali(u.lastOrder) : "",
         formatJalaliDay(u.created_at),
         u.active ? "فعال" : "غیرفعال",
@@ -131,7 +164,8 @@ export default function Customers({ api }: { api: Api }) {
         <div className="panel-actions">
           <small>
             {toPersianDigits(summary.buyers)} مشتری دارای سفارش در این صفحه ·{" "}
-            {money(summary.spend)} تومان خرید تکمیل‌شده
+            {money(summary.spend)} تومان خرید تکمیل‌شده ·{" "}
+            {toPersianDigits(summary.codeUses)} کد تخفیف مصرف‌شده
           </small>
           <button
             onClick={() => void exportCsv()}
@@ -169,10 +203,27 @@ export default function Customers({ api }: { api: Api }) {
         </div>
         <div className="segmented small">
           {[
+            ["all", "همهٔ کدها"],
+            ["used", "کد مصرف کرده"],
+            ["unused", "بدون مصرف کد"],
+          ].map(([id, text]) => (
+            <button
+              key={id}
+              type="button"
+              className={codes === id ? "on" : ""}
+              onClick={() => setCodes(id)}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+        <div className="segmented small">
+          {[
             ["newest", "جدیدترین عضو"],
             ["oldest", "قدیمی‌ترین عضو"],
             ["orders", "بیشترین سفارش"],
             ["spend", "بیشترین خرید"],
+            ["codes", "بیشترین کد"],
           ].map(([id, text]) => (
             <button
               key={id}
@@ -206,6 +257,7 @@ export default function Customers({ api }: { api: Api }) {
               <th>موبایل</th>
               <th>سفارش‌ها</th>
               <th>مبلغ خرید</th>
+              <th>کدهای مصرفی</th>
               <th>آخرین سفارش</th>
               <th>عضویت</th>
               <th>موجودی کیف‌پول</th>
@@ -229,6 +281,16 @@ export default function Customers({ api }: { api: Api }) {
                   {Number(u.spend ?? 0) > 0
                     ? `${money(u.spend)} تومان`
                     : "—"}
+                </td>
+                <td>
+                  {Number(u.codeUses ?? 0) > 0 ? (
+                    <>
+                      <strong>{toPersianDigits(Number(u.codeUses))} کد</strong>
+                      <small>یارانه {money(u.codeDiscount)}</small>
+                    </>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
                 </td>
                 <td>
                   {u.lastOrder ? (
@@ -277,6 +339,9 @@ export default function Customers({ api }: { api: Api }) {
       <p className="definition">
         «فعال» یعنی کاربر در ۳۰ روز اخیر وارد شده است. مبلغ خرید، جمع سبد
         سفارش‌های تکمیل‌شده است و هزینهٔ ارسال هم در آن محاسبه می‌شود.
+        «کدهای مصرفی» هر دو خانوادهٔ کد (فروشگاه و سراسری) را می‌شمارد؛ مبلغ آن،
+        جمع تخفیفی است که روی سفارش همان مشتری اعمال شده و با لغو سفارش به صفر
+        بازمی‌گردد.
       </p>
     </section>
   );

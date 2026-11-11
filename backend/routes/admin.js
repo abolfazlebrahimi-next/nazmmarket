@@ -94,6 +94,7 @@ router.get("/users", async (req, res) => {
       .trim()
       .slice(0, 100),
     orders = String(req.query.orders || "all"),
+    codes = String(req.query.codes || "all"),
     sort = String(req.query.sort || "newest"),
     since = new Date(Date.now() - 30 * 86400000).toISOString();
   const where = q
@@ -102,24 +103,34 @@ router.get("/users", async (req, res) => {
   const values = q ? Array(4).fill("%" + q + "%") : [];
   if (orders === "with") where.push("stat.orders > 0");
   if (orders === "without") where.push("stat.orders = 0");
+  if (codes === "used") where.push("codes.code_uses > 0");
+  if (codes === "unused") where.push("COALESCE(codes.code_uses, 0) = 0");
   const clause = where.length ? " WHERE " + where.join(" AND ") : "";
   const orderClause =
     sort === "orders"
       ? "ORDER BY stat.orders DESC, u.id DESC"
       : sort === "spend"
         ? "ORDER BY stat.spend DESC, u.id DESC"
-        : sort === "oldest"
-          ? "ORDER BY u.id ASC"
-          : "ORDER BY u.id DESC";
-  // One aggregated sub-select keeps the full customer list readable with names,
-  // phone, order count and spend without an N+1 query per row.
+        : sort === "codes"
+          ? "ORDER BY COALESCE(codes.code_uses, 0) DESC, u.id DESC"
+          : sort === "oldest"
+            ? "ORDER BY u.id ASC"
+            : "ORDER BY u.id DESC";
+  // One aggregated sub-select per fact keeps the full customer list readable
+  // with names, phone, order count, spend and redeemed codes without an N+1
+  // query per row.
   const select = `FROM users u
     LEFT JOIN (
       SELECT user_id, COUNT(*) AS orders,
              COALESCE(SUM(CASE WHEN status=5 THEN total ELSE 0 END),0) AS spend,
              MAX(created_at) AS last_order
       FROM orders GROUP BY user_id
-    ) stat ON stat.user_id = u.id`;
+    ) stat ON stat.user_id = u.id
+    LEFT JOIN (
+      SELECT user_id, COUNT(*) AS code_uses,
+             COALESCE(SUM(discount), 0) AS code_discount
+      FROM promo_redemptions GROUP BY user_id
+    ) codes ON codes.user_id = u.id`;
   const total = Number(
     (await db.get("SELECT COUNT(*) n " + select + clause, values)).n,
   );
@@ -128,6 +139,8 @@ router.get("/users", async (req, res) => {
       `SELECT u.id,u.phone,u.first_name,u.last_name,u.created_at,u.wallet,
         COALESCE(stat.orders,0) AS orders, COALESCE(stat.spend,0) AS spend,
         stat.last_order AS lastOrder,
+        COALESCE(codes.code_uses, 0) AS codeUses,
+        COALESCE(codes.code_discount, 0) AS codeDiscount,
         EXISTS(SELECT 1 FROM sessions s WHERE s.user_id=u.id AND s.created_at>=?) AS active
        ${select}${clause} ${orderClause} LIMIT ${size} OFFSET ${(page - 1) * size}`,
       [since, ...values],

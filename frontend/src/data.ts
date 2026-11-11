@@ -116,16 +116,19 @@ export const categories: Category[] = [
   { id: "hygiene", name: "بهداشتی", icon: SprayCan },
   { id: "other", name: "سایر", icon: Package },
 ];
+import type { DiscountCode, WireDiscountCode } from "./discountCodes";
+import { readDiscountCodes } from "./discountCodes";
+
 export const products: Product[] = [];
 export const stores: Store[] = [];
 export const brands: { name: string; color: string }[] = [];
-export const discountCodes: { code: string; title: string; desc: string; amount: number; storeId: number; storeName: string; kind: string }[] = [];
+export const discountCodes: DiscountCode[] = [];
 
 export type CatalogPayload = {
   products?: WireProduct[];
   stores?: Store[];
   categories?: WireCategory[];
-  promos?: { code: string; title: string; desc: string; amount: number; storeId: number; storeName: string; kind: string }[];
+  promos?: WireDiscountCode[];
 };
 
 /** Replaces the bundled catalog with the fresh copy served by the API. */
@@ -133,7 +136,8 @@ export function hydrateCatalog(payload: CatalogPayload | null | undefined) {
   if (!payload) return;
   if (payload.products) products.splice(0, products.length, ...payload.products.map(withIcon));
   if (payload.stores) stores.splice(0, stores.length, ...payload.stores);
-  if (payload.promos) discountCodes.splice(0, discountCodes.length, ...payload.promos);
+  if (payload.promos)
+    discountCodes.splice(0, discountCodes.length, ...readDiscountCodes(payload.promos));
   if (payload.categories?.length)
     categories.splice(
       0,

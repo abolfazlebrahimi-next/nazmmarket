@@ -161,6 +161,7 @@
 
 /* Tables: two-line cells, aligned numbers */
 .table-scroll td b,
+.table-scroll td strong,
 .table-scroll th b {
   display: block;
   font-size: 13px;
