@@ -64,9 +64,10 @@ function Receipt({ order }: { order: Order }) {
         </div>
       )}
       {discount > 0 && split && (
-        <p className="text-[10px] font-medium leading-5 text-muted">
+        // <dl> only allows dt/dd (or div) children, so the note is a div.
+        <div className="text-[10px] font-medium leading-5 text-muted">
           {parts.join(" · ")}
-        </p>
+        </div>
       )}
       <div className="flex items-center justify-between gap-3">
         <dt className="text-muted">هزینه ارسال</dt>
