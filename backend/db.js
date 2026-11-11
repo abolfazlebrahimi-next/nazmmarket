@@ -105,6 +105,23 @@ export async function migrate() {
     `CREATE TABLE IF NOT EXISTS platform_expenses (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,description VARCHAR(255) NOT NULL,amount BIGINT NOT NULL,created_at VARCHAR(32) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS order_events (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id VARCHAR(40) NOT NULL, status INT NOT NULL, actor_role VARCHAR(20) NOT NULL, actor_id BIGINT UNSIGNED NULL, created_at VARCHAR(32) NOT NULL, KEY idx_order_events (order_id,id)) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS first_offer_redemptions (user_id BIGINT UNSIGNED PRIMARY KEY, order_id VARCHAR(40) NOT NULL, product_id INT UNSIGNED NOT NULL, discount BIGINT NOT NULL, created_at VARCHAR(32) NOT NULL) ENGINE=InnoDB`,
+    // «خرید اول» به شکل فروشگاهی: هر فروشنده چند کالا با درصد تخفیف (۲۵٪ به
+    // بالا) و حداقل مبلغ سبد معرفی می‌کند؛ مشتری فقط یکی از آن‌ها را با تخفیف
+    // برمی‌دارد و مابقی سبد را از همان فروشگاه با قیمت عادی می‌خرد.
+    `CREATE TABLE IF NOT EXISTS store_first_offers (
+      id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      store_id INT UNSIGNED NOT NULL, seller_id BIGINT UNSIGNED NOT NULL,
+      percent INT NOT NULL, min_basket BIGINT NOT NULL DEFAULT 0,
+      active TINYINT(1) NOT NULL DEFAULT 1, created_at VARCHAR(32) NOT NULL,
+      UNIQUE KEY uq_first_offer_store (store_id),
+      CONSTRAINT fk_first_offer_store FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS store_first_offer_products (
+      offer_id INT UNSIGNED NOT NULL, product_id INT UNSIGNED NOT NULL,
+      PRIMARY KEY (offer_id, product_id),
+      CONSTRAINT fk_fop_offer FOREIGN KEY (offer_id) REFERENCES store_first_offers(id) ON DELETE CASCADE,
+      CONSTRAINT fk_fop_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS wallet_transactions (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, order_id VARCHAR(40) NULL, kind VARCHAR(32) NOT NULL, amount BIGINT NOT NULL, note VARCHAR(255) NOT NULL DEFAULT '', created_at VARCHAR(32) NOT NULL, KEY idx_wallet_tx_user (user_id,id), UNIQUE KEY uq_wallet_tx_order_kind (order_id,kind)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS admin_sessions (token CHAR(64) PRIMARY KEY, expires_at VARCHAR(32) NOT NULL) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS master_products (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(180) NOT NULL, category VARCHAR(80) NOT NULL, unit VARCHAR(120) NOT NULL DEFAULT '', image_url VARCHAR(512) NOT NULL, active TINYINT NOT NULL DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,

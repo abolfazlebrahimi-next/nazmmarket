@@ -25,7 +25,9 @@ const progressFor = (status: number) =>
 /** The short name on the pill, in the same three words as the steps. */
 const statusLabel = (o: Order) =>
   o.status === 5
-    ? "تقدیم به شما شده"
+    ? o.deliveryMode === "pickup"
+      ? "دریافت شد"
+      : "تقدیم به شما شده"
     : o.status === 0
       ? o.rejectedBy === "seller"
         ? "فروشگاه انجامش نداد"
@@ -33,7 +35,9 @@ const statusLabel = (o: Order) =>
       : o.status >= 3
         ? o.deliveryMode === "seller"
           ? "ارسال توسط فروشگاه"
-          : "تحویل به سفیر"
+          : o.deliveryMode === "pickup"
+            ? "آماده برای دریافت"
+            : "تحویل به سفیر"
         : "در حال آماده‌سازی";
 
 function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
@@ -71,7 +75,10 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
             {o.storeName}
           </p>
           <p className="mt-1 text-[10px] font-medium leading-5 text-muted sm:text-[10.5px]">
-            سفارش در ساعت {o.time} ثبت شد · تحویل به {o.addressTitle}
+            سفارش در ساعت {o.time} ثبت شد ·{" "}
+            {o.deliveryMode === "pickup"
+              ? "دریافت حضوری از فروشگاه"
+              : `تحویل به ${o.addressTitle}`}
           </p>
         </div>
         <span
@@ -156,9 +163,14 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
       {o.status > 0 &&
         (() => {
           const progress = progressFor(o.status);
-          const steps = statusSteps.map((step, i) =>
-            i === 1 && o.deliveryMode === "seller" ? "ارسال فروشگاه" : step,
-          );
+          const steps =
+            o.deliveryMode === "pickup"
+              ? ["در حال آماده‌سازی", "آماده برای دریافت", "دریافت شد"]
+              : statusSteps.map((step, i) =>
+                  i === 1 && o.deliveryMode === "seller"
+                    ? "ارسال فروشگاه"
+                    : step,
+                );
           return (
             <div className="mt-4 flex items-center" dir="rtl">
               {steps.map((step, i) => (
@@ -200,7 +212,9 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
         <section className="my-4 rounded-2xl border border-mint/20 bg-mint/5 p-4">
           <p className="text-xs font-bold">کد تحویل</p>
           <p className="my-2 text-[10px] text-muted">
-            وقتی بسته را گرفتید، این کد را به سفیر بگویید.
+            {o.deliveryMode === "pickup"
+              ? "این کد را هنگام تحویل گرفتن از فروشگاه بگویید."
+              : "وقتی بسته را گرفتید، این کد را به سفیر بگویید."}
           </p>
           {deliveryCode && (
             <p
@@ -241,6 +255,12 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
       {o.status === 4 && o.deliveryMode === "seller" && (
         <p className="my-4 rounded-2xl bg-mint/5 p-4 text-xs text-mint">
           بسته را خودِ فروشگاه می‌آورد؛ کد تحویل لازم نیست.
+        </p>
+      )}
+      {o.status === 4 && o.deliveryMode === "pickup" && (
+        <p className="my-4 rounded-2xl bg-mint/5 p-4 text-xs text-mint">
+          سفارش شما آماده است؛ با مراجعه به فروشگاه {o.storeName} تحویل
+          بگیرید.
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-1.5">

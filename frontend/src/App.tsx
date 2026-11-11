@@ -20,7 +20,13 @@ import { ApiError, api, tokenStore } from "./api/client";
 import type { ServerState } from "./api/client";
 import type { AppCtx, Sub, View } from "./ctx";
 import type { Address, CartState, Order, Product, User } from "./data";
-import { hydrateCatalog, products, storeById, stores } from "./data";
+import {
+  firstOffers,
+  hydrateCatalog,
+  products,
+  storeById,
+  stores,
+} from "./data";
 import { readDiscountCode } from "./discountCodes";
 import type { DiscountCode } from "./discountCodes";
 import AuthPage from "./pages/Auth";
@@ -448,10 +454,12 @@ export default function App() {
     if (!firstOrderEligible) return;
     if (firstOrderProductId && (cart.items[firstOrderProductId] ?? 0) > 0)
       return;
-    const candidate = products.find(
-      (p) => p.category === "drinks" && (cart.items[p.id] ?? 0) > 0,
+    // «خرید اول»: مشتری فقط یکی از کالاهای پیشنهادی فروشگاه‌ها را با تخفیف
+    // برمی‌دارد؛ اگر چنین کالایی در سبد بود، همان انتخاب می‌شود.
+    const candidate = firstOffers.find(
+      (o) => (cart.items[o.productId] ?? 0) > 0,
     );
-    setFirstOrderProductId(candidate?.id ?? null);
+    setFirstOrderProductId(candidate?.productId ?? null);
   }, [cart, firstOrderEligible, firstOrderProductId]);
   const firstOrderDiscount = useMemo(() => {
     if (
@@ -460,9 +468,15 @@ export default function App() {
       (cart.items[firstOrderProductId] ?? 0) < 1
     )
       return 0;
+    const offer = firstOffers.find((o) => o.productId === firstOrderProductId);
     const product = products.find((p) => p.id === firstOrderProductId);
-    return product?.category === "drinks" ? Math.floor(product.price / 2) : 0;
-  }, [firstOrderEligible, firstOrderProductId, cart]);
+    if (!offer || !product) return 0;
+    // تا رسیدن به حداقل خریدِ تعیین‌شدهٔ فروشگاه، تخفیفی اعمال نمی‌شود؛
+    // مابقی سبد را از همان فروشگاه با قیمت عادی کامل می‌کنید.
+    if (subtotal < offer.minBasket) return 0;
+    // فقط یک واحد تخفیف می‌گیرد.
+    return Math.floor((product.price * offer.percent) / 100);
+  }, [firstOrderEligible, firstOrderProductId, cart, subtotal]);
   /**
    * What the typed code alone is worth. The totals used to print `discountAmount`
    * here, which quietly included the first-order offer and made the code look
@@ -513,7 +527,14 @@ export default function App() {
     selectedAddress?.lat,
     selectedAddress?.lng,
   ]);
-  const deliveryFee = cartCount === 0 ? 0 : (deliveryQuote ?? 50000);
+  /* «ارسال با پیک» یا «دریافت حضوری»؛ در حضوری هزینه‌ای برای ارسال گرفته نمی‌شود. */
+  const [orderDeliveryMode, setOrderDeliveryMode] = useState<
+    "courier" | "pickup"
+  >("courier");
+  const deliveryFee =
+    orderDeliveryMode === "pickup" || cartCount === 0
+      ? 0
+      : (deliveryQuote ?? 50000);
   const payable = Math.max(0, subtotal - discountAmount + deliveryFee);
 
   /* ---------------- actions ---------------- */
@@ -540,7 +561,11 @@ export default function App() {
         : (fromStoreId ?? c.storeId ?? null),
       items: { ...c.items, [p.id]: (c.items[p.id] ?? 0) + 1 },
     }));
-    if (firstOrderEligible && !firstOrderProductId && p.category === "drinks")
+    if (
+      firstOrderEligible &&
+      !firstOrderProductId &&
+      firstOffers.some((o) => o.productId === p.id)
+    )
       setFirstOrderProductId(p.id);
     if (cartCount === 0) showToast(`${p.name} به سبد اضافه شد`);
   };
@@ -605,10 +630,13 @@ export default function App() {
   const placeOrder = async (extra?: {
     slot?: string;
     payment?: "online" | "cash" | "wallet";
+    deliveryMode?: "courier" | "pickup";
   }) => {
     if (!token) return showToast("برای ثبت واقعی سفارش، ابتدا وارد حساب شوید.");
     if (!apiOnline) return showToast("سرور در دسترس نیست؛ سفارش ثبت نشد.");
-    if (!selectedAddress) return showToast("ابتدا آدرس تحویل را انتخاب کنید");
+    const mode = extra?.deliveryMode ?? "courier";
+    if (mode === "courier" && !selectedAddress)
+      return showToast("ابتدا آدرس تحویل را انتخاب کنید");
     if (!cart.storeId || cartCount === 0) {
       setStorePicker(true);
       return showToast("ابتدا فروشگاه را انتخاب کنید");
@@ -619,11 +647,16 @@ export default function App() {
       const { order } = await api.orders.place({
         storeId: cart.storeId,
         items: cart.items,
-        addressId: selectedAddress.id,
-        addressTitle: selectedAddress.title,
-        addressText: `${selectedAddress.address}، ${selectedAddress.detail}`,
+        ...(mode === "pickup"
+          ? {}
+          : {
+              addressId: selectedAddress.id,
+              addressTitle: selectedAddress.title,
+              addressText: `${selectedAddress.address}، ${selectedAddress.detail}`,
+            }),
         slot: extra?.slot ?? "ارسال فوری",
         payment: extra?.payment ?? "cash",
+        deliveryMode: mode,
         promoCode: appliedCode,
         firstOrderProductId: firstOrderEligible ? firstOrderProductId : null,
       });
@@ -633,6 +666,7 @@ export default function App() {
       setFirstOrderEligible(false);
       setFirstOrderProductId(null);
       setCart({ storeId: null, items: {} });
+      setOrderDeliveryMode("courier");
       setAppliedCode(null);
       setAppliedPromo(null);
       setSub({ name: "done", order });
@@ -752,6 +786,8 @@ export default function App() {
     payable,
     applyCode,
     placeOrder,
+    orderDeliveryMode,
+    setOrderDeliveryMode,
     reorder,
     orders,
     refreshOrders,

@@ -16,27 +16,46 @@ const basket = () => [
   { id: 1, category: "drinks", price: 40000, qty: 2 },
   { id: 2, category: "bakery", price: 30000, qty: 2 },
 ];
-test("two drinks and two cakes: discount exactly one drink unit, not the whole line", () => {
+/* فروشنده: ۲۵٪ تخفیف، بدون حداقل سبد. */
+const offer = { percent: 25, minBasket: 0 };
+test("the chosen offer product gets the seller's percent on exactly one unit", () => {
   const items = basket();
-  assert.equal(firstOffer(items, 1, false), 20000);
+  assert.equal(firstOffer(items, 1, false, offer), 10000);
   assert.equal(items[0].discountedQty, 1);
   assert.equal(items[1].unitDiscount, undefined);
-  assert.equal(items.reduce((s, i) => s + i.price * i.qty, 0) - 20000, 120000);
+  assert.equal(items.reduce((s, i) => s + i.price * i.qty, 0) - 10000, 130000);
+});
+test("below the seller's minimum basket the deal applies nothing", () => {
+  // جمع سبد ۱۴۰٬۰۰۰ است؛ حداقلِ ۱۵۰٬۰۰۰ یعنی تخفیفی در کار نیست.
+  assert.equal(
+    firstOffer(basket(), 1, false, { percent: 25, minBasket: 150000 }),
+    0,
+  );
+  assert.equal(
+    firstOffer(basket(), 1, false, { percent: 25, minBasket: 140000 }),
+    10000,
+  );
 });
 test("first offer rejects previous use, including cancelled redemption", () =>
-  assert.throws(() => firstOffer(basket(), 1, true), {
+  assert.throws(() => firstOffer(basket(), 1, true, offer), {
     status: 409,
     code: "first_offer_used",
   }));
-test("first offer rejects cakes, missing item, zero quantity and tampered ID", () => {
-  for (const id of [2, 3, NaN, Infinity])
-    assert.throws(() => firstOffer(basket(), id, false), { status: 400 });
-  assert.throws(() => firstOffer([{ ...basket()[0], qty: 0 }], 1, false), {
+test("first offer rejects missing item, zero quantity, tampered ID and inactive offers", () => {
+  for (const id of [3, NaN, Infinity])
+    assert.throws(() => firstOffer(basket(), id, false, offer), { status: 400 });
+  assert.throws(
+    () => firstOffer([{ ...basket()[0], qty: 0 }], 1, false, offer),
+    { status: 400 },
+  );
+  // کالا باید در فهرستِ فعالِ پیشنهاد باشد؛ نبودِ offer یا درصد غیرمجاز یعنی مردود.
+  assert.throws(() => firstOffer(basket(), 1, false, null), { status: 400 });
+  assert.throws(() => firstOffer(basket(), 1, false, { percent: 20, minBasket: 0 }), {
     status: 400,
   });
 });
 test("not selecting an offer gives no discount", () =>
-  assert.equal(firstOffer(basket(), null, false), 0));
+  assert.equal(firstOffer(basket(), null, false, offer), 0));
 test("server prices use integer money and enforce maximum allowed discount", () => {
   assert.deepEqual(sellerPrice(100000, 25, 30), {
     price: 75000,

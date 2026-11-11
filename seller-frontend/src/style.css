@@ -2528,3 +2528,119 @@ button:disabled {
   background: #fdf3f1;
   color: #8f2e1e;
 }
+
+/* «خرید اول» — پنل پیشنهاد ویژهٔ اولین خرید */
+.first-offer-panel {
+  margin-bottom: 18px;
+}
+.fo-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.fo-badge {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #ff7a1a, #ff9d42);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+.fo-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.fo-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 2;
+}
+.fo-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+  align-items: end;
+}
+.fo-fields .field span {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 6px;
+}
+.fo-active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.fo-label {
+  margin: 16px 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.fo-products {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 2px;
+}
+.fo-product {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.fo-product.on {
+  border-color: var(--green);
+  background: #f2fbf5;
+}
+.fo-product-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+.fo-product small {
+  color: var(--muted);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.fo-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+.fo-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.fo-note {
+  font-size: 12px;
+  font-weight: 700;
+}
+.fo-note.ok {
+  color: var(--green);
+}
+.fo-note.err {
+  color: #c0392b;
+}

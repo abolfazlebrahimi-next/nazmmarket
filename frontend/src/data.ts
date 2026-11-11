@@ -126,11 +126,24 @@ export const stores: Store[] = [];
 export const brands: { name: string; color: string }[] = [];
 export const discountCodes: DiscountCode[] = [];
 
+/** پیشنهاد «خرید اول» فروشگاه‌ها؛ مشتری فقط یکی را با تخفیف برمی‌دارد. */
+export type FirstOffer = {
+  productId: number;
+  storeId: number;
+  /** درصد تخفیفِ یک واحد، ۲۵ تا ۱۰۰. */
+  percent: number;
+  /** حداقل مبلغ سبد از همان فروشگاه تا تخفیف اعمال شود. */
+  minBasket: number;
+  storeName: string;
+};
+export const firstOffers: FirstOffer[] = [];
+
 export type CatalogPayload = {
   products?: WireProduct[];
   stores?: Store[];
   categories?: WireCategory[];
   promos?: WireDiscountCode[];
+  firstOffers?: FirstOffer[];
 };
 
 /** Replaces the bundled catalog with the fresh copy served by the API. */
@@ -140,6 +153,8 @@ export function hydrateCatalog(payload: CatalogPayload | null | undefined) {
   if (payload.stores) stores.splice(0, stores.length, ...payload.stores);
   if (payload.promos)
     discountCodes.splice(0, discountCodes.length, ...readDiscountCodes(payload.promos));
+  if (payload.firstOffers)
+    firstOffers.splice(0, firstOffers.length, ...payload.firstOffers);
   if (payload.categories?.length)
     categories.splice(
       0,
@@ -212,7 +227,7 @@ export type Order = {
   slot: string;
   payment?: "online" | "cash" | "wallet";
   paymentStatus?: string;
-  deliveryMode?: "courier" | "seller";
+  deliveryMode?: "courier" | "seller" | "pickup";
   promoCode?: string | null;
   /** Who ended an order in status 0; the seller gets a different notice. */
   rejectedBy?: "seller" | "customer" | null;

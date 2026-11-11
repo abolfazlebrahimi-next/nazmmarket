@@ -357,6 +357,109 @@ router.patch("/store/open", async (req, res) => {
   const updated = await sellerStore(req.seller.id);
   res.json({ store: mapStore(updated) });
 });
+/* پیکربندی «خرید اول» فروشگاه: چند کالا، درصد تخفیف (۲۵٪ به بالا) و حداقل
+   مبلغ سبد. مشتری فقط یکی از این کالاها را با تخفیف انتخاب می‌کند. */
+router.get("/first-offer", async (req, res) => {
+  const store = await sellerStore(req.seller.id);
+  if (!store) return fail(res, 404, "store_missing", "فروشگاه پیدا نشد.");
+  const offer = await db.get(
+    "SELECT * FROM store_first_offers WHERE store_id=?",
+    [store.id],
+  );
+  const rows = offer
+    ? await db.all(
+        "SELECT product_id FROM store_first_offer_products WHERE offer_id=?",
+        [offer.id],
+      )
+    : [];
+  res.json({
+    offer: offer
+      ? {
+          percent: Number(offer.percent),
+          minBasket: Number(offer.min_basket),
+          active: Boolean(offer.active),
+          productIds: rows.map((r) => Number(r.product_id)),
+        }
+      : null,
+  });
+});
+router.put("/first-offer", async (req, res) => {
+  const store = await sellerStore(req.seller.id);
+  if (!store) return fail(res, 404, "store_missing", "فروشگاه پیدا نشد.");
+  const b = req.body ?? {};
+  const percent = Math.floor(Number(b.percent));
+  const minBasket = Math.floor(Number(b.minBasket));
+  const active = Boolean(b.active);
+  const productIds = [...new Set((Array.isArray(b.productIds) ? b.productIds : []).map(Number))].filter(
+    (id) => Number.isInteger(id) && id > 0,
+  );
+  if (!Number.isInteger(percent) || percent < 25 || percent > 100)
+    return fail(
+      res,
+      400,
+      "invalid_percent",
+      "درصد تخفیف خرید اول باید بین ۲۵ تا ۱۰۰ باشد.",
+    );
+  if (!Number.isInteger(minBasket) || minBasket < 0)
+    return fail(res, 400, "invalid_min_basket", "حداقل خرید معتبر نیست.");
+  if (active && !productIds.length)
+    return fail(
+      res,
+      400,
+      "products_required",
+      "دست‌کم یک کالا برای پیشنهاد خرید اول انتخاب کنید.",
+    );
+  if (productIds.length > 30)
+    return fail(
+      res,
+      400,
+      "too_many_products",
+      "حداکثر ۳۰ کالا برای خرید اول می‌توان انتخاب کرد.",
+    );
+  const placeholders = productIds.map(() => "?").join(",");
+  const owned = await db.all(
+    `SELECT id FROM products WHERE seller_id=? AND store_id=? AND id IN (${placeholders})`,
+    [req.seller.id, store.id, ...productIds],
+  );
+  if (owned.length !== productIds.length)
+    return fail(
+      res,
+      400,
+      "products_not_mine",
+      "همهٔ کالاهای انتخابی باید از عرضهٔ همین فروشگاه باشند.",
+    );
+  await db.transaction(async (tx) => {
+    const result = await tx.run(
+      `INSERT INTO store_first_offers (store_id, seller_id, percent, min_basket, active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE percent=VALUES(percent), min_basket=VALUES(min_basket), active=VALUES(active)`,
+      [
+        store.id,
+        req.seller.id,
+        percent,
+        minBasket,
+        active ? 1 : 0,
+        new Date().toISOString(),
+      ],
+    );
+    const offer = await tx.get(
+      "SELECT id FROM store_first_offers WHERE store_id=?",
+      [store.id],
+    );
+    await tx.run("DELETE FROM store_first_offer_products WHERE offer_id=?", [
+      offer.id,
+    ]);
+    for (const productId of productIds)
+      await tx.run(
+        "INSERT INTO store_first_offer_products (offer_id, product_id) VALUES (?, ?)",
+        [offer.id, productId],
+      );
+    return result;
+  });
+  res.json({
+    offer: { percent, minBasket, active, productIds },
+  });
+});
 router.put("/store", (req, res, next) =>
   storeImages(req, res, (err) =>
     err ? next(err) : updateStore(req, res, next),
@@ -1020,9 +1123,13 @@ router.post("/orders/:id/self-delivery/complete", async (req, res) => {
       "SELECT * FROM orders WHERE id=? AND store_id=? FOR UPDATE",
       [req.params.id, store?.id ?? 0],
     );
-    if (!o || o.delivery_mode !== "seller") return false;
+    // «دریافت حضوری» هم با همین دکمه تحویل داده می‌شود: مشتری در فروشگاه
+    // بسته را می‌گیرد و فروشنده سفارش را تکمیل می‌کند.
+    if (!o || !["seller", "pickup"].includes(o.delivery_mode)) return false;
     if (Number(o.status) === 5) return true;
-    if (Number(o.status) !== 4) return false;
+    if (o.delivery_mode === "pickup") {
+      if (![3, 4].includes(Number(o.status))) return false;
+    } else if (Number(o.status) !== 4) return false;
     await tx.run("UPDATE orders SET status=5 WHERE id=?", [o.id]);
     await recordOrderEvent(tx, o.id, 5, "seller", req.seller.id);
     return true;

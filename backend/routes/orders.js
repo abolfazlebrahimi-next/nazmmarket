@@ -233,6 +233,9 @@ router.post("/orders", requireAuth, async (req, res) => {
       body.firstOrderProductId == null
         ? null
         : Number(body.firstOrderProductId);
+    // «دریافت حضوری» یا «ارسال با پیک»؛ در حالت حضوری، نشانی تحویل همان
+    // فروشگاه است و هزینه‌ای برای ارسال گرفته نمی‌شود.
+    const deliveryMode = body.deliveryMode === "pickup" ? "pickup" : "courier";
     const addressId = Number(body.addressId);
     const addressRow = Number.isInteger(addressId)
       ? await db.get("SELECT * FROM addresses WHERE id=? AND user_id=?", [
@@ -240,13 +243,19 @@ router.post("/orders", requireAuth, async (req, res) => {
           req.user.id,
         ])
       : null;
-    const addressTitle = String(
-      body.addressTitle ?? addressRow?.title ?? "آدرس انتخابی",
-    ).slice(0, 60);
-    const addressText = addressRow
-      ? `${addressRow.address}، ${addressRow.detail}`
-      : String(body.addressText ?? "").slice(0, 240);
-    if (!addressText.trim())
+    const addressTitle =
+      deliveryMode === "pickup"
+        ? "دریافت حضوری"
+        : String(
+            body.addressTitle ?? addressRow?.title ?? "آدرس انتخابی",
+          ).slice(0, 60);
+    const addressText =
+      deliveryMode === "pickup"
+        ? String(storeRow.address || storeRow.area || "فروشگاه").slice(0, 240)
+        : addressRow
+          ? `${addressRow.address}، ${addressRow.detail}`
+          : String(body.addressText ?? "").slice(0, 240);
+    if (deliveryMode !== "pickup" && !addressText.trim())
       return res.status(400).json({
         error: {
           code: "address_required",
@@ -310,25 +319,45 @@ router.post("/orders", requireAuth, async (req, res) => {
         "SELECT user_id FROM first_offer_redemptions WHERE user_id=?",
         [req.user.id],
       );
+      // پیشنهاد «خرید اول» از پیکربندیِ فروشگاهِ همین سفارش می‌آید: فروشنده
+      // چند کالا با درصد تخفیف و حداقل مبلغ سبد معرفی کرده و مشتری فقط یک
+      // واحد از یکی از آن‌ها را تخفیف می‌گیرد.
+      const offerRow = firstOrderProductId
+        ? await tx.get(
+            `SELECT o.percent, o.min_basket FROM store_first_offers o
+               JOIN store_first_offer_products f ON f.offer_id=o.id
+              WHERE o.store_id=? AND o.active=1 AND f.product_id=?`,
+            [storeId, firstOrderProductId],
+          )
+        : null;
       const firstOrderDiscount = firstOffer(
         items,
         firstOrderProductId,
         Boolean(priorOrder || redeemed),
+        offerRow
+          ? {
+              percent: Number(offerRow.percent),
+              minBasket: Number(offerRow.min_basket),
+            }
+          : null,
       );
       const discount = Math.min(
         subtotal,
         sellerDiscount + platformDiscount + firstOrderDiscount,
       );
       const settings = await platformSettings(tx);
-      const quote = deliveryQuote({
-        from: storeRow,
-        to: addressRow,
-        weightKg: items.reduce(
-          (sum, item) => sum + item.weightKg * item.qty,
-          0,
-        ),
-        weather: settings.weather,
-      });
+      const quote =
+        deliveryMode === "pickup"
+          ? { fee: 0, mode: "pickup" }
+          : deliveryQuote({
+              from: storeRow,
+              to: addressRow,
+              weightKg: items.reduce(
+                (sum, item) => sum + item.weightKg * item.qty,
+                0,
+              ),
+              weather: settings.weather,
+            });
       const delivery = quote.fee;
       const total = Math.max(0, subtotal - discount + delivery);
       // Wallet payment settles the order up-front: the balance is debited in
@@ -361,8 +390,8 @@ router.post("/orders", requireAuth, async (req, res) => {
       await tx.run(
         `INSERT INTO orders (id, user_id, store_id, store_name, items, subtotal, discount, delivery, total,
           address_title, address_text, slot, payment, payment_status, promo_code, status, time, created_at,
-          reassign_started_at, reassign_count, reassign_history)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 0, ?)`,
+          reassign_started_at, reassign_count, reassign_history, delivery_mode)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 0, ?, ?)`,
         [
           id,
           req.user.id,
@@ -385,13 +414,18 @@ router.post("/orders", requireAuth, async (req, res) => {
           JSON.stringify([
             { storeId, storeName: storeRow.name, at: createdAt, by: "customer" },
           ]),
+          deliveryMode,
         ],
       );
       await tx.run(
         "UPDATE orders SET destination_lat=?,destination_lng=?,fare_details=?,courier_fee=?,courier_commission_rate=?,platform_commission=?,first_offer_discount=?,seller_discount=?,platform_discount=? WHERE id=?",
         [
-          addressRow?.lat ?? null,
-          addressRow?.lng ?? null,
+          deliveryMode === "pickup"
+            ? storeRow.lat ?? null
+            : addressRow?.lat ?? null,
+          deliveryMode === "pickup"
+            ? storeRow.lng ?? null
+            : addressRow?.lng ?? null,
           JSON.stringify(quote),
           quote.fee,
           settings.courierCommissionPercent,

@@ -17,13 +17,14 @@ import {
 import {
   Empty,
   ProductCard,
+  ProductVisual,
   ScreenHeader,
   StoreCard,
   pd,
 } from "../components/ui";
 import MapPicker from "../components/MapPicker";
 import type { AppCtx } from "../ctx";
-import { categories, products, stores } from "../data";
+import { categories, faNum, firstOffers, products, stores } from "../data";
 
 /** Which store rejections this device already acknowledged. */
 const REJECT_SEEN_KEY = "naz_reject_seen";
@@ -33,7 +34,12 @@ export function HomePage({ c }: { c: AppCtx }) {
   const available = products.filter(
     (p) => p.active !== false && Number(p.stock) > 0,
   );
-  const offerProducts = available.filter((p) => p.category === "drinks");
+  // «خرید اول»: پیشنهادهای فروشگاه‌ها (کالا + درصد تخفیف)؛ مشتری فقط یکی را
+  // با تخفیف برمی‌دارد و با کلیک روی هر کالا وارد همان فروشگاه می‌شود.
+  const offerProducts = firstOffers.flatMap((offer) => {
+    const product = available.find((p) => p.id === offer.productId);
+    return product ? [{ offer, product }] : [];
+  });
   const amazing = amazingDeals(available);
   const drinks = energizingDrinks(available);
   const rows = categories
@@ -60,14 +66,6 @@ export function HomePage({ c }: { c: AppCtx }) {
     const next = [...seenRejections, rejection.id];
     setSeenRejections(next);
     save(REJECT_SEEN_KEY, next);
-  };
-  const selectOffer = (p: (typeof products)[number]) => {
-    if (c.cartCount > 0 && c.cart.storeId && c.cart.storeId !== p.storeId) {
-      c.handleAdd(p, p.storeId);
-      return;
-    }
-    if (!c.qtyOf(p.id)) c.handleAdd(p, p.storeId);
-    c.setFirstOrderProductId(p.id);
   };
   return (
     <div className="market-home">
@@ -101,33 +99,6 @@ export function HomePage({ c }: { c: AppCtx }) {
           </div>
         </div>
       )}
-      {c.firstOrderEligible && offerProducts.length > 0 && (
-        <button
-          type="button"
-          className="first-order-banner"
-          onClick={() =>
-            document.getElementById("first-order-products")?.scrollIntoView({
-              behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
-                .matches
-                ? "auto"
-                : "smooth",
-              block: "start",
-            })
-          }
-        >
-          <div>
-            <span className="campaign-eyebrow">ویژهٔ خرید اول شما</span>
-            <h1>اولین خرید، شیرین‌تر!</h1>
-            <p>یک عدد نوشیدنی، با نصف قیمت</p>
-            <span className="campaign-link">
-              انتخاب پیشنهاد خرید اول <ChevronLeft size={16} />
-            </span>
-          </div>
-          <span className="campaign-percent">
-            ۵۰<small>٪ تخفیف</small>
-          </span>
-        </button>
-      )}
       <section className="market-category-section" aria-label="دسته‌بندی کالاها">
         <div className="market-category-heading">
           <h2>دسته‌بندی‌ها</h2>
@@ -159,26 +130,60 @@ export function HomePage({ c }: { c: AppCtx }) {
         </div>
       </section>
       {c.firstOrderEligible && offerProducts.length > 0 && (
-        <div id="first-order-products">
-          <ProductRail title="خرید اولی‌ها؛ یک عدد با ۵۰٪ تخفیف" tone="offer">
-            {offerProducts.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                h={c.cardHandlers(p.storeId)}
-                firstOrderOffer={{
-                  selected: c.firstOrderProductId === p.id && c.qtyOf(p.id) > 0,
-                  onSelect: () => selectOffer(p),
-                }}
-              />
-            ))}
-          </ProductRail>
-          <p className="campaign-terms">
-            فقط یک واحد از یک نوشیدنی در اولین سفارش؛ تعداد اضافه و سایر کالاها
-            با قیمت عادی فروشگاه محاسبه می‌شوند. تخفیف نهایی در سرور بررسی
-            می‌شود.
+        <section
+          id="first-order-products"
+          className="first-order-shelf"
+          aria-label="خرید اول"
+        >
+          <div className="first-order-shelf-head">
+            <div>
+              <h2>خرید اول!</h2>
+              <p>یک کالا با تخفیف ویژه انتخاب کن و وارد همان فروشگاه شو</p>
+            </div>
+            <span className="first-order-shelf-badge">
+              {pd(Math.max(...offerProducts.map((x) => x.offer.percent)))}
+              <small>٪ تخفیف</small>
+            </span>
+          </div>
+          <div className="first-order-rail no-scrollbar">
+            {offerProducts.map(({ offer, product }) => {
+              const off = Math.floor((product.price * offer.percent) / 100);
+              return (
+                <button
+                  key={product.id}
+                  type="button"
+                  className="first-order-card"
+                  onClick={() =>
+                    c.openSub({
+                      name: "store",
+                      id: product.storeId ?? offer.storeId,
+                    })
+                  }
+                  aria-label={`${product.name} از ${offer.storeName}`}
+                >
+                  <span className="first-order-card-visual">
+                    <ProductVisual product={product} hideDiscount />
+                    <span className="first-order-card-chip">
+                      {pd(offer.percent)}٪
+                    </span>
+                  </span>
+                  <span className="first-order-card-name">{product.name}</span>
+                  <span className="first-order-card-store">
+                    {offer.storeName}
+                  </span>
+                  <span className="first-order-card-price">
+                    <strong>{faNum(product.price - off)} تومان</strong>
+                    <del>{faNum(product.price)}</del>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="first-order-terms">
+            فقط یک کالا با تخفیف خرید اول؛ مابقی سبد را از همان فروشگاه با قیمت
+            عادی بخرید. با کلیک روی هر کالا وارد فروشگاه آن می‌شوید.
           </p>
-        </div>
+        </section>
       )}
       {!!amazing.length && (
         <ProductRail title="تخفیف‌های شگفت‌انگیز" tone="deal">

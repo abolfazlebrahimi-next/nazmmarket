@@ -1197,6 +1197,139 @@ textarea::placeholder {
   line-height: 1.9;
   padding: 0 4px;
 }
+/* «خرید اول» — قفسهٔ نارنجی با لبهٔ موجی، الهام از تصویر مرجع */
+.first-order-shelf {
+  position: relative;
+  margin-top: 20px;
+  padding: 22px 13px 12px;
+  overflow: hidden;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 8% 0%, #ffd9a866, transparent 40%),
+    linear-gradient(120deg, #ff7a1a, #ff9436 55%, #ffb262);
+  box-shadow: 0 12px 26px #ff7a1a33;
+}
+.first-order-shelf::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: -10px;
+  right: -10px;
+  height: 14px;
+  background: radial-gradient(circle at 7px 7px, #fff 7px, transparent 7.5px)
+    0 0 / 14px 14px repeat-x;
+}
+.first-order-shelf-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #fff;
+}
+.first-order-shelf-head h2 {
+  font-size: 17px;
+  font-weight: 900;
+  text-shadow: 0 1px 3px #c25a1266;
+}
+.first-order-shelf-head p {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff7ee;
+}
+.first-order-shelf-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  padding: 6px 12px;
+  border-radius: 999px 12px 12px 999px;
+  background: #fff;
+  color: #e2620f;
+  font-size: 22px;
+  font-weight: 900;
+  box-shadow: 0 4px 10px #a64b0d33;
+}
+.first-order-shelf-badge small {
+  font-size: 10px;
+  font-weight: 850;
+}
+.first-order-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 130px;
+  gap: 10px;
+  margin-top: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 4px;
+}
+.first-order-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 8px;
+  border: 0;
+  border-radius: 16px;
+  background: #fff;
+  scroll-snap-align: start;
+  text-align: right;
+  transition: transform 0.15s ease;
+}
+.first-order-card:active {
+  transform: scale(0.97);
+}
+.first-order-card-visual {
+  position: relative;
+  display: block;
+}
+.first-order-card-chip {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: #e2620f;
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 900;
+}
+.first-order-card-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #26352e;
+}
+.first-order-card-store {
+  font-size: 8px;
+  font-weight: 700;
+  color: #8c9c90;
+}
+.first-order-card-price {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.first-order-card-price strong {
+  font-size: 10.5px;
+  font-weight: 900;
+  color: #26352e;
+}
+.first-order-card-price del {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #a8a49e;
+}
+.first-order-terms {
+  margin-top: 10px;
+  color: #fff7ee;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.9;
+}
 .market-favorites {
   display: flex;
   align-items: center;

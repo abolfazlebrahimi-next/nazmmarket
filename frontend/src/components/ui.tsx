@@ -110,10 +110,17 @@ export function ProductCard({
   product: Product;
   h: CardHandlers;
   width?: string;
-  firstOrderOffer?: { selected: boolean; onSelect: () => void };
+  firstOrderOffer?: {
+    selected: boolean;
+    onSelect: () => void;
+    /** درصد تخفیف خرید اولِ فروشگاه (۲۵ تا ۱۰۰)؛ پیش‌فرض ۵۰. */
+    percent?: number;
+  };
 }) {
   const qty = h.qtyOf(product.id);
-  const offerPrice = product.price - Math.floor(product.price / 2);
+  const offerPrice =
+    product.price -
+    Math.floor((product.price * (firstOrderOffer?.percent ?? 50)) / 100);
   // The price is the decision; the amount saved is a footnote under it, so the
   // struck-through old price is replaced by the saving itself.
   const saved = firstOrderOffer
@@ -132,7 +139,10 @@ export function ProductCard({
         </button>
         {(firstOrderOffer || discountOf(product) > 0) && (
           <span className="market-product-discount">
-            {firstOrderOffer ? "۵۰" : pd(discountOf(product))}٪
+            {firstOrderOffer
+              ? pd(firstOrderOffer.percent ?? 50)
+              : pd(discountOf(product))}
+            ٪
           </span>
         )}
         <button

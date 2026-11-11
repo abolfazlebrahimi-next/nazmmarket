@@ -47,6 +47,7 @@ import {
   sellerToken,
   SellerApiError,
   type DashboardStats,
+  type FirstOfferConfig,
   type Product,
   type Promo,
   type Seller,
@@ -837,6 +838,7 @@ export default function SellerApp() {
           {page === "discounts" && (
             <DiscountsPage
               promos={promos}
+              products={products}
               onAdd={() => setAddPromo(true)}
               onDelete={(id) => {
                 const promo = promos.find((p) => p.id === id);
@@ -1761,7 +1763,13 @@ function OrdersPage({
                         : "لغوشده"
                       : order.deliveryMode === "seller" && order.status === 4
                         ? "ارسال توسط فروشگاه"
-                        : stages[order.status - 1]}
+                        : order.deliveryMode === "pickup"
+                          ? order.status >= 5
+                            ? "دریافت شد"
+                            : order.status >= 4
+                              ? "آماده برای دریافت"
+                              : stages[order.status - 1]
+                          : stages[order.status - 1]}
                   </span>
                 </div>
                 {order.status > 0 && (
@@ -1827,7 +1835,9 @@ function OrdersPage({
                     <ShieldCheck size={14} />{" "}
                     {order.deliveryMode === "seller"
                       ? "ارسال توسط فروشگاه؛ بدون کد تحویل سفیر"
-                      : "ارسال با سفیر تأییدشده یا توسط خود فروشگاه"}
+                      : order.deliveryMode === "pickup"
+                        ? "تحویل حضوری به مشتری در فروشگاه"
+                        : "ارسال با سفیر تأییدشده یا توسط خود فروشگاه"}
                   </small>
                   {order.status === 1 && (
                     <button
@@ -1854,10 +1864,34 @@ function OrdersPage({
                       className="btn primary small"
                       onClick={() => onStatus(order, 3)}
                     >
-                      <Check size={15} /> آماده تحویل به سفیر
+                      <Check size={15} />{" "}
+                      {order.deliveryMode === "pickup"
+                        ? "آماده شد؛ به مشتری اطلاع بده"
+                        : "آماده تحویل به سفیر"}
                     </button>
                   )}
+                  {order.status === 3 && order.deliveryMode === "pickup" && (
+                    <div className="seller-dispatch">
+                      <strong>سفارش آمادهٔ تحویل حضوری است</strong>
+                      <p>
+                        وقتی مشتری کالاها را از فروشگاه گرفت، تحویل را تأیید
+                        کنید.
+                      </p>
+                      <button
+                        className="btn primary small"
+                        disabled={
+                          deliveryBusy === order.id || !deliveryAvailable
+                        }
+                        onClick={() => onSelfDelivery(order, true)}
+                      >
+                        {deliveryBusy === order.id
+                          ? "در حال ثبت…"
+                          : "تحویل حضوری دادم"}
+                      </button>
+                    </div>
+                  )}
                   {order.status === 3 &&
+                    order.deliveryMode !== "pickup" &&
                     (order.courierAssigned ? (
                       <span className="status-pill status-3">
                         سفیر پذیرفت؛ در انتظار رسیدن سفیر به فروشگاه
@@ -1960,7 +1994,26 @@ function OrdersPage({
                       </div>
                     ))}
                   {order.status === 4 &&
-                    (order.deliveryMode === "seller" ? (
+                    (order.deliveryMode === "pickup" ? (
+                      <div className="seller-dispatch">
+                        <strong>آماده برای دریافت</strong>
+                        <p>
+                          مشتری برای تحویل گرفتن مراجعه می‌کند؛ پس از دادن
+                          سفارش، تأیید کنید.
+                        </p>
+                        <button
+                          className="btn primary small"
+                          disabled={
+                            deliveryBusy === order.id || !deliveryAvailable
+                          }
+                          onClick={() => onSelfDelivery(order, true)}
+                        >
+                          {deliveryBusy === order.id
+                            ? "در حال ثبت…"
+                            : "تحویل حضوری دادم"}
+                        </button>
+                      </div>
+                    ) : order.deliveryMode === "seller" ? (
                       <div className="seller-dispatch">
                         <strong>
                           در حال ارسال توسط فروشگاه — بدون کد تحویل
@@ -1990,7 +2043,9 @@ function OrdersPage({
                       <Check size={14} />
                       {order.deliveryMode === "seller"
                         ? "تحویل نهایی توسط فروشگاه"
-                        : "تحویل نهایی توسط سفیر"}
+                        : order.deliveryMode === "pickup"
+                          ? "دریافت حضوری توسط مشتری"
+                          : "تحویل نهایی توسط سفیر"}
                     </span>
                   )}
                 </div>
@@ -2131,20 +2186,175 @@ function ProductsPage({
     </PageHeading>
   );
 }
+/** «خرید اول»: چند کالا + درصد تخفیف؛ مشتریِ تازه فقط یکی را با تخفیف می‌گیرد. */
+function FirstOfferPanel({ products }: { products: Product[] }) {
+  const [loaded, setLoaded] = useState(false);
+  const [percent, setPercent] = useState("50");
+  const [minBasket, setMinBasket] = useState("0");
+  const [active, setActive] = useState(true);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    sellerApi
+      .getFirstOffer()
+      .then(({ offer }: { offer: FirstOfferConfig | null }) => {
+        if (!alive) return;
+        if (offer) {
+          setPercent(String(offer.percent));
+          setMinBasket(String(offer.minBasket));
+          setActive(offer.active);
+          setSelected(offer.productIds);
+        }
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (alive) setLoaded(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const toggle = (id: number) =>
+    setSelected((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : prev.length >= 30
+          ? prev
+          : [...prev, id],
+    );
+
+  const save = async () => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const { offer } = await sellerApi.saveFirstOffer({
+        productIds: selected,
+        percent: Number(percent),
+        minBasket: Number(minBasket),
+        active,
+      });
+      setSelected(offer.productIds);
+      setNote({ ok: true, text: "پیشنهاد «خرید اول» ذخیره شد." });
+    } catch (e) {
+      const code = e instanceof SellerApiError ? e.code : "error";
+      setNote({
+        ok: false,
+        text:
+          code === "invalid_percent"
+            ? "درصد تخفیف باید بین ۲۵ تا ۱۰۰ باشد."
+            : code === "invalid_min_basket"
+              ? "حداقل مبلغ سبد نامعتبر است."
+              : code === "products_required"
+                ? "دست‌کم یک کالا را برای پیشنهاد انتخاب کنید."
+                : code === "too_many_products"
+                  ? "حداکثر ۳۰ کالا می‌توانید انتخاب کنید."
+                  : "ذخیره انجام نشد؛ دوباره تلاش کنید.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="panel first-offer-panel">
+      <div className="fo-head">
+        <span className="fo-badge">خرید اول</span>
+        <div>
+          <h3>پیشنهاد ویژهٔ اولین خرید</h3>
+          <p>
+            مشتری‌هایی که اولین خریدشان در ناز مارکت است، فقط یک کالا را با این
+            تخفیف می‌گیرند و مابقی سبد را از همین فروشگاه با قیمت عادی می‌خرند.
+          </p>
+        </div>
+      </div>
+      <div className="fo-fields">
+        <label className="field">
+          <span>درصد تخفیف (۲۵ تا ۱۰۰)</span>
+          <input
+            type="number"
+            min={25}
+            max={100}
+            value={percent}
+            onChange={(e) => setPercent(e.target.value)}
+          />
+        </label>
+        <label className="field">
+          <span>حداقل مبلغ خرید از فروشگاه (تومان)</span>
+          <input
+            type="number"
+            min={0}
+            value={minBasket}
+            onChange={(e) => setMinBasket(e.target.value)}
+          />
+        </label>
+        <label className="fo-active">
+          <input
+            type="checkbox"
+            checked={active}
+            onChange={(e) => setActive(e.target.checked)}
+          />
+          پیشنهاد فعال باشد
+        </label>
+      </div>
+      <p className="fo-label">
+        کالاهای پیشنهاد ({money(selected.length)} از {money(30)} انتخاب)
+      </p>
+      <div className="fo-products">
+        {products.map((p) => (
+          <label
+            key={p.id}
+            className={`fo-product ${selected.includes(p.id) ? "on" : ""}`}
+          >
+            <input
+              type="checkbox"
+              checked={selected.includes(p.id)}
+              onChange={() => toggle(p.id)}
+            />
+            <span className="fo-product-name">{p.name}</span>
+            <small>{money(p.price)} تومان</small>
+          </label>
+        ))}
+        {products.length === 0 && (
+          <p className="fo-empty">ابتدا از بخش محصولات، کالا اضافه کنید.</p>
+        )}
+      </div>
+      <div className="fo-foot">
+        <button
+          className="btn primary"
+          disabled={busy || !loaded}
+          onClick={() => void save()}
+        >
+          {busy ? "در حال ذخیره…" : "ذخیرهٔ پیشنهاد خرید اول"}
+        </button>
+        {note && (
+          <p className={note.ok ? "fo-note ok" : "fo-note err"}>{note.text}</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function DiscountsPage({
   promos,
   onAdd,
   onDelete,
+  products,
 }: {
   promos: Promo[];
   onAdd: () => void;
   onDelete: (id: number) => void;
+  products: Product[];
 }) {
   return (
     <PageHeading
       title="کدهای تخفیف"
       subtitle="کد تخفیف فروشگاه را ایجاد و مدیریت کنید."
     >
+      <FirstOfferPanel products={products} />
       <div className="toolbar">
         <div className="toolbar-note">
           <TicketPercent size={17} /> هر کد به ازای هر مشتری یک‌بار مصرف است و پس

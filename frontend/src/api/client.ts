@@ -2,6 +2,7 @@ import type { WireDiscountCode } from "../discountCodes";
 import type {
   Address,
   CartState,
+  FirstOffer,
   Order,
   Product,
   Store as StoreType,
@@ -113,6 +114,7 @@ export type CatalogResponse = {
   categories: { id: string; name: string; icon?: string }[];
   brands?: { name: string; color: string }[];
   promos: WireDiscountCode[];
+  firstOffers?: FirstOffer[];
 };
 
 export type AuthResponse = { token: string; user: User; addresses: Address[] };
@@ -222,6 +224,8 @@ export const api = {
       addressText?: string;
       slot?: string;
       payment?: "online" | "cash" | "wallet";
+      /** «دریافت حضوری» یا «ارسال با پیک» (پیش‌فرض پیک). */
+      deliveryMode?: "courier" | "pickup";
       promoCode?: string | null;
       firstOrderProductId?: number | null;
     }) =>

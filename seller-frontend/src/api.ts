@@ -62,7 +62,7 @@ export type SellerOrder = {
   addressText: string;
   time: string;
   status: number;
-  deliveryMode?: "courier" | "seller";
+  deliveryMode?: "courier" | "seller" | "pickup";
   courierAssigned?: boolean;
   dispatchStartedAt?: string;
   dispatchTimedOut?: boolean;
@@ -81,6 +81,13 @@ export type DashboardStats = {
   pendingOrders: number;
   orders: number;
   sales: number;
+};
+/** پیکربندی «خرید اول» فروشگاه. */
+export type FirstOfferConfig = {
+  percent: number;
+  minBasket: number;
+  active: boolean;
+  productIds: number[];
 };
 
 const API = "/api/seller";
@@ -278,4 +285,13 @@ export const sellerApi = {
       method: "POST",
       body: { reason, note },
     }),
+  /** «خرید اول»: پیشنهاد فروشگاه برای مشتریانی که اولین خریدشان است. */
+  getFirstOffer: () =>
+    call<{ offer: FirstOfferConfig | null }>("/first-offer"),
+  saveFirstOffer: (body: {
+    productIds: number[];
+    percent: number;
+    minBasket?: number;
+    active?: boolean;
+  }) => call<{ offer: FirstOfferConfig }>("/first-offer", { method: "PUT", body }),
 };

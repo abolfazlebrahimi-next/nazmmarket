@@ -25,6 +25,7 @@ import type { AppCtx } from "../ctx";
 import {
   categories,
   faNum,
+  firstOffers,
   matchWords,
   products,
   storeById,
@@ -120,9 +121,31 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
         key={cat}
         className="fade-rise grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7"
       >
-        {visible.map((p) => (
-          <ProductCard key={p.id} product={p} h={c.cardHandlers(store.id)} />
-        ))}
+        {visible.map((p) => {
+          // «خرید اول»: اگر این کالا در پیشنهاد خرید اول فروشگاه باشد، مشتری
+          // فقط یکی از این کالاها را می‌تواند با تخفیف انتخاب کند.
+          const offer = firstOffers.find((o) => o.productId === p.id);
+          return (
+            <ProductCard
+              key={p.id}
+              product={p}
+              h={c.cardHandlers(store.id)}
+              firstOrderOffer={
+                offer && c.firstOrderEligible
+                  ? {
+                      selected:
+                        c.firstOrderProductId === p.id && c.qtyOf(p.id) > 0,
+                      onSelect: () => {
+                        if (!c.qtyOf(p.id)) c.handleAdd(p, store.id);
+                        c.setFirstOrderProductId(p.id);
+                      },
+                      percent: offer.percent,
+                    }
+                  : undefined
+              }
+            />
+          );
+        })}
       </div>
       {c.cartCount > 0 && (
         <div className="fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] md:bottom-6 z-40 mx-auto w-full max-w-[430px] px-4">

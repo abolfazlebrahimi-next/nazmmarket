@@ -111,7 +111,11 @@ export interface AppCtx {
   placeOrder(extra?: {
     slot?: string;
     payment?: "online" | "cash" | "wallet";
+    deliveryMode?: "courier" | "pickup";
   }): Promise<void>;
+  /** «ارسال با پیک» یا «دریافت حضوری» — در همهٔ مراحل خرید اعمال می‌شود. */
+  orderDeliveryMode: "courier" | "pickup";
+  setOrderDeliveryMode(m: "courier" | "pickup"): void;
   reorder(o: Order): void;
   orders: Order[];
   /** Re-pulls the order list after a customer action (cancel / change store). */

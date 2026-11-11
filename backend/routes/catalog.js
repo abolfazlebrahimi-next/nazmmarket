@@ -63,12 +63,34 @@ const activePromos = async () =>
     storeId: Number(row.store_id),
     storeName: row.store_name,
   }));
+// پیشنهادهای «خرید اول» فروشگاه‌ها: کالاهای انتخابی فروشنده با درصد تخفیف و
+// حداقل مبلغ سبد. مشتری فقط یکی از آن‌ها را با تخفیف برمی‌دارد.
+const activeFirstOffers = async () =>
+  (
+    await db.all(
+      `SELECT f.product_id, p.store_id, o.percent, o.min_basket, s.name AS store_name
+         FROM store_first_offers o
+         JOIN store_first_offer_products f ON f.offer_id = o.id
+         JOIN products p ON p.id = f.product_id
+         JOIN stores s ON s.id = o.store_id
+        WHERE o.active = 1 AND p.active = 1 AND s.is_active = 1 AND s.is_open = 1
+          AND p.master_product_id IN (SELECT id FROM master_products WHERE active = 1)
+        ORDER BY o.id, f.product_id`,
+    )
+  ).map((row) => ({
+    productId: Number(row.product_id),
+    storeId: Number(row.store_id),
+    percent: Number(row.percent),
+    minBasket: Number(row.min_basket),
+    storeName: row.store_name,
+  }));
 
 router.get("/catalog", async (_req, res) => {
-  const [products, stores, promos] = await Promise.all([
+  const [products, stores, promos, firstOffers] = await Promise.all([
     allProducts(),
     allStores(),
     activePromos(),
+    activeFirstOffers(),
   ]);
   res.json({
     products,
@@ -76,6 +98,7 @@ router.get("/catalog", async (_req, res) => {
     categories: catalog.categories,
     brands: [],
     promos,
+    firstOffers,
   });
 });
 router.get("/products", async (req, res) =>
