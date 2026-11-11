@@ -128,6 +128,15 @@ export type ServerState = {
   firstOrderEligible: boolean;
 };
 
+export type WalletTx = {
+  id: number;
+  orderId: string | null;
+  kind: string;
+  amount: number;
+  note: string;
+  createdAt: string;
+};
+
 /* ------------------------------------------------------------------ */
 /* endpoints                                                           */
 /* ------------------------------------------------------------------ */
@@ -212,7 +221,7 @@ export const api = {
       addressTitle?: string;
       addressText?: string;
       slot?: string;
-      payment?: "online" | "cash";
+      payment?: "online" | "cash" | "wallet";
       promoCode?: string | null;
       firstOrderProductId?: number | null;
     }) =>
@@ -244,6 +253,8 @@ export const api = {
   },
 
   wallet: {
+    get: () =>
+      request<{ wallet: number; tx: WalletTx[] }>("/me/wallet"),
     topUp: (amount: number) =>
       request<{ wallet: number; user: User }>("/me/wallet/topup", {
         method: "POST",

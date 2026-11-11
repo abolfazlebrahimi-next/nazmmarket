@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Empty, pd, ScreenHeader, Sheet } from "../components/ui";
 import { api } from "../api/client";
+import type { WalletTx } from "../api/client";
 import type { AppCtx } from "../ctx";
 import type { User } from "../data";
 import { discountCodes, faNum } from "../data";
@@ -333,22 +334,7 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
         </Sheet>
       );
     case "wallet":
-      return (
-        <Sheet title="کیف پول ناز مارکت" onClose={close}>
-          <div className="rounded-3xl bg-ink p-5 text-white">
-            <p className="text-[11px] font-bold text-white/55">
-              موجودی ثبت‌شده
-            </p>
-            <p className="mt-1 text-[24px] font-black">
-              {faNum(c.wallet)} تومان
-            </p>
-          </div>
-          <p className="mt-4 rounded-2xl bg-[#f4f3f0] p-3 text-[11px] font-medium leading-5 text-muted">
-            افزایش اعتبار کیف پول تا زمان اتصال درگاه پرداخت غیرفعال است. این
-            موجودی برای پرداخت سفارش‌ها استفاده نمی‌شود.
-          </p>
-        </Sheet>
-      );
+      return <WalletSheet c={c} close={close} />;
     case "support":
       return (
         <Sheet title="پشتیبانی ناز مارکت" onClose={close}>
@@ -604,9 +590,11 @@ export function AccountDetailPage({
                     </p>
                   </div>
                   <span className="shrink-0 rounded-full bg-[#f4f3f0] px-2 py-1 text-[9px] font-bold text-muted">
-                    {o.payment === "cash"
-                      ? "پرداخت در محل · ثبت‌نشده"
-                      : "درگاه پرداخت متصل نیست"}
+                    {o.payment === "wallet"
+                      ? "پرداخت از کیف پول · تسویه‌شده"
+                      : o.payment === "cash"
+                        ? "پرداخت در محل · ثبت‌نشده"
+                        : "درگاه پرداخت متصل نیست"}
                   </span>
                 </div>
                 <div className="mx-4 flex items-center justify-between border-t border-line py-3">
@@ -629,6 +617,83 @@ export function AccountDetailPage({
           />
         ))}
     </div>
+  );
+}
+
+/* ---------------- wallet ---------------- */
+function WalletSheet({ c, close }: { c: AppCtx; close: () => void }) {
+  const [tx, setTx] = useState<WalletTx[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api.wallet
+      .get()
+      .then((res) => {
+        if (!alive) return;
+        setTx(res.tx);
+        c.setWallet(res.wallet);
+      })
+      .catch(() => {
+        if (alive) setTx([]);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <Sheet title="کیف پول ناز مارکت" onClose={close}>
+      <div className="rounded-3xl bg-ink p-5 text-white">
+        <p className="text-[11px] font-bold text-white/55">موجودی ثبت‌شده</p>
+        <p className="mt-1 text-[24px] font-black">{faNum(c.wallet)} تومان</p>
+      </div>
+      <p className="mt-4 rounded-2xl bg-[#f4f3f0] p-3 text-[11px] font-medium leading-5 text-muted">
+        مبلغ سفارش‌هایی که فروشگاه لغو کند به کیف پول شما بازگردانده می‌شود و
+        تا وقتی با آن خرید نکنید، همین‌جا می‌ماند. از موجودی کیف پول می‌توانید
+        هنگام ثبت سفارش استفاده کنید. افزایش اعتبار تا زمان اتصال درگاه پرداخت
+        غیرفعال است.
+      </p>
+      <div className="mt-4">
+        <p className="text-[11px] font-black text-ink">گردش کیف پول</p>
+        {tx === null ? (
+          <p className="mt-2 text-[11px] text-muted">در حال دریافت…</p>
+        ) : tx.length ? (
+          <ul className="mt-2 space-y-2">
+            {tx.map((t) => (
+              <li
+                key={t.id}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-line bg-white px-3.5 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[11px] font-black text-ink">
+                    {t.note ||
+                      (t.amount > 0
+                        ? "بازگشت مبلغ به کیف پول"
+                        : "پرداخت از کیف پول")}
+                  </p>
+                  <p className="mt-0.5 text-[9.5px] font-medium text-muted">
+                    {new Date(t.createdAt).toLocaleString("fa-IR", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                    {t.orderId ? ` · سفارش ${t.orderId}` : ""}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 text-[11.5px] font-black ${t.amount > 0 ? "text-mint" : "text-ink"}`}
+                >
+                  {t.amount > 0 ? "+" : "−"}
+                  {faNum(Math.abs(t.amount))} تومان
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-2 rounded-2xl bg-[#f8f7f4] p-3 text-[11px] font-medium text-muted">
+            هنوز گردشی در کیف پول شما ثبت نشده است.
+          </p>
+        )}
+      </div>
+    </Sheet>
   );
 }
 

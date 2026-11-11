@@ -13,6 +13,7 @@ import {
   UserRound,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { Wordmark, load, pd, save } from "./components/ui";
 import { ApiError, api, tokenStore } from "./api/client";
@@ -111,6 +112,10 @@ export default function App() {
   const [sheet, setSheet] = useState<string | null>(null);
   const [cartDrawer, setCartDrawer] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  /** Shown as an overlay when a guest tries to reach a login-only action (checkout). */
+  const [showAuth, setShowAuth] = useState(false);
+  /** View to return to after a successful guest login (e.g. "checkout"). */
+  const [postLogin, setPostLogin] = useState<View | "checkout" | null>(null);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -597,7 +602,7 @@ export default function App() {
 
   const placeOrder = async (extra?: {
     slot?: string;
-    payment?: "online" | "cash";
+    payment?: "online" | "cash" | "wallet";
   }) => {
     if (!token) return showToast("برای ثبت واقعی سفارش، ابتدا وارد حساب شوید.");
     if (!apiOnline) return showToast("سرور در دسترس نیست؛ سفارش ثبت نشد.");
@@ -619,6 +624,8 @@ export default function App() {
         firstOrderProductId: firstOrderEligible ? firstOrderProductId : null,
       });
       setOrders((o) => [order, ...o]);
+      if ((extra?.payment ?? "cash") === "wallet")
+        setWallet((w) => Math.max(0, w - (order.total ?? 0)));
       setFirstOrderEligible(false);
       setFirstOrderProductId(null);
       setCart({ storeId: null, items: {} });
@@ -777,56 +784,64 @@ export default function App() {
     cartDrawer,
     setCartDrawer,
     toast: showToast,
+    /** Opens the login/register overlay; after success returns to `nextView`. */
+    requireLogin: requestLogin,
   };
 
   /* ---------- auth gate ---------- */
-  if (!user) {
-    if (booting && token) return <Splash />;
-    return (
-      <AuthPage
-        onAuth={(res) => {
-          tokenStore.set(res.token);
-          setToken(res.token);
-          setUser(res.user);
-          save("naz_user", res.user);
-          showToast(
-            `خوش آمدید${res.user.firstName ? `، ${res.user.firstName}` : ""}!`,
-          );
-          Promise.all([api.state(), api.catalog()])
-            .then(([state, catalog]) => {
-              hydrateCatalog(catalog);
-              setCart((current) => {
-                if (!stores.some((store) => store.id === current.storeId))
-                  return { storeId: null, items: {} };
-                const validItems = Object.fromEntries(
-                  Object.entries(current.items).filter(([id, qty]) => {
-                    const product = products.find(
-                      (item) => item.id === Number(id),
-                    );
-                    return (
-                      product?.active &&
-                      product.storeId === current.storeId &&
-                      Number(qty) > 0
-                    );
-                  }),
-                );
-                return {
-                  storeId: Object.keys(validItems).length
-                    ? current.storeId
-                    : null,
-                  items: validItems,
-                };
-              });
-              setCatalogTick((t) => t + 1);
-              applyServerState(state);
-            })
-            .catch(() => setApiOnline(false));
-        }}
-      />
-    );
+  if (booting) return <Splash />;
+
+  function requestLogin(nextView: View | "checkout" | null = null) {
+    setShowAuth(true);
+    setPostLogin(nextView);
   }
 
-  if (booting) return <Splash />;
+  const handleAuth = (res: { token: string; user: User }) => {
+    tokenStore.set(res.token);
+    setToken(res.token);
+    setUser(res.user);
+    save("naz_user", res.user);
+    showToast(
+      `خوش آمدید${res.user.firstName ? `، ${res.user.firstName}` : ""}!`,
+    );
+    Promise.all([api.state(), api.catalog()])
+      .then(([state, catalog]) => {
+        hydrateCatalog(catalog);
+        setCart((current) => {
+          if (!stores.some((store) => store.id === current.storeId))
+            return { storeId: null, items: {} };
+          const validItems = Object.fromEntries(
+            Object.entries(current.items).filter(([id, qty]) => {
+              const product = products.find(
+                (item) => item.id === Number(id),
+              );
+              return (
+                product?.active &&
+                product.storeId === current.storeId &&
+                Number(qty) > 0
+              );
+            }),
+          );
+          return {
+            storeId: Object.keys(validItems).length
+              ? current.storeId
+              : null,
+            items: validItems,
+          };
+        });
+        setCatalogTick((t) => t + 1);
+        applyServerState(state);
+      })
+      .catch(() => setApiOnline(false));
+    setShowAuth(false);
+    const next = postLogin;
+    setPostLogin(null);
+    if (next === "checkout") {
+      c.openSub({ name: "checkout" });
+    } else if (next) {
+      c.go(next);
+    }
+  };
 
   /* ---------- content ---------- */
   let content: React.ReactNode;
@@ -988,7 +1003,7 @@ export default function App() {
                 }`}
               >
                 <span className="text-[12px] font-black text-brand">
-                  {(user.firstName || "م").slice(0, 1)}
+                  {(user?.firstName || "م").slice(0, 1)}
                 </span>
               </button>
               {menuOpen && (
@@ -1000,11 +1015,11 @@ export default function App() {
                   <div className="dropdown-in fixed inset-x-3 top-[4.75rem] z-[70] w-auto rounded-2xl border border-line bg-white p-2 shadow-2xl md:absolute md:inset-x-auto md:left-0 md:top-12 md:w-64">
                     <div className="flex items-center gap-3 rounded-xl bg-[#faf9f6] p-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-[13px] font-black text-brand">
-                        {(user.firstName || "م").slice(0, 1)}
+                        {(user?.firstName || "م").slice(0, 1)}
                       </span>
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-black text-ink">
-                          {[user.firstName, user.lastName]
+                          {[user?.firstName, user?.lastName]
                             .filter(Boolean)
                             .join(" ") || "کاربر ناز"}
                         </p>
@@ -1013,7 +1028,7 @@ export default function App() {
                           dir="ltr"
                           style={{ textAlign: "right" }}
                         >
-                          {user.phone ? pd(user.phone) : "حساب مهمان"}
+                          {user?.phone ? pd(user.phone) : "حساب مهمان"}
                         </p>
                       </div>
                     </div>
@@ -1071,11 +1086,15 @@ export default function App() {
                       ))}
                       <button
                         type="button"
-                        onClick={doLogout}
-                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-right text-[12.5px] font-bold text-red-600 transition hover:bg-red-50"
+                        onClick={token ? doLogout : () => requestLogin()}
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-right text-[12.5px] font-bold transition ${
+                          token
+                            ? "text-red-600 hover:bg-red-50"
+                            : "text-brand hover:bg-brand-soft"
+                        }`}
                       >
                         <LogOut className="h-4 w-4" />{" "}
-                        {token ? "خروج از حساب" : "ورود به حساب"}
+                        {token ? "خروج از حساب" : "ورود / ثبت‌نام"}
                       </button>
                     </div>
                   </div>
@@ -1105,7 +1124,11 @@ export default function App() {
         </div>
       )}
 
-      <main className="min-w-0 w-full overflow-x-clip">{content}</main>
+      {/* Minimum breathing room between page content and the footer/bottom nav
+          so short screens (empty cart/orders) never hug the chrome. */}
+      <main className="min-h-[52vh] w-full min-w-0 overflow-x-clip pb-16 md:pb-20">
+        {content}
+      </main>
 
       {/* footer */}
       {!sub && (
@@ -1233,6 +1256,28 @@ export default function App() {
       <ReplacePrompt c={c} />
       <AccountSheetHost c={c} />
       {cartDrawer && <CartDrawer c={c} />}
+
+      {showAuth && (
+        <div
+          className="fixed inset-0 z-[100] overflow-y-auto bg-ink/45 backdrop-blur-sm"
+          onClick={() => setShowAuth(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative flex min-h-dvh items-center justify-center px-4 py-8 sm:px-6"
+          >
+            <button
+              type="button"
+              onClick={() => setShowAuth(false)}
+              aria-label="بستن ورود"
+              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink shadow-lg transition active:scale-90"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <AuthPage onAuth={handleAuth} />
+          </div>
+        </div>
+      )}
 
       {toast && (
         <div

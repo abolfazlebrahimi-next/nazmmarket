@@ -77,8 +77,10 @@ export function HomePage({ c }: { c: AppCtx }) {
             <strong>«{rejection.storeName}» این خرید را انجام نداد</strong>
             <p>
               {rejection.rejectReason ??
-                "فروشگاه سفارش را رد کرد و مبلغی از شما گرفته نشده است."}{" "}
-              یک فروشگاه دیگر انتخاب کنید تا همان کالاها را آنجا سفارش دهید.
+                "فروشگاه نتوانست این سفارش را انجام دهد."}{" "}
+              مبلغ سفارش به کیف پول شما بازگردانده شد و تا وقتی با آن خرید
+              نکنید همان‌جا می‌ماند. یک فروشگاه دیگر انتخاب کنید تا همان کالاها
+              را آنجا سفارش دهید.
             </p>
           </div>
           <div className="market-reject-actions">
@@ -139,18 +141,31 @@ export function HomePage({ c }: { c: AppCtx }) {
           </button>
         </div>
         <div className="market-category-shortcuts no-scrollbar">
-          {categoryShelf(products, categories).map((cat) => (
-            <button
-              type="button"
-              key={cat.id}
-              onClick={() => c.openSub({ name: "category", id: cat.id })}
-            >
-              <span>
-                <cat.icon size={25} strokeWidth={1.5} />
-              </span>
-              <small>{cat.name}</small>
-            </button>
-          ))}
+          {categories
+            .filter((cat) => cat.id !== "all")
+            .map((cat) => {
+              const count = available.filter(
+                (p) => p.category === cat.id,
+              ).length;
+              return (
+                <button
+                  type="button"
+                  key={cat.id}
+                  onClick={() => c.openSub({ name: "category", id: cat.id })}
+                  aria-label={cat.name}
+                >
+                  <span>
+                    <cat.icon size={25} strokeWidth={1.5} />
+                  </span>
+                  <small>{cat.name}</small>
+                  {count === 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-2 min-w-2 items-center justify-center rounded-full bg-red-500 px-0 text-[7px] font-bold text-white">
+                      ۰
+                    </span>
+                  )}
+                </button>
+              );
+            })}
         </div>
       </section>
       {c.firstOrderEligible && offerProducts.length > 0 && (

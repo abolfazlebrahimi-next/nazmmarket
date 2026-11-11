@@ -16,6 +16,7 @@ import {
   mapStore,
   mapOrder,
   mapPromo,
+  walletMovement,
 } from "../db.js";
 import {
   hashPassword,
@@ -831,6 +832,8 @@ const rejectReasons = {
  * goes to 0 with the reason attached, the stock returns to the shelf and a
  * single-use code comes back to the account — otherwise the customer would be
  * left with a code they can no longer spend for a basket nobody delivered.
+ * The money of the order is credited to the customer's wallet in the same
+ * transaction and stays there until the customer spends it.
  */
 router.post("/orders/:id/reject", async (req, res) => {
   const store = await sellerStore(req.seller.id);
@@ -872,6 +875,20 @@ router.post("/orders/:id/reject", async (req, res) => {
       await tx.run("UPDATE products SET stock=stock+? WHERE id=?", [
         Number(item.qty),
         Number(item.id),
+      ]);
+    // The order's money belongs to the customer: it is credited to the wallet
+    // and remains there until the customer spends it on another order. The
+    // ledger row is unique per (order, kind), so a retry can never credit twice.
+    await walletMovement(tx, {
+      userId: Number(row.user_id),
+      orderId: row.id,
+      kind: "cancel_refund",
+      amount: Number(row.total),
+      note: "بازگشت مبلغ سفارش لغوشده توسط فروشگاه به کیف پول",
+    });
+    if (row.payment_status === "paid")
+      await tx.run("UPDATE orders SET payment_status='refunded' WHERE id=?", [
+        row.id,
       ]);
     return true;
   });

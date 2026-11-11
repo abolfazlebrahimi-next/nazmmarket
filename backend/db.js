@@ -3,6 +3,7 @@
  * Configure MYSQL_HOST, MYSQL_PORT, MYSQL_DATABASE, MYSQL_USER and
  * MYSQL_PASSWORD in the environment (see .env.example).
  */
+import "./env.js";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -104,6 +105,7 @@ export async function migrate() {
     `CREATE TABLE IF NOT EXISTS platform_expenses (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,description VARCHAR(255) NOT NULL,amount BIGINT NOT NULL,created_at VARCHAR(32) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS order_events (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, order_id VARCHAR(40) NOT NULL, status INT NOT NULL, actor_role VARCHAR(20) NOT NULL, actor_id BIGINT UNSIGNED NULL, created_at VARCHAR(32) NOT NULL, KEY idx_order_events (order_id,id)) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS first_offer_redemptions (user_id BIGINT UNSIGNED PRIMARY KEY, order_id VARCHAR(40) NOT NULL, product_id INT UNSIGNED NOT NULL, discount BIGINT NOT NULL, created_at VARCHAR(32) NOT NULL) ENGINE=InnoDB`,
+    `CREATE TABLE IF NOT EXISTS wallet_transactions (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, order_id VARCHAR(40) NULL, kind VARCHAR(32) NOT NULL, amount BIGINT NOT NULL, note VARCHAR(255) NOT NULL DEFAULT '', created_at VARCHAR(32) NOT NULL, KEY idx_wallet_tx_user (user_id,id), UNIQUE KEY uq_wallet_tx_order_kind (order_id,kind)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS admin_sessions (token CHAR(64) PRIMARY KEY, expires_at VARCHAR(32) NOT NULL) ENGINE=InnoDB`,
     `CREATE TABLE IF NOT EXISTS master_products (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(180) NOT NULL, category VARCHAR(80) NOT NULL, unit VARCHAR(120) NOT NULL DEFAULT '', image_url VARCHAR(512) NOT NULL, active TINYINT NOT NULL DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS users (
@@ -560,6 +562,43 @@ export const mapUser = (r) => ({
   pro: Boolean(r.pro),
   createdAt: r.created_at,
 });
+
+export const mapWalletTx = (r) => ({
+  id: Number(r.id),
+  orderId: r.order_id ?? null,
+  kind: r.kind,
+  amount: Number(r.amount),
+  note: r.note,
+  createdAt: r.created_at,
+});
+
+/**
+ * Records one wallet movement inside an existing transaction. Positive
+ * `amount` credits the wallet (refunds), negative debits it (order payment).
+ * The `(order_id, kind)` unique key keeps refunds idempotent — replaying the
+ * same refund returns false and leaves the wallet untouched. The ledger row is
+ * written first so a duplicate can never credit twice.
+ */
+export async function walletMovement(
+  tx,
+  { userId, orderId = null, kind, amount, note = "" },
+) {
+  if (!Number.isSafeInteger(amount) || amount === 0) return false;
+  try {
+    await tx.run(
+      "INSERT INTO wallet_transactions (user_id, order_id, kind, amount, note, created_at) VALUES (?,?,?,?,?,?)",
+      [userId, orderId, kind, amount, note, new Date().toISOString()],
+    );
+  } catch (error) {
+    if (error?.code === "ER_DUP_ENTRY") return false;
+    throw error;
+  }
+  await tx.run("UPDATE users SET wallet = wallet + ? WHERE id = ?", [
+    amount,
+    userId,
+  ]);
+  return true;
+}
 
 export const mapAddress = (r) => ({
   id: Number(r.id),

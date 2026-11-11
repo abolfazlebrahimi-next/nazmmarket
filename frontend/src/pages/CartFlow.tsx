@@ -129,9 +129,9 @@ export function CartBody({
   if (c.cartCount === 0) {
     return (
       <Empty
-        // The phone cart is a tall page, so its empty state sits at the top;
-        // the desktop dialog is sized to its content and wants to be centred.
-        align={compact ? "center" : "start"}
+        // Centred on every surface — the phone cart page used to pin this to
+        // the top-inline corner and it read as "stuck in the right".
+        align="center"
         icon={ShoppingCart}
         title="سبد خریدی ندارید!"
         desc="کالاهای مورد نیاز خود را از فروشگاه‌های نظرآباد به سبد اضافه کنید."
@@ -204,6 +204,7 @@ export function CartBody({
               <button
                 type="button"
                 onClick={() => {
+                  if (!c.user) return c.requireLogin("checkout");
                   c.setCartDrawer(false);
                   c.openSub({ name: "checkout" });
                 }}
@@ -335,7 +336,7 @@ export function CartBody({
 /* ---------------- Checkout (mobile + desktop two-column) ---------------- */
 export function CheckoutView({ c }: { c: AppCtx }) {
   const [slot, setSlot] = useState("now");
-  const [payment, setPayment] = useState<"online" | "cash">("cash");
+  const [payment, setPayment] = useState<"online" | "cash" | "wallet">("cash");
   const [codeInput, setCodeInput] = useState("");
   const [placing, setPlacing] = useState(false);
 
@@ -361,11 +362,14 @@ export function CheckoutView({ c }: { c: AppCtx }) {
   ];
 
   const submit = async () => {
+    if (!c.user) return c.requireLogin("checkout");
     if (!c.selectedAddress) return c.toast("ابتدا آدرس تحویل را انتخاب کنید");
     if (!c.cart.storeId) {
       c.openStorePicker();
       return c.toast("ابتدا فروشگاه را انتخاب کنید");
     }
+    if (payment === "wallet" && c.wallet < c.payable)
+      return c.toast("موجودی کیف پول کافی نیست؛ روش پرداخت دیگری را انتخاب کنید.");
     setPlacing(true);
     await c.placeOrder({ slot: slot === "now" ? "ارسال فوری" : slot, payment });
     setPlacing(false);
@@ -507,15 +511,27 @@ export function CheckoutView({ c }: { c: AppCtx }) {
                     label: "پرداخت در محل",
                     desc: "پرداخت به فروشنده هنگام تحویل؛ درگاه آنلاین هنوز فعال نیست.",
                     icon: Banknote,
+                    disabled: false,
+                  },
+                  {
+                    key: "wallet",
+                    label: "پرداخت از کیف پول",
+                    desc:
+                      c.wallet >= c.payable
+                        ? "پرداخت از موجودی کیف پول؛ اگر سفارش لغو شود، مبلغ به کیف پول برمی‌گردد و تا خرج‌کردن همان‌جا می‌ماند."
+                        : "موجودی کیف پول برای این سفارش کافی نیست.",
+                    icon: Wallet,
+                    disabled: c.wallet < c.payable,
                   },
                 ] as const
               ).map((m) => (
                 <button
                   key={m.key}
                   type="button"
+                  disabled={m.disabled}
                   onClick={() => setPayment(m.key)}
                   aria-pressed={payment === m.key}
-                  className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-right transition ${payment === m.key ? "border-brand bg-brand-soft" : "border-line"}`}
+                  className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-right transition disabled:opacity-50 ${payment === m.key ? "border-brand bg-brand-soft" : "border-line"}`}
                 >
                   <m.icon className="h-5 w-5 text-brand" />
                   <span className="flex-1">

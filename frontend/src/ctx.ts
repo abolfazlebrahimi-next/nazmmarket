@@ -13,7 +13,15 @@ export type View = "home" | "easy" | "cart" | "orders" | "account";
 export type Sub =
   | { name: "store"; id: number }
   | { name: "category"; id: string }
-  | { name: "search" }
+  | {
+      name: "search";
+      /** initial search term */
+      q?: string;
+      /** restrict results to one category */
+      catId?: string;
+      /** restrict results to one store */
+      storeId?: number;
+    }
   | { name: "favorites" }
   | { name: "order-history" }
   | { name: "account-detail"; id: "codes" | "payments" }
@@ -48,6 +56,11 @@ export interface AppCtx {
   logout(): void;
   /** keeps the header/account views in sync after a profile edit */
   updateUser(u: User): void;
+  /**
+   * Opens the login/register overlay for guests. After a successful login the
+   * app continues to `next` ("checkout" resumes the interrupted purchase).
+   */
+  requireLogin(next?: View | "checkout"): void;
 
   view: View;
   go(v: View): void;
@@ -97,7 +110,7 @@ export interface AppCtx {
   applyCode(c: string): void;
   placeOrder(extra?: {
     slot?: string;
-    payment?: "online" | "cash";
+    payment?: "online" | "cash" | "wallet";
   }): Promise<void>;
   reorder(o: Order): void;
   orders: Order[];

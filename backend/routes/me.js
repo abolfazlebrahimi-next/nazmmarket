@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, mapAddress, mapOrder, mapUser } from "../db.js";
+import { db, mapAddress, mapOrder, mapUser, mapWalletTx } from "../db.js";
 import { requireAuth, normalizePhone } from "../auth.js";
 const router = Router();
 router.use(requireAuth);
@@ -141,6 +141,19 @@ router.put("/addresses", async (req, res) => {
   });
   res.json({ addresses: await readAddresses(req.user.id) });
 });
+/* Balance plus the last wallet movements — cancelled-order refunds live here
+   as real rows, so the customer can see the money stayed in the wallet. */
+router.get("/wallet", async (req, res) =>
+  res.json({
+    wallet: req.user.wallet,
+    tx: (
+      await db.all(
+        "SELECT * FROM wallet_transactions WHERE user_id=? ORDER BY id DESC LIMIT 20",
+        [req.user.id],
+      )
+    ).map(mapWalletTx),
+  }),
+);
 router.post("/wallet/topup", (_req, res) =>
   res.status(501).json({
     error: {

@@ -151,6 +151,35 @@ export const MAP_EMBED =
 
 export const faNum = (n: number) => n.toLocaleString("fa-IR");
 
+/**
+ * Normalises Persian text for search: unifies yeh/kaf letter forms, drops
+ * zero-width joiners and diacritic-like marks and collapses whitespace, so
+ * whatever the user types actually matches the catalogue spelling.
+ */
+export const normText = (s: string) =>
+  s
+    .replace(/[\u064A\u0649\u06CC]/g, "ی")
+    .replace(/[\u0643\u06A9]/g, "ک")
+    .replace(/[\u200b\u200c\u200d\u200e\u200f\u0640]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+/**
+ * True when every word of the query appears somewhere in the joined haystacks,
+ * regardless of order — so «کوکا نوشابه» finds «نوشابه کوکاکولا» and a missing
+ * field can never throw the match away.
+ */
+export function matchWords(
+  haystacks: (string | null | undefined)[],
+  q: string,
+): boolean {
+  const words = normText(q).split(" ").filter(Boolean);
+  if (!words.length) return true;
+  const hay = normText(haystacks.filter(Boolean).join(" "));
+  return words.every((w) => hay.includes(w));
+}
+
 export type CartState = { storeId: number | null; items: Record<number, number> };
 export type User = {
   id?: number;
@@ -179,7 +208,7 @@ export type Order = {
   total: number;
   addressTitle: string;
   slot: string;
-  payment?: "online" | "cash";
+  payment?: "online" | "cash" | "wallet";
   paymentStatus?: string;
   deliveryMode?: "courier" | "seller";
   promoCode?: string | null;

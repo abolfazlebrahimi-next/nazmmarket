@@ -4,7 +4,7 @@ import { firstOffer } from "../product-rules.js";
 import { recordOrderEvent } from "../order-workflow.js";
 import { Router } from "express";
 import crypto from "node:crypto";
-import { db, mapOrder } from "../db.js";
+import { db, mapOrder, walletMovement } from "../db.js";
 import { requireAuth } from "../auth.js";
 import {
   alreadyRedeemed,
@@ -255,16 +255,19 @@ router.post("/orders", requireAuth, async (req, res) => {
         error: {
           code: "payment_gateway_unavailable",
           message:
-            "درگاه پرداخت هنوز فعال نیست؛ فعلاً پرداخت در محل را انتخاب کنید.",
+            "درگاه پرداخت هنوز فعال نیست؛ پرداخت در محل یا از کیف پول را انتخاب کنید.",
         },
       });
-    const payment = "cash",
+    const payment = body.payment === "wallet" ? "wallet" : "cash",
       id = `NM-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
     const createdAt = new Date().toISOString(),
       slot = String(body.slot ?? "ارسال فوری").slice(0, 60);
     const row = await db.transaction(async (tx) => {
       // Serialize simultaneous first orders for this account so the one-time offer cannot be redeemed twice.
-      await tx.get("SELECT id FROM users WHERE id=? FOR UPDATE", [req.user.id]);
+      const account = await tx.get(
+        "SELECT id, wallet FROM users WHERE id=? FOR UPDATE",
+        [req.user.id],
+      );
       const liveStore = await tx.get(
         "SELECT id FROM stores WHERE id=? AND is_active=1 FOR UPDATE",
         [storeId],
@@ -324,6 +327,25 @@ router.post("/orders", requireAuth, async (req, res) => {
       });
       const delivery = quote.fee;
       const total = Math.max(0, subtotal - discount + delivery);
+      // Wallet payment settles the order up-front: the balance is debited in
+      // this same transaction (the account row is already locked above) and the
+      // order is marked paid. If the store later cancels, the money is credited
+      // back to the wallet and stays there until the customer spends it.
+      if (payment === "wallet") {
+        if (Number(account?.wallet ?? 0) < total)
+          throw error(
+            409,
+            "insufficient_wallet",
+            "موجودی کیف پول برای پرداخت این سفارش کافی نیست.",
+          );
+        await walletMovement(tx, {
+          userId: req.user.id,
+          orderId: id,
+          kind: "order_payment",
+          amount: -total,
+          note: `پرداخت سفارش ${id} از کیف پول`,
+        });
+      }
       for (const item of items) {
         const changed = await tx.run(
           "UPDATE products SET stock=stock-? WHERE id=? AND seller_id=? AND stock>=?",
@@ -335,7 +357,7 @@ router.post("/orders", requireAuth, async (req, res) => {
       await tx.run(
         `INSERT INTO orders (id, user_id, store_id, store_name, items, subtotal, discount, delivery, total,
           address_title, address_text, slot, payment, payment_status, promo_code, status, time, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, 1, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
         [
           id,
           req.user.id,
@@ -350,6 +372,7 @@ router.post("/orders", requireAuth, async (req, res) => {
           addressText,
           slot,
           payment,
+          payment === "wallet" ? "paid" : "unpaid",
           promoCode,
           orderTime(),
           createdAt,
@@ -447,6 +470,20 @@ router.patch("/orders/:id/cancel", requireAuth, async (req, res) => {
         Number(item.qty),
         Number(item.id),
       ]);
+    // Money already captured for this order (wallet payment) is credited back
+    // to the wallet and stays there until the customer spends it again.
+    if (row.payment_status === "paid") {
+      await walletMovement(tx, {
+        userId: req.user.id,
+        orderId: row.id,
+        kind: "cancel_refund",
+        amount: Number(row.total),
+        note: "بازگشت مبلغ سفارش لغوشده به کیف پول",
+      });
+      await tx.run("UPDATE orders SET payment_status='refunded' WHERE id=?", [
+        row.id,
+      ]);
+    }
   });
   res.json({ order: mapOrder({ ...row, status: 0 }) });
 });

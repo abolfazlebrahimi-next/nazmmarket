@@ -22,7 +22,14 @@ import {
   pd,
 } from "../components/ui";
 import type { AppCtx } from "../ctx";
-import { categories, faNum, products, storeById, stores } from "../data";
+import {
+  categories,
+  faNum,
+  matchWords,
+  products,
+  storeById,
+  stores,
+} from "../data";
 
 /* ---------------- Store page ---------------- */
 export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
@@ -46,7 +53,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           <BackButton onBack={() => c.closeSub()} className="back-on-cover" />
           <button
             type="button"
-            onClick={() => c.openSub({ name: "search" })}
+            onClick={() => c.openSub({ name: "search", storeId })}
             aria-label="جستجو"
             className="back-button back-on-cover"
           >
@@ -139,12 +146,12 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
   const [query, setQuery] = useState("");
   const cat = categories.find((ct) => ct.id === catId);
   const list = products.filter(
-    (p) =>
-      p.category === catId &&
-      (p.name.includes(query.trim()) ||
-        p.description?.includes(query.trim()) ||
-        p.tag?.includes(query.trim())),
+    (p) => p.category === catId && matchWords([p.name, p.description, p.tag], query),
   );
+  /* Enter or the magnifier opens the full search results for what the user
+     typed, scoped to this category — the typed query is never discarded. */
+  const openSearch = () =>
+    c.openSub({ name: "search", q: query.trim(), catId });
   return (
     <div className="fade-rise mx-auto w-full max-w-6xl pb-6">
       <ScreenHeader
@@ -152,7 +159,14 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
         onBack={() => c.closeSub()}
         hideOnDesktop
       />
-      <label className="category-search mx-4 mt-3 flex h-11 items-center gap-2 rounded-2xl bg-[#f4f4f3] px-3.5 text-muted">
+      <form
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          openSearch();
+        }}
+        className="category-search mx-4 mt-3 flex h-11 items-center gap-2 rounded-2xl bg-[#f4f4f3] px-3.5 text-muted"
+      >
         <Search className="h-4 w-4 shrink-0" />
         <input
           value={query}
@@ -170,7 +184,14 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
             <X size={16} />
           </button>
         )}
-      </label>
+        <button
+          type="submit"
+          aria-label="جستجو"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-brand shadow-sm"
+        >
+          <Search size={16} />
+        </button>
+      </form>
       {list.length ? (
         <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
           {list.map((p) => (
@@ -198,18 +219,30 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
 
 /* ---------------- Search ---------------- */
 export function SearchPage({ c }: { c: AppCtx }) {
-  const [q, setQ] = useState("");
+  // The opening surface may carry a context: a term typed on the category
+  // page, or the category/store the user was browsing ("search inside X").
+  const ctx = c.sub?.name === "search" ? c.sub : null;
+  const catScope = ctx?.catId
+    ? categories.find((x) => x.id === ctx.catId)
+    : null;
+  const storeScope = ctx?.storeId ? storeById(ctx.storeId) : null;
+  const [q, setQ] = useState(ctx?.q ?? "");
   const results = useMemo(() => {
     const t = q.trim();
-    return t
-      ? {
-          products: products.filter((p) => p.name.includes(t)),
-          stores: stores.filter(
-            (s) => s.name.includes(t) || s.area.includes(t),
-          ),
-        }
-      : null;
-  }, [q]);
+    if (!t) return null;
+    let pool = products;
+    if (ctx?.catId) pool = pool.filter((p) => p.category === ctx.catId);
+    if (ctx?.storeId) pool = pool.filter((p) => p.storeId === ctx.storeId);
+    return {
+      products: pool.filter((p) => {
+        const catName = categories.find((x) => x.id === p.category)?.name;
+        return matchWords([p.name, p.description, p.tag, catName], t);
+      }),
+      stores: ctx?.storeId
+        ? []
+        : stores.filter((s) => matchWords([s.name, s.area], t)),
+    };
+  }, [q, ctx?.catId, ctx?.storeId]);
 
   return (
     <div className="search-page fade-rise mx-auto w-full max-w-6xl pb-6">
@@ -221,7 +254,13 @@ export function SearchPage({ c }: { c: AppCtx }) {
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="جست‌وجوی کالا یا فروشگاه"
+            placeholder={
+              catScope
+                ? `جست‌وجو در ${catScope.name}`
+                : storeScope
+                  ? `جست‌وجو در ${storeScope.name}`
+                  : "جست‌وجوی کالا یا فروشگاه"
+            }
             className="search-input"
             type="search"
             aria-label="جستجوی کالا یا فروشگاه"
