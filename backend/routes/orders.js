@@ -15,7 +15,9 @@ import {
   releasePromo,
 } from "../promos.js";
 const router = Router();
-router.use(requireAuth);
+/* requireAuth is attached per route, not to the whole router: mounted at
+   "/api", a router-wide guard answers 401 for any path this file does not
+   know, which hides a genuinely missing route behind a fake login error. */
 const orderTime = () =>
   new Date().toLocaleTimeString("fa-IR", {
     hour: "2-digit",
@@ -24,14 +26,14 @@ const orderTime = () =>
   });
 const error = (status, code, message) =>
   Object.assign(new Error(message), { status, code });
-router.get("/orders", async (req, res) => {
+router.get("/orders", requireAuth, async (req, res) => {
   const rows = await db.all(
     "SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC, id DESC",
     [req.user.id],
   );
   res.json({ orders: rows.map(mapOrder) });
 });
-router.get("/orders/:id/delivery-code", async (req, res) => {
+router.get("/orders/:id/delivery-code", requireAuth, async (req, res) => {
   res.set("Cache-Control", "no-store");
   const row = await db.get(
     "SELECT d.delivery_otp,d.otp_expires_at FROM orders o JOIN order_deliveries d ON d.order_id=o.id WHERE o.id=? AND o.user_id=? AND o.status=4",
@@ -46,7 +48,7 @@ router.get("/orders/:id/delivery-code", async (req, res) => {
     expiresAt: row.otp_expires_at,
   });
 });
-router.get("/orders/:id/events", async (req, res) => {
+router.get("/orders/:id/events", requireAuth, async (req, res) => {
   const order = await db.get("SELECT id FROM orders WHERE id=? AND user_id=?", [
     req.params.id,
     req.user.id,
@@ -59,7 +61,7 @@ router.get("/orders/:id/events", async (req, res) => {
     ),
   });
 });
-router.get("/orders/:id", async (req, res) => {
+router.get("/orders/:id", requireAuth, async (req, res) => {
   const row = await db.get(
     "SELECT * FROM orders WHERE id = ? AND user_id = ?",
     [req.params.id, req.user.id],
@@ -70,7 +72,7 @@ router.get("/orders/:id", async (req, res) => {
       .json({ error: { code: "not_found", message: "سفارش پیدا نشد." } });
   res.json({ order: mapOrder(row) });
 });
-router.post("/delivery/quote", async (req, res) => {
+router.post("/delivery/quote", requireAuth, async (req, res) => {
   const store = await db.get(
     "SELECT * FROM stores WHERE id=? AND is_active=1",
     [Number(req.body.storeId) || 0],
@@ -103,7 +105,7 @@ router.post("/delivery/quote", async (req, res) => {
     }),
   });
 });
-router.post("/orders", async (req, res) => {
+router.post("/orders", requireAuth, async (req, res) => {
   try {
     const body = req.body ?? {},
       storeId = Number(body.storeId);
@@ -407,7 +409,7 @@ router.post("/orders", async (req, res) => {
     throw err;
   }
 });
-router.patch("/orders/:id/cancel", async (req, res) => {
+router.patch("/orders/:id/cancel", requireAuth, async (req, res) => {
   const row = await db.get("SELECT * FROM orders WHERE id=? AND user_id=?", [
     req.params.id,
     req.user.id,

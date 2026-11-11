@@ -175,7 +175,7 @@ function promoInput(body, existingId = null) {
     },
   };
 }
-router.get("/promos", async (_req, res) => {
+router.get("/operations/promos", async (_req, res) => {
   const rows = await db.all(
     `SELECT p.*, (SELECT COUNT(*) FROM platform_promo_users t WHERE t.promo_id=p.id) AS target_count
      FROM platform_promos p ORDER BY p.id DESC LIMIT 500`,
@@ -214,7 +214,7 @@ router.get("/promos", async (_req, res) => {
     })),
   });
 });
-router.get("/promo-customers", async (req, res) => {
+router.get("/operations/promo-customers", async (req, res) => {
   const q = promoText(req.query.q, 60);
   const clause = q
     ? "WHERE (u.phone LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR CONCAT_WS(' ', u.first_name, u.last_name) LIKE ?)"
@@ -231,7 +231,7 @@ router.get("/promo-customers", async (req, res) => {
     ),
   });
 });
-router.post("/promos", async (req, res) => {
+router.post("/operations/promos", async (req, res) => {
   const parsed = promoInput(req.body ?? {});
   if (parsed.invalid) return fail(res, 400, parsed.invalid);
   const p = parsed.value;
@@ -271,7 +271,7 @@ router.post("/promos", async (req, res) => {
     throw error;
   }
 });
-router.patch("/promos/:id", async (req, res) => {
+router.patch("/operations/promos/:id", async (req, res) => {
   const id = Number(req.params.id);
   const current = await db.get("SELECT * FROM platform_promos WHERE id=?", [id]);
   if (!current) return fail(res, 404, "کد تخفیف پیدا نشد.");
@@ -319,7 +319,7 @@ router.patch("/promos/:id", async (req, res) => {
   });
   res.json({ ok: true });
 });
-router.delete("/promos/:id", async (req, res) => {
+router.delete("/operations/promos/:id", async (req, res) => {
   const id = Number(req.params.id);
   const used = await db.get(
     "SELECT COUNT(*) n FROM promo_redemptions WHERE scope='platform' AND promo_id=?",
@@ -339,7 +339,7 @@ router.delete("/promos/:id", async (req, res) => {
  * which order and for how much. Read-only and capped — a code is created to be
  * spent, so the admin needs to see the rows, not edit them.
  */
-router.get("/promos/:id/redemptions", async (req, res) => {
+router.get("/operations/promos/:id/redemptions", async (req, res) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id < 1)
     return fail(res, 400, "شناسه کد تخفیف معتبر نیست.");

@@ -72,8 +72,10 @@ app.use("/api/courier", courierRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api", catalogRoutes);
 app.use("/api/me", meRoutes);
-app.use("/api", orderRoutes);
+/* Before the "/api" catch-all routers: mounted after them, every
+   /api/promos request is answered by whichever guard runs first. */
 app.use("/api/promos", promoRoutes);
+app.use("/api", orderRoutes);
 
 app.use("/api", (_req, res) => {
   res.status(404).json({
