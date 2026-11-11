@@ -192,6 +192,18 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
           ))}
         </ol>
       )}
+      {Number(o.discount ?? 0) > 0 && (
+        <p className="mt-2 text-[10.5px] font-bold leading-5 text-mint">
+          تخفیف {faNum(Number(o.discount))} تومان
+          {!!o.promoCode && ` با کد ${o.promoCode}`}
+          {Number(o.platformDiscount ?? 0) > 0 && (
+            <span className="text-muted">
+              {" "}
+              · {faNum(Number(o.platformDiscount))} تومان سهم نازمارکت
+            </span>
+          )}
+        </p>
+      )}
       <div className="mt-3.5 flex items-center justify-between border-t border-dashed border-line pt-3">
         <p className="text-[12px] font-black text-ink sm:text-[13px]">
           {faNum(o.total)} تومان

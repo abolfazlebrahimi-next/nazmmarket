@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import PersianDateField from "./PersianDateField";
 import {
+  formatJalali,
   formatJalaliDay,
   toPersianDigits,
 } from "../../shared/persianDate";
@@ -68,6 +69,12 @@ export default function Promotions({ api }: { api: Api }) {
   const [picked, setPicked] = useState<{ id: number; name: string; phone: string }[]>([]);
   const [people, setPeople] = useState<Row[]>([]);
   const [peopleQuery, setPeopleQuery] = useState("");
+  // The expanded code shows who spent it; one row open at a time keeps the
+  // table scannable.
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [spentBy, setSpentBy] = useState<Row[]>([]);
+  const [spentTotal, setSpentTotal] = useState(0);
+  const [loadingSpent, setLoadingSpent] = useState(false);
 
   async function load() {
     try {
@@ -182,6 +189,28 @@ export default function Promotions({ api }: { api: Api }) {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  async function toggleSpent(row: Code) {
+    if (expanded === row.id) {
+      setExpanded(null);
+      return;
+    }
+    setExpanded(row.id);
+    setSpentBy([]);
+    setSpentTotal(0);
+    setLoadingSpent(true);
+    try {
+      const r = await api(`/operations/promos/${row.id}/redemptions`);
+      setSpentBy(r.redemptions ?? []);
+      setSpentTotal(Number(r.total ?? 0));
+      setError("");
+    } catch (e) {
+      setError((e as Error).message);
+      setExpanded(null);
+    } finally {
+      setLoadingSpent(false);
+    }
+  }
+
   return (
     <>
       <div className="mini-stats">
@@ -249,7 +278,7 @@ export default function Promotions({ api }: { api: Api }) {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.id}>
+                  <tr key={row.id} className={expanded === row.id ? "is-open" : ""}>
                     <td>
                       <b className="code-tag">{row.code}</b>
                       <small>{row.title}</small>
@@ -326,6 +355,17 @@ export default function Promotions({ api }: { api: Api }) {
                         >
                           {row.active ? "توقف" : "فعال‌سازی"}
                         </button>
+                        {!!row.used && (
+                          <button
+                            onClick={() => void toggleSpent(row)}
+                            aria-expanded={expanded === row.id}
+                          >
+                            <Users size={14} />
+                            {expanded === row.id
+                              ? "بستن مشتری‌ها"
+                              : `مشتری‌ها (${toPersianDigits(row.used)})`}
+                          </button>
+                        )}
                         <button disabled={busy} onClick={() => openEdit(row)}>
                           <Pencil size={14} /> ویرایش
                         </button>
@@ -345,6 +385,46 @@ export default function Promotions({ api }: { api: Api }) {
                     </td>
                   </tr>
                 ))}
+                {expanded !== null && (
+                  <tr className="promo-detail" key={`detail-${expanded}`}>
+                    <td colSpan={7}>
+                      {loadingSpent ? (
+                        <p className="loading">در حال خواندن مصرف‌کنندگان…</p>
+                      ) : !spentBy.length ? (
+                        <p className="muted">مصرفی برای این کد ثبت نشده است.</p>
+                      ) : (
+                        <>
+                          <ul className="redeem-list">
+                            {spentBy.map((r) => (
+                              <li
+                                className="redeem-row"
+                                key={`${r.orderId}:${r.customer?.id}`}
+                              >
+                                <span className="redeem-who">
+                                  <b>{r.customer?.name}</b>
+                                  <small dir="ltr">{r.customer?.phone}</small>
+                                </span>
+                                <span className="redeem-order" dir="ltr">
+                                  {r.orderId}
+                                </span>
+                                <span className="redeem-date">
+                                  {formatJalali(r.createdAt, true)}
+                                </span>
+                                <strong>{money(r.discount)} تومان</strong>
+                              </li>
+                            ))}
+                          </ul>
+                          {spentTotal > spentBy.length && (
+                            <p className="muted">
+                              {toPersianDigits(spentBy.length)} مورد اخیر از{" "}
+                              {toPersianDigits(spentTotal)} مصرف نمایش داده می‌شود.
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

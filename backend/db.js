@@ -588,6 +588,11 @@ export const mapOrder = (r) => ({
   createdAt: r.created_at,
   paymentStatus: r.payment_status ?? "unpaid",
   platformDiscount: Number(r.platform_discount ?? 0),
+  // The receipt has to say who funded the discount, and those two columns are
+  // the only place that split is recorded. Rows written before the columns
+  // existed report 0, so the UI shows the split only when it is there.
+  sellerDiscount: Number(r.seller_discount ?? 0),
+  firstOfferDiscount: Number(r.first_offer_discount ?? 0),
 });
 
 export { catalog };

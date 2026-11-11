@@ -24,10 +24,67 @@ import {
   pd,
 } from "../components/ui";
 import { codeFamilyLabel, codeOwner } from "../discountCodes";
+import type { Order } from "../data";
 import type { AppCtx } from "../ctx";
 import { faNum, productById } from "../data";
 
 const fa = faNum;
+
+/**
+ * What the customer actually agreed to, printed from the row the server wrote —
+ * not from the basket in memory. Legacy rows without a split only report the
+ * total discount, so nothing here can claim a share the order does not record.
+ */
+function Receipt({ order }: { order: Order }) {
+  const discount = Number(order.discount ?? 0);
+  const platform = Number(order.platformDiscount ?? 0);
+  const seller = Number(order.sellerDiscount ?? 0);
+  const firstOffer = Number(order.firstOfferDiscount ?? 0);
+  const split =
+    platform + seller + firstOffer > 0 &&
+    platform + seller + firstOffer <= discount;
+  const parts = [
+    platform > 0 ? `سهم نازمارکت ${fa(platform)}` : "",
+    seller > 0 ? `سهم فروشگاه ${fa(seller)}` : "",
+    firstOffer > 0 ? `پیشنهاد خرید اول ${fa(firstOffer)}` : "",
+  ].filter(Boolean);
+  return (
+    <dl className="mx-auto mt-6 w-full max-w-xs space-y-1.5 rounded-3xl border border-line bg-white p-4 text-[11.5px] font-bold shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <dt className="text-muted">جمع کالاها</dt>
+        <dd className="text-ink">{fa(Number(order.subtotal ?? 0))} تومان</dd>
+      </div>
+      {discount > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <dt className="text-mint">
+            تخفیف
+            {!!order.promoCode && ` (کد ${order.promoCode})`}
+          </dt>
+          <dd className="text-mint">− {fa(discount)} تومان</dd>
+        </div>
+      )}
+      {discount > 0 && split && (
+        <p className="text-[10px] font-medium leading-5 text-muted">
+          {parts.join(" · ")}
+        </p>
+      )}
+      <div className="flex items-center justify-between gap-3">
+        <dt className="text-muted">هزینه ارسال</dt>
+        <dd className="text-ink">
+          {Number(order.delivery ?? 0) > 0
+            ? `${fa(Number(order.delivery))} تومان`
+            : "رایگان"}
+        </dd>
+      </div>
+      <div className="mt-1 flex items-center justify-between gap-3 border-t border-dashed border-line pt-2">
+        <dt className="text-ink">قابل پرداخت</dt>
+        <dd className="text-[13px] font-black text-ink">
+          {fa(Number(order.total ?? 0))} تومان
+        </dd>
+      </div>
+    </dl>
+  );
+}
 
 /* ---------------- Cart (mobile full view + desktop drawer body) ---------------- */
 /**
@@ -589,13 +646,7 @@ export function CheckoutView({ c }: { c: AppCtx }) {
 }
 
 /* ---------------- Done ---------------- */
-export function DoneView({
-  c,
-  order,
-}: {
-  c: AppCtx;
-  order: { id: string; storeName: string; addressTitle: string };
-}) {
+export function DoneView({ c, order }: { c: AppCtx; order: Order }) {
   return (
     <div className="fade-rise flex min-h-[360px] flex-col items-center justify-center px-6 py-16 text-center lg:min-h-0">
       <div className="relative h-24 w-24">
@@ -616,6 +667,7 @@ export function DoneView({
         در پایگاه‌داده ثبت شد و منتظر تأیید فروشگاه است. پرداخت در محل انجام
         می‌شود؛ زمان و ارسال پس از تأیید فروشگاه هماهنگ خواهد شد.
       </p>
+      <Receipt order={order} />
       <div className="mt-7 w-full max-w-xs space-y-2.5">
         <button
           type="button"

@@ -169,6 +169,12 @@ export type Order = {
   items: OrderItem[];
   subtotal?: number;
   discount?: number;
+  /** Part of `discount` funded by a platform code (نازمارکت). */
+  platformDiscount?: number;
+  /** Part funded by the store's own code. */
+  sellerDiscount?: number;
+  /** Part coming from the first-order offer. */
+  firstOfferDiscount?: number;
   delivery?: number;
   total: number;
   addressTitle: string;

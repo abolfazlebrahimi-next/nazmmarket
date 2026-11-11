@@ -334,6 +334,41 @@ router.delete("/promos/:id", async (req, res) => {
   await db.run("DELETE FROM platform_promos WHERE id=?", [id]);
   res.json({ ok: true });
 });
+/**
+ * The audit trail behind «مصرف: ۳ از ۱۰»: which accounts burned this code, on
+ * which order and for how much. Read-only and capped — a code is created to be
+ * spent, so the admin needs to see the rows, not edit them.
+ */
+router.get("/promos/:id/redemptions", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1)
+    return fail(res, 400, "شناسه کد تخفیف معتبر نیست.");
+  const rows = await db.all(
+    `SELECT r.order_id, r.discount, r.created_at, u.id AS user_id,
+            u.first_name, u.last_name, u.phone
+     FROM promo_redemptions r JOIN users u ON u.id = r.user_id
+     WHERE r.scope='platform' AND r.promo_id=?
+     ORDER BY r.created_at DESC LIMIT 200`,
+    [id],
+  );
+  const counted = await db.get(
+    "SELECT COUNT(*) n FROM promo_redemptions WHERE scope='platform' AND promo_id=?",
+    [id],
+  );
+  res.json({
+    total: Number(counted?.n ?? 0),
+    redemptions: rows.map((r) => ({
+      orderId: String(r.order_id ?? ""),
+      discount: Number(r.discount ?? 0),
+      createdAt: r.created_at,
+      customer: {
+        id: Number(r.user_id),
+        name: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "بدون نام",
+        phone: String(r.phone ?? ""),
+      },
+    })),
+  });
+});
 
 router.post("/tickets/:id/messages", async (req, res) => {
   const body = String(req.body.body || "")

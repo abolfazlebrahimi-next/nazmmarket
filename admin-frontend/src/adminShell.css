@@ -479,6 +479,59 @@
   color: #2f6d51;
   font-size: 12px;
 }
+.promo-detail > td {
+  padding: 0 16px 14px;
+  background: #fbfdfc;
+  border-bottom: 1px solid #e9efeb;
+}
+.promo-detail .loading,
+.promo-detail .muted {
+  padding: 10px 0;
+  font-size: 12px;
+}
+.redeem-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 10px 0;
+  list-style: none;
+}
+.redeem-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 11px;
+  border: 1px solid #e6ede9;
+  border-radius: 11px;
+  background: #fff;
+  font-size: 12px;
+}
+.redeem-row strong {
+  margin-inline-start: auto;
+  color: #116d49;
+}
+.redeem-who {
+  display: grid;
+  min-width: 0;
+  line-height: 1.4;
+}
+.redeem-who small {
+  color: #7b8c83;
+  font-size: 11px;
+}
+.redeem-order,
+.redeem-date {
+  color: #5f7268;
+  font-size: 11.5px;
+}
+.redeem-order {
+  font-family: ui-monospace, "SFMono-Regular", monospace;
+}
+table tbody tr.is-open > td {
+  background: #f7fbf8;
+}
+
 .modal.modal-wide {
   width: min(860px, 94vw);
   max-height: 92vh;
