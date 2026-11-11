@@ -234,13 +234,8 @@ export const api = {
         applied: boolean;
         amount: number;
         message?: string;
-        promo?: {
-          code: string;
-          kind: string;
-          amount: number;
-          minSubtotal: number;
-          maxDiscount: number;
-        };
+        /** The matched row, platform or store, as `mapPromo` serialises it. */
+        promo?: WireDiscountCode & { storeId?: number | null };
       }>("/promos/apply", {
         method: "POST",
         body: { code, subtotal, storeId },

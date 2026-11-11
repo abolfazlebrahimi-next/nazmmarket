@@ -1,3 +1,4 @@
+import type { DiscountCode } from "./discountCodes";
 import type {
   Address,
   CartState,
@@ -86,6 +87,10 @@ export interface AppCtx {
   cartStore: StoreType | null;
   appliedCode: string | null;
   setAppliedCode(c: string | null): void;
+  /** The matched code behind `appliedCode`, with its family and limits. */
+  appliedPromo: DiscountCode | null;
+  /** What `appliedCode` is worth on its own, before the first-order offer. */
+  codeDiscount: number;
   discountAmount: number;
   deliveryFee: number;
   payable: number;

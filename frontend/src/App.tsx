@@ -20,6 +20,8 @@ import type { ServerState } from "./api/client";
 import type { AppCtx, Sub, View } from "./ctx";
 import type { Address, CartState, Order, Product, User } from "./data";
 import { hydrateCatalog, products, storeById, stores } from "./data";
+import { readDiscountCode } from "./discountCodes";
+import type { DiscountCode } from "./discountCodes";
 import AuthPage from "./pages/Auth";
 import { AddressForm, AddressSelect } from "./pages/AddressFlow";
 import { CartBody, CartDrawer, CheckoutView, DoneView } from "./pages/CartFlow";
@@ -93,12 +95,7 @@ export default function App() {
   );
   const [wallet, setWallet] = useState<number>(0);
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
-  const [appliedPromo, setAppliedPromo] = useState<{
-    kind: string;
-    amount: number;
-    maxDiscount: number;
-    minSubtotal: number;
-  } | null>(null);
+  const [appliedPromo, setAppliedPromo] = useState<DiscountCode | null>(null);
 
   const [pickedPin, setPickedPin] = useState<{
     lat: number;
@@ -461,22 +458,30 @@ export default function App() {
     const product = products.find((p) => p.id === firstOrderProductId);
     return product?.category === "drinks" ? Math.floor(product.price / 2) : 0;
   }, [firstOrderEligible, firstOrderProductId, cart]);
-  const discountAmount = useMemo(() => {
-    let sellerDiscount = 0;
-    if (appliedCode && appliedPromo && subtotal >= appliedPromo.minSubtotal) {
-      const raw =
-        appliedPromo.kind === "percent"
-          ? Math.round((subtotal * appliedPromo.amount) / 100)
-          : appliedPromo.amount;
-      sellerDiscount = Math.min(
-        subtotal,
-        appliedPromo.maxDiscount > 0
-          ? Math.min(raw, appliedPromo.maxDiscount)
-          : raw,
-      );
-    }
-    return Math.min(subtotal, sellerDiscount + firstOrderDiscount);
-  }, [appliedCode, appliedPromo, subtotal, firstOrderDiscount]);
+  /**
+   * What the typed code alone is worth. The totals used to print `discountAmount`
+   * here, which quietly included the first-order offer and made the code look
+   * more generous than it is; the server keeps its own split and recomputes all
+   * of this at checkout.
+   */
+  const codeDiscount = useMemo(() => {
+    if (!appliedCode || !appliedPromo || subtotal < appliedPromo.minSubtotal)
+      return 0;
+    const raw =
+      appliedPromo.kind === "percent"
+        ? Math.round((subtotal * appliedPromo.amount) / 100)
+        : appliedPromo.amount;
+    return Math.min(
+      subtotal,
+      appliedPromo.maxDiscount > 0
+        ? Math.min(raw, appliedPromo.maxDiscount)
+        : raw,
+    );
+  }, [appliedCode, appliedPromo, subtotal]);
+  const discountAmount = useMemo(
+    () => Math.min(subtotal, codeDiscount + firstOrderDiscount),
+    [subtotal, codeDiscount, firstOrderDiscount],
+  );
 
   const [deliveryQuote, setDeliveryQuote] = useState<number | null>(null);
   useEffect(() => {
@@ -581,16 +586,7 @@ export default function App() {
         return showToast(res.message ?? "کد تخفیف معتبر نیست");
       }
       setAppliedCode(code0);
-      setAppliedPromo(
-        res.promo
-          ? {
-              kind: res.promo.kind,
-              amount: Number(res.promo.amount),
-              maxDiscount: Number(res.promo.maxDiscount),
-              minSubtotal: Number(res.promo.minSubtotal),
-            }
-          : null,
-      );
+      setAppliedPromo(res.promo ? readDiscountCode(res.promo) : null);
       showToast(res.message ?? "کد تخفیف فروشگاه اعمال شد");
     } catch (err) {
       showToast(
@@ -724,7 +720,13 @@ export default function App() {
     subtotal,
     cartStore,
     appliedCode,
-    setAppliedCode,
+    // The × in the card clears the code, so the matched row has to go with it.
+    setAppliedCode: (next: string | null) => {
+      setAppliedCode(next);
+      if (!next) setAppliedPromo(null);
+    },
+    appliedPromo,
+    codeDiscount,
     discountAmount,
     deliveryFee,
     payable,

@@ -24,7 +24,12 @@ import type { AppCtx } from "../ctx";
 import type { User } from "../data";
 import { discountCodes, faNum } from "../data";
 import type { DiscountCode } from "../discountCodes";
-import { readDiscountCodes, discountValue, discountConditions } from "../discountCodes";
+import {
+  readDiscountCodes,
+  discountValue,
+  discountConditions,
+  codeFamilyLabel,
+} from "../discountCodes";
 import { formatJalaliDay } from "../../../shared/persianDate";
 
 export function AccountView({ c }: { c: AppCtx }) {
@@ -506,9 +511,7 @@ function CodeCard({ c, code: d }: { c: AppCtx; code: DiscountCode }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <p className="text-[12px] font-black text-ink">{d.title}</p>
           <span className="rounded-lg bg-[#f4f3f0] px-1.5 py-0.5 text-[9px] font-black text-muted">
-            {d.scope === "platform"
-              ? "سراسری · نازمارکت"
-              : `ویژهٔ ${d.storeName ?? "این فروشگاه"}`}
+            {codeFamilyLabel(d)}
           </span>
           {d.used && (
             <span className="rounded-lg bg-[#fdeeec] px-1.5 py-0.5 text-[9px] font-black text-[#b0392c]">

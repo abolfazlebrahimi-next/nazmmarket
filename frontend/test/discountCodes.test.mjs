@@ -15,7 +15,13 @@ const { outputText } = ts.transpileModule(source, {
     module: ts.ModuleKind.ES2022,
   },
 });
-const { readDiscountCodes, discountValue, discountConditions } = await import(
+const {
+  readDiscountCodes,
+  discountValue,
+  discountConditions,
+  codeFamilyLabel,
+  codeOwner,
+} = await import(
   "data:text/javascript;base64," + Buffer.from(outputText).toString("base64")
 );
 const fa = (n) => Number(n).toLocaleString("fa-IR");
@@ -95,4 +101,17 @@ test("used codes sink to the bottom and platform codes lead the rest", () => {
 test("junk rows never reach the screen", () => {
   assert.deepEqual(readDiscountCodes([{ title: "بدون کد" }, null, {}]), []);
   assert.deepEqual(readDiscountCodes(undefined), []);
+});
+
+test("the checkout wording names whoever pays for the discount", () => {
+  const [platform] = readDiscountCodes([{ code: "P1", scope: "platform" }]);
+  const [store] = readDiscountCodes([{ code: "S1", storeName: "سوپرمارکت ناز" }]);
+  const [nameless] = readDiscountCodes([{ code: "S2" }]);
+  assert.equal(codeFamilyLabel(platform), "سراسری · نازمارکت");
+  assert.equal(codeFamilyLabel(store), "ویژهٔ سوپرمارکت ناز");
+  assert.equal(codeFamilyLabel(nameless), "ویژهٔ این فروشگاه");
+  assert.equal(codeOwner(platform), "نازمارکت");
+  assert.equal(codeOwner(store), "فروشگاه");
+  // The row must not be able to claim a store code is the platform's money.
+  assert.notEqual(codeOwner(store), codeOwner(platform));
 });

@@ -23,12 +23,30 @@ import {
   StoreAvatar,
   pd,
 } from "../components/ui";
+import { codeFamilyLabel, codeOwner } from "../discountCodes";
 import type { AppCtx } from "../ctx";
 import { faNum, productById } from "../data";
 
 const fa = faNum;
 
 /* ---------------- Cart (mobile full view + desktop drawer body) ---------------- */
+/**
+ * One wording for both summary tables: which family paid for the discount.
+ * Without a matched row the code's owner is unknown, so the label stays neutral
+ * rather than blaming the seller for a discount nobody claimed yet.
+ */
+const discountLabel = (c: AppCtx) =>
+  [
+    c.firstOrderDiscount > 0 ? "تخفیف خرید اول نوشیدنی" : "",
+    !!c.appliedCode
+      ? c.appliedPromo
+        ? `کد ${codeOwner(c.appliedPromo)}`
+        : "کد تخفیف"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" + ") || "تخفیف";
+
 export function CartBody({
   c,
   compact = false,
@@ -203,15 +221,19 @@ export function CartBody({
                 </span>
               </div>
               {c.discountAmount > 0 && (
-                <div className="mt-2 flex items-center justify-between text-[12px] font-bold">
-                  <span className="text-mint">
-                    {c.firstOrderDiscount > 0
-                      ? "تخفیف خرید اول نوشیدنی + کد فروشگاه"
-                      : "تخفیف فروشگاه"}
-                  </span>
-                  <span className="font-black text-mint">
-                    − {fa(c.discountAmount)} تومان
-                  </span>
+                <div className="mt-2 text-[12px] font-bold">
+                  <div className="flex items-center justify-between">
+                    <span className="text-mint">{discountLabel(c)}</span>
+                    <span className="font-black text-mint">
+                      − {fa(c.discountAmount)} تومان
+                    </span>
+                  </div>
+                  {c.appliedPromo?.scope === "platform" && (
+                    <p className="mt-1 text-[10px] font-medium text-muted">
+                      {fa(c.codeDiscount)} تومان آن سهم نازمارکت است و از فروش
+                      فروشگاه کم نمی‌شود.
+                    </p>
+                  )}
                 </div>
               )}
               {c.firstOrderEligible && c.firstOrderDiscount === 0 && (
@@ -265,7 +287,7 @@ export function CheckoutView({ c }: { c: AppCtx }) {
     ...(c.discountAmount > 0
       ? [
           {
-            label: "تخفیف",
+            label: discountLabel(c),
             value: `− ${fa(c.discountAmount)} تومان`,
             green: true,
           },
@@ -467,15 +489,27 @@ export function CheckoutView({ c }: { c: AppCtx }) {
               <TicketPercent className="h-4.5 w-4.5 text-brand" /> کد تخفیف
             </p>
             {c.appliedCode ? (
-              <div className="mt-3 flex items-center justify-between rounded-2xl bg-emerald-50 px-3.5 py-3">
-                <p className="text-[12px] font-black text-emerald-700">
-                  {c.appliedCode} اعمال شد · {fa(c.discountAmount)} تومان تخفیف
-                </p>
+              <div className="mt-3 flex items-start justify-between gap-3 rounded-2xl bg-emerald-50 px-3.5 py-3">
+                <div className="min-w-0">
+                  <p className="text-[12px] font-black text-emerald-700">
+                    {c.appliedCode} اعمال شد · {fa(c.codeDiscount)} تومان تخفیف
+                  </p>
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-bold text-emerald-700/80">
+                    {!!c.appliedPromo && (
+                      <span className="rounded-lg bg-white/70 px-1.5 py-0.5 text-[9px] font-black text-emerald-700">
+                        {codeFamilyLabel(c.appliedPromo)}
+                      </span>
+                    )}
+                    {c.appliedPromo?.scope === "platform"
+                      ? "سهم نازمارکت؛ کارمزد فروشگاه دست‌نخورده می‌ماند."
+                      : "کد توسط فروشگاه تعریف شده است."}
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => c.setAppliedCode(null)}
                   aria-label="حذف کد تخفیف"
-                  className="text-emerald-700"
+                  className="shrink-0 text-emerald-700"
                 >
                   <X className="h-4 w-4" />
                 </button>
