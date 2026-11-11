@@ -139,7 +139,7 @@ export function AccountView({ c }: { c: AppCtx }) {
               </p>
               <button
                 type="button"
-                onClick={c.logout}
+                onClick={() => c.requireLogin()}
                 className="shrink-0 rounded-xl bg-brand px-3 py-2 text-[11px] font-black text-white"
               >
                 ورود / ثبت‌نام
@@ -184,7 +184,7 @@ export function AccountView({ c }: { c: AppCtx }) {
           ))}
           <button
             type="button"
-            onClick={c.logout}
+            onClick={() => (c.isGuest ? c.requireLogin() : c.logout())}
             className="flex w-full items-center gap-3 px-4 py-4 text-right transition hover:bg-red-50/60"
           >
             <LogOut
@@ -824,7 +824,7 @@ function ProfileSheet({ c, close }: { c: AppCtx; close: () => void }) {
           type="button"
           onClick={() => {
             close();
-            c.logout();
+            c.requireLogin();
           }}
           className="mt-2 w-full rounded-2xl bg-[#f4f3f0] py-3 text-[12px] font-black text-ink"
         >

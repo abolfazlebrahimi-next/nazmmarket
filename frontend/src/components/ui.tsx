@@ -1,5 +1,5 @@
 import { BadgeCheck, Clock3, Flame, Heart, Minus, Plus, Star, TicketPercent, Trash2, X, Zap } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { Product, Store as StoreType } from "../data";
 import { discountOf, faNum } from "../data";
@@ -64,6 +64,24 @@ export function ProductVisual({
   const image = product.imageUrl;
   const [loadedImage, setLoadedImage] = useState<string | null>(null);
   const [failedImage, setFailedImage] = useState<string | null>(null);
+  // گاهی مرورگر عکس کش‌شده را بدون رویداد load تحویل می‌دهد و عکس نامرئی می‌ماند؛
+  // با بررسی img.complete آن را آشکار می‌کنیم و در صورت خطای گذرا یک بار دیگر
+  // با پارامتر تازه تلاش می‌کنیم؛ بعد از آن به آیکون کالا برمی‌گردیم.
+  const [attempt, setAttempt] = useState(0);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  useEffect(() => {
+    setLoadedImage(null);
+    setFailedImage(null);
+    setAttempt(0);
+  }, [image]);
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) setLoadedImage(image ?? null);
+  }, [image, attempt]);
+  const src =
+    image && attempt > 0
+      ? `${image}${image.includes("?") ? "&" : "?"}r=${attempt}`
+      : image;
   const imageReady = !!image && loadedImage === image;
   const imageFailed = !!image && failedImage === image;
   return (
@@ -74,12 +92,16 @@ export function ProductVisual({
         <>
           <div aria-hidden="true" className={`absolute inset-2 skeleton-shimmer rounded-xl ${imageReady ? "hidden" : ""}`} />
           <img
-            src={image}
+            ref={imgRef}
+            src={src}
             alt={product.name}
             className={`absolute inset-0 h-full w-full object-contain bg-transparent p-1 transition-opacity duration-200 ${imageReady ? "opacity-100" : "opacity-0"}`}
             loading="lazy"
             onLoad={() => setLoadedImage(image)}
-            onError={() => setFailedImage(image)}
+            onError={() => {
+              if (attempt < 1) setAttempt((a) => a + 1);
+              else setFailedImage(image);
+            }}
           />
         </>
       ) : (
@@ -226,6 +248,23 @@ export function StoreAvatar({
   const image = store.logoUrl ?? store.photoUrl;
   const [readyImage, setReadyImage] = useState<string | null>(null);
   const [failedImage, setFailedImage] = useState<string | null>(null);
+  // مانند ProductVisual: عکس کش‌شده بدون رویداد load هم آشکار می‌شود و خطای گذرا
+  // یک بار با پارامتر تازه تلاش می‌شود.
+  const [attempt, setAttempt] = useState(0);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  useEffect(() => {
+    setReadyImage(null);
+    setFailedImage(null);
+    setAttempt(0);
+  }, [image]);
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0) setReadyImage(image ?? null);
+  }, [image, attempt]);
+  const src =
+    image && attempt > 0
+      ? `${image}${image.includes("?") ? "&" : "?"}r=${attempt}`
+      : image;
   const ready = !!image && readyImage === image;
   const failed = !!image && failedImage === image;
   return (
@@ -241,11 +280,15 @@ export function StoreAvatar({
       {(!image || failed) && <span>{store.initial}</span>}
       {image && !failed && (
         <img
-          src={image}
+          ref={imgRef}
+          src={src}
           alt={`لوگوی ${store.name}`}
           loading="lazy"
           onLoad={() => setReadyImage(image)}
-          onError={() => setFailedImage(image)}
+          onError={() => {
+            if (attempt < 1) setAttempt((a) => a + 1);
+            else setFailedImage(image);
+          }}
           className={`absolute inset-0 h-full w-full bg-white p-1.5 object-contain transition-opacity duration-200 ${ready ? "opacity-100" : "opacity-0"}`}
         />
       )}

@@ -709,6 +709,7 @@ export default function App() {
   };
 
   const doLogout = async () => {
+    const wasLoggedIn = !!token;
     try {
       if (token) await api.auth.logout();
     } catch {
@@ -719,12 +720,35 @@ export default function App() {
     setUser(null);
     setMenuOpen(false);
     synced.current.ready = false;
+    // داده‌های حساب قبلی (سبد، سفارش‌ها، کیف پول، نشانی‌ها) نباید به حساب
+    // بعدی نشت کند؛ همه‌چیز پاک می‌شود.
+    if (wasLoggedIn) {
+      setCart({ storeId: null, items: {} });
+      setOrders([]);
+      setWallet(0);
+      setAddresses([]);
+      setSelectedAddressId(0);
+      setFavorites([]);
+      setFirstOrderProductId(null);
+      setAppliedCode(null);
+      setAppliedPromo(null);
+    }
     try {
       localStorage.removeItem("naz_user");
+      if (wasLoggedIn) {
+        localStorage.removeItem("naz_cart");
+        localStorage.removeItem("naz_favs");
+        localStorage.removeItem("naz_addresses");
+        localStorage.removeItem("naz_address_id");
+      }
     } catch {
       /* ignore */
     }
-    showToast(token ? "با موفقیت خارج شدید" : "برای ادامه وارد حساب شوید");
+    // «خروج» یعنی رفتن مستقیم به صفحهٔ ورود/ثبت‌نام، نه ماندن در فروشگاه.
+    setSub(null);
+    setView("home");
+    setShowAuth(true);
+    showToast(wasLoggedIn ? "با موفقیت خارج شدید" : "برای ادامه وارد حساب شوید");
   };
 
   const c: AppCtx = {
@@ -847,6 +871,22 @@ export default function App() {
   }
 
   const handleAuth = (res: { token: string; user: User }) => {
+    // اگر بدون خروج، حساب عوض شود، داده‌های حساب قبلی نباید به حساب جدید نشت کند.
+    if (
+      user?.id != null &&
+      res.user.id != null &&
+      user.id !== res.user.id
+    ) {
+      setCart({ storeId: null, items: {} });
+      setOrders([]);
+      setWallet(0);
+      setAddresses([]);
+      setSelectedAddressId(0);
+      setFavorites([]);
+      setFirstOrderProductId(null);
+      setAppliedCode(null);
+      setAppliedPromo(null);
+    }
     tokenStore.set(res.token);
     setToken(res.token);
     setUser(res.user);

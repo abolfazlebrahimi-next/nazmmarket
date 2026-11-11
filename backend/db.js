@@ -421,7 +421,12 @@ export async function migrate() {
     "SELECT id,image_url FROM master_products WHERE image_normalized=0",
   );
   for (const product of oldImages) {
-    if (!product.image_url.startsWith("/api/uploads/")) continue;
+    if (!product.image_url.startsWith("/api/uploads/")) {
+      await db.run("UPDATE master_products SET image_normalized=1 WHERE id=?", [
+        product.id,
+      ]);
+      continue;
+    }
     const filename = crypto.randomUUID() + ".jpg",
       destination = path.join(__dirname, "uploads", filename);
     try {
@@ -442,9 +447,14 @@ export async function migrate() {
       });
     } catch (error) {
       await fs.promises.unlink(destination).catch(() => {});
+      // نشانی قبلی دست‌نخورده می‌ماند؛ فقط دیگر در هر اجرا دوباره تلاش نمی‌شود.
+      await db.run("UPDATE master_products SET image_normalized=1 WHERE id=?", [
+        product.id,
+      ]);
       console.warn(
         "[migration] Cannot normalize existing product image",
         product.id,
+        product.image_url,
         error.code || "invalid image",
       );
     }
@@ -518,6 +528,27 @@ const parseJson = (value, fallback) => {
   }
 };
 
+/**
+ * نشانی تصویر آپلودی را همیشه به شکل هم‌ریشه (/api/uploads/...) برمی‌گرداند؛
+ * ردیف‌های قدیمی ممکن است نشانی مطلق، مسیر ویندوزی یا نام خام فایل داشته باشند
+ * و در مرورگر ۴۰۴ بخورند.
+ */
+export const publicImageUrl = (value) => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/^(data|blob):/i.test(raw)) return raw;
+  if (/^https?:\/\//i.test(raw)) {
+    const m = raw.match(/\/(?:api\/)?uploads\/([^/?#]+)(?:[?#].*)?$/i);
+    return m ? `/api/uploads/${m[1]}` : raw;
+  }
+  const flat = raw.replace(/\\/g, "/");
+  const m = flat.match(/(?:^|\/)(?:api\/)?uploads\/([^/?#]+)$/i);
+  if (m) return `/api/uploads/${m[1]}`;
+  if (flat.startsWith("/")) return flat;
+  return `/api/uploads/${flat}`;
+};
+
 export const mapProduct = (r) => ({
   id: Number(r.id),
   masterId:
@@ -534,7 +565,7 @@ export const mapProduct = (r) => ({
   ...(r.tag ? { tag: r.tag } : {}),
   ...(r.frequent ? { frequent: true } : {}),
   ...(r.store_id != null ? { storeId: Number(r.store_id) } : {}),
-  ...(r.image_url ? { imageUrl: r.image_url } : {}),
+  ...(publicImageUrl(r.image_url) ? { imageUrl: publicImageUrl(r.image_url) } : {}),
   stock: Number(r.stock ?? 0),
   active: Boolean(r.active),
 });
@@ -555,8 +586,8 @@ export const mapStore = (r) => ({
   gradient: r.gradient,
   initial: r.initial,
   minBasket: Number(r.min_basket),
-  ...(r.logo_url ? { logoUrl: r.logo_url } : {}),
-  ...(r.photo_url ? { photoUrl: r.photo_url } : {}),
+  ...(publicImageUrl(r.logo_url) ? { logoUrl: publicImageUrl(r.logo_url) } : {}),
+  ...(publicImageUrl(r.photo_url) ? { photoUrl: publicImageUrl(r.photo_url) } : {}),
   address: r.address ?? r.area,
   ...(r.lat != null ? { lat: Number(r.lat), lng: Number(r.lng) } : {}),
   hours: r.hours ?? "",

@@ -793,7 +793,7 @@ export function CheckoutView({ c }: { c: AppCtx }) {
                   </button>
                 </div>
               ) : (
-                <div className="mt-3 flex items-center gap-2">
+                <div className="mt-3 flex items-stretch gap-2">
                   <label className="naz-floating-field checkout-code-field min-w-0 flex-1">
                     <span className="naz-floating-label">کد تخفیف</span>
                     <input
@@ -811,9 +811,9 @@ export function CheckoutView({ c }: { c: AppCtx }) {
                       c.applyCode(codeInput);
                       setCodeInput("");
                     }}
-                    className="shrink-0 rounded-2xl bg-ink px-4 text-[12px] font-black text-white transition active:scale-95"
+                    className="shrink-0 rounded-2xl bg-ink px-6 text-[13px] font-black text-white transition active:scale-95"
                   >
-                    اعمال
+                    اعمال کد تخفیف
                   </button>
                 </div>
               )}
