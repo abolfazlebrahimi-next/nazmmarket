@@ -1,4 +1,5 @@
-import { amazingDeals, energizingDrinks } from "../campaigns";
+import { amazingDeals, categoryShelf, energizingDrinks } from "../campaigns";
+import { load, save } from "../components/ui";
 import ProductRail from "../components/ProductRail";
 import { previousPurchases } from "../personalization";
 import { useState } from "react";
@@ -24,6 +25,9 @@ import MapPicker from "../components/MapPicker";
 import type { AppCtx } from "../ctx";
 import { categories, products, stores } from "../data";
 
+/** Which store rejections this device already acknowledged. */
+const REJECT_SEEN_KEY = "naz_reject_seen";
+
 export function HomePage({ c }: { c: AppCtx }) {
   const [storeFilter, setStoreFilter] = useState<"all" | "hyper">("all");
   const available = products.filter(
@@ -42,6 +46,21 @@ export function HomePage({ c }: { c: AppCtx }) {
   const filteredStores = stores.filter(
     (s) => storeFilter === "all" || s.type === "hypermarket",
   );
+  // A store that backed out of an order has to interrupt the customer, not wait
+  // for them to open the history tab; the banner stays until it is dismissed.
+  const [seenRejections, setSeenRejections] = useState<string[]>(() =>
+    load<string[]>(REJECT_SEEN_KEY, []),
+  );
+  const rejection = c.orders.find(
+    (o) => o.status === 0 && o.rejectedBy === "seller",
+  );
+  const showRejection = !!rejection && !seenRejections.includes(rejection.id);
+  const dismissRejection = () => {
+    if (!rejection) return;
+    const next = [...seenRejections, rejection.id];
+    setSeenRejections(next);
+    save(REJECT_SEEN_KEY, next);
+  };
   const selectOffer = (p: (typeof products)[number]) => {
     if (c.cartCount > 0 && c.cart.storeId && c.cart.storeId !== p.storeId) {
       c.handleAdd(p, p.storeId);
@@ -52,6 +71,34 @@ export function HomePage({ c }: { c: AppCtx }) {
   };
   return (
     <div className="market-home">
+      {showRejection && rejection && (
+        <div className="market-reject-alert" role="alert">
+          <div className="market-reject-copy">
+            <strong>«{rejection.storeName}» این خرید را انجام نداد</strong>
+            <p>
+              {rejection.rejectReason ??
+                "فروشگاه سفارش را رد کرد و مبلغی از شما گرفته نشده است."}{" "}
+              یک فروشگاه دیگر انتخاب کنید تا همان کالاها را آنجا سفارش دهید.
+            </p>
+          </div>
+          <div className="market-reject-actions">
+            <button
+              type="button"
+              onClick={() => c.openSub({ name: "stores" })}
+            >
+              <Store size={15} />
+              انتخاب فروشگاه
+            </button>
+            <button
+              type="button"
+              onClick={dismissRejection}
+              aria-label="بستن این پیام"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
       {c.firstOrderEligible && offerProducts.length > 0 && (
         <button
           type="button"
@@ -91,17 +138,19 @@ export function HomePage({ c }: { c: AppCtx }) {
             مشاهده همه <ChevronLeft size={15} />
           </button>
         </div>
-        <div className="market-category-shortcuts no-scrollbar">
-          {categories.slice(1).map((cat) => (
+        <div className="market-cat-grid market-category-shortcuts">
+          {categoryShelf(products, categories).map((cat) => (
             <button
               type="button"
               key={cat.id}
               onClick={() => c.openSub({ name: "category", id: cat.id })}
+              title={cat.name}
             >
               <span>
-                <cat.icon size={25} strokeWidth={1.5} />
+                <cat.icon size={22} strokeWidth={1.6} />
               </span>
               <small>{cat.name}</small>
+              <em>{pd(cat.count)} کالا</em>
             </button>
           ))}
         </div>
@@ -240,7 +289,7 @@ export function StoresPage({ c }: { c: AppCtx }) {
       <ScreenHeader
         title="فروشگاه‌ها"
         onBack={() => c.closeSub()}
-        hideBackOnDesktop
+        hideOnDesktop
       />
       <div className="no-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
         {(
@@ -291,7 +340,7 @@ export function FavoritesPage({ c }: { c: AppCtx }) {
       <ScreenHeader
         title="کالاهای مورد علاقه‌ی من"
         onBack={() => c.closeSub()}
-        hideBackOnDesktop
+        hideOnDesktop
       />
       {favs.length === 0 ? (
         <Empty
@@ -319,7 +368,7 @@ export function MapPage({ c }: { c: AppCtx }) {
       <ScreenHeader
         title="انتخاب لوکیشن دقیق"
         onBack={() => c.closeSub()}
-        hideBackOnDesktop
+        hideOnDesktop
       />
       <div className="p-4">
         <div className="relative rounded-[26px] border border-line">
@@ -399,15 +448,19 @@ export function EasyPage({ c }: { c: AppCtx }) {
     <div className="market-home easy-buy-page">
       <section className="easy-buy-categories">
         <h2>دسترسی سریع به دسته‌ها</h2>
-        <div>
-          {categories.slice(1).map((cat) => (
+        <div className="market-cat-grid">
+          {categoryShelf(products, categories).map((cat) => (
             <button
               type="button"
               key={cat.id}
               onClick={() => c.openSub({ name: "category", id: cat.id })}
+              title={cat.name}
             >
-              <cat.icon size={25} />
-              <span>{cat.name}</span>
+              <span>
+                <cat.icon size={22} strokeWidth={1.6} />
+              </span>
+              <small>{cat.name}</small>
+              <em>{pd(cat.count)} کالا</em>
             </button>
           ))}
         </div>

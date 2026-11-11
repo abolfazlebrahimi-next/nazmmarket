@@ -941,7 +941,7 @@ export default function App() {
               type="button"
               onClick={() => go("cart")}
               aria-label="سبد خرید"
-              className="relative hidden h-10 items-center gap-2 rounded-xl bg-ink px-3.5 text-[11.5px] font-black text-white transition hover:brightness-110 md:flex"
+              className="relative hidden h-10 items-center gap-2 rounded-xl bg-brand-soft px-3.5 text-[11.5px] font-black text-brand transition hover:bg-brand hover:text-white md:flex"
             >
               <ShoppingCart className="h-4 w-4" />
               <span className="tabular-nums">{pd(cartCount)}</span>
@@ -1175,13 +1175,13 @@ export default function App() {
                   type="button"
                   onClick={() => go(item.key)}
                   aria-current={active ? "page" : undefined}
-                  className={`relative flex flex-col items-center justify-center gap-0.5 text-[8px] leading-none font-medium transition active:scale-95 ${
+                  className={`relative flex flex-col items-center justify-center gap-0.5 text-[7.5px] leading-none font-medium transition active:scale-95 ${
                     active ? "text-brand" : "text-[#a8a49e]"
                   }`}
                 >
                   <span className="relative">
                     <item.icon
-                      className="h-5 w-5"
+                      className="h-[18px] w-[18px]"
                       strokeWidth={active ? 2.2 : 1.7}
                     />
                     {!!item.badge && (

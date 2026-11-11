@@ -1,5 +1,5 @@
 import { dispatchStatus } from "../dispatch-status.js";
-import { promoDateBound } from "../promos.js";
+import { promoDateBound, releasePromo } from "../promos.js";
 import { sellerPrice } from "../product-rules.js";
 import { normalizeImage } from "../images.js";
 import { recordOrderEvent } from "../order-workflow.js";
@@ -815,6 +815,76 @@ router.patch("/orders/:id/status", async (req, res) => {
     req.params.id,
   ]);
   res.json({ order: mapOrder(row) });
+});
+
+const rejectReasons = {
+  stock: "کالا در فروشگاه تمام شده است.",
+  closed: "امروز باز نیستیم.",
+  capacity: "ظرفیت آماده‌سازی امروز پر شده است.",
+  area: "ارسال به این آدرس برای ما ممکن نیست.",
+  other: "فروشگاه نتوانست این سفارش را انجام دهد.",
+};
+
+/**
+ * A store that cannot fulfil an order says so here, while the basket is still
+ * its own responsibility: status 1 (just placed) or 2 (being prepared). The row
+ * goes to 0 with the reason attached, the stock returns to the shelf and a
+ * single-use code comes back to the account — otherwise the customer would be
+ * left with a code they can no longer spend for a basket nobody delivered.
+ */
+router.post("/orders/:id/reject", async (req, res) => {
+  const store = await sellerStore(req.seller.id);
+  const key = String(req.body?.reason ?? "").trim();
+  const note = String(req.body?.note ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 140);
+  const reason = [rejectReasons[key] ?? rejectReasons.other, note]
+    .filter(Boolean)
+    .join(" ");
+  const id = String(req.params.id);
+  const row = await db.get("SELECT * FROM orders WHERE id=? AND store_id=?", [
+    id,
+    store?.id ?? 0,
+  ]);
+  if (!row)
+    return fail(res, 404, "not_found", "این سفارش به این فروشگاه نیست.");
+  if (![1, 2].includes(Number(row.status)))
+    return fail(
+      res,
+      409,
+      "not_rejectable",
+      "فقط سفارشی که هنوز به سفیر تحویل نشده قابل رد کردن است.",
+    );
+  const items = Array.isArray(row.items)
+    ? row.items
+    : JSON.parse(row.items || "[]");
+  const done = await db.transaction(async (tx) => {
+    const changed = await tx.run(
+      `UPDATE orders SET status=0, rejected_by='seller', reject_reason=?,
+        dispatch_paused=1 WHERE id=? AND store_id=? AND status IN (1,2)`,
+      [reason, id, store?.id ?? 0],
+    );
+    if (!changed.affectedRows) return false;
+    await recordOrderEvent(tx, id, 0, "seller", req.seller.id);
+    await releasePromo(tx, id);
+    for (const item of items)
+      await tx.run("UPDATE products SET stock=stock+? WHERE id=?", [
+        Number(item.qty),
+        Number(item.id),
+      ]);
+    return true;
+  });
+  if (!done)
+    return fail(
+      res,
+      409,
+      "order_status_conflict",
+      "وضعیت سفارش تغییر کرده است.",
+    );
+  res.json({
+    order: mapOrder(await db.get("SELECT * FROM orders WHERE id=?", [id])),
+  });
 });
 
 router.post("/orders/:id/dispatch", async (req, res) => {

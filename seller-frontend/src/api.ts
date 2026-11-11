@@ -69,6 +69,9 @@ export type SellerOrder = {
   payment: string;
   paymentStatus: string;
   customer: { name: string; phone: string };
+  /** Who ended a status-0 order; `seller` means this store rejected it. */
+  rejectedBy?: "seller" | "customer" | null;
+  rejectReason?: string | null;
 };
 export type DashboardStats = {
   products: number;
@@ -257,5 +260,14 @@ export const sellerApi = {
     call<{ order: SellerOrder }>(`/orders/${encodeURIComponent(id)}/status`, {
       method: "PATCH",
       body: { status },
+    }),
+  /**
+   * "Not this one." The customer is told the basket cannot be fulfilled here and
+   * is pointed at another store; stock and any single-use code go back.
+   */
+  rejectOrder: (id: string, reason: string, note?: string) =>
+    call<{ order: SellerOrder }>(`/orders/${encodeURIComponent(id)}/reject`, {
+      method: "POST",
+      body: { reason, note },
     }),
 };

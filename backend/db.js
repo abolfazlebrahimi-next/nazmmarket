@@ -363,6 +363,10 @@ export async function migrate() {
     first_offer_discount: "BIGINT NOT NULL DEFAULT 0",
     seller_discount: "BIGINT NOT NULL DEFAULT 0",
     platform_discount: "BIGINT NOT NULL DEFAULT 0",
+    // A store saying "not today" is not the same event as a customer cancelling,
+    // and the order card has to tell them apart.
+    rejected_by: "VARCHAR(20) NULL",
+    reject_reason: "VARCHAR(255) NULL",
   }))
     await ensureColumn("orders", column, definition);
   await db.run(
@@ -593,6 +597,8 @@ export const mapOrder = (r) => ({
   // existed report 0, so the UI shows the split only when it is there.
   sellerDiscount: Number(r.seller_discount ?? 0),
   firstOfferDiscount: Number(r.first_offer_discount ?? 0),
+  rejectedBy: r.rejected_by ?? null,
+  rejectReason: r.reject_reason ?? null,
 });
 
 export { catalog };

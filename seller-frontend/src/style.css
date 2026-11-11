@@ -1,7 +1,7 @@
 @import url("../../shared/persianDateField.css");
 @import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap");
 :root {
-  font-family: "Vazirmatn", Tahoma, sans-serif;
+  font-family: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, sans-serif;
   color: #26352e;
   background: #f5f7f5;
   font-synthesis: none;
@@ -2422,4 +2422,54 @@ button:disabled {
     opacity: 0.45;
     transform: translateY(2px);
   }
+}
+
+/* A store saying "not this one": its button and the reasons it can pick. */
+.btn.reject {
+  background: #fdf2f0;
+  border-color: #ecd0ca;
+  color: #a93826;
+}
+.btn.reject:hover {
+  background: #fbe7e3;
+  border-color: #dca499;
+}
+.btn.reject:disabled {
+  opacity: 0.6;
+}
+.reject-form {
+  display: grid;
+  gap: 14px;
+}
+.reject-reasons {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+}
+.reject-reason {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #fff;
+  color: #4a564f;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: 0.16s;
+}
+.reject-reason:hover {
+  border-color: #e2b6ac;
+}
+.reject-reason input {
+  margin: 0;
+  accent-color: #b8442f;
+}
+.reject-reason:has(input:checked) {
+  border-color: #d99f92;
+  background: #fdf3f1;
+  color: #8f2e1e;
 }

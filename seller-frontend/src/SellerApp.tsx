@@ -540,6 +540,32 @@ export default function SellerApp() {
       setDeliveryBusy(null);
     }
   };
+  const rejectOrder = async (
+    order: SellerOrder,
+    reason: string,
+    note: string,
+  ) => {
+    try {
+      const { order: updated } = await sellerApi.rejectOrder(
+        order.id,
+        reason,
+        note.trim() || undefined,
+      );
+      setSellerOrders((old) =>
+        old.map((o) => (o.id === order.id ? { ...o, ...updated } : o)),
+      );
+      setStats((old) => ({
+        ...old,
+        pendingOrders: Math.max(0, old.pendingOrders - 1),
+      }));
+      toast("سفارش رد شد؛ در اپ مشتری نوشته می‌شود که فروشگاه دیگری انتخاب کند.");
+      return true;
+    } catch (e) {
+      toast((e as Error).message);
+      return false;
+    }
+  };
+
   const updateOrder = async (order: SellerOrder, status: number) => {
     try {
       const { order: updated } = await sellerApi.setOrderStatus(
@@ -766,6 +792,7 @@ export default function SellerApp() {
               <OrdersPage
                 orders={sellerOrders}
                 onStatus={updateOrder}
+                onReject={rejectOrder}
                 onSelfDelivery={selfDelivery}
                 deliveryBusy={deliveryBusy}
                 onDispatch={dispatchOrder}
@@ -1559,9 +1586,18 @@ function EmptyState({
     </div>
   );
 }
+const rejectReasons = [
+  ["stock", "کالا تمام شده است"],
+  ["closed", "امروز باز نیستیم"],
+  ["capacity", "ظرفیت امروز پر شده"],
+  ["area", "ارسال به این آدرس ممکن نیست"],
+  ["other", "دلیل دیگر"],
+] as const;
+
 function OrdersPage({
   orders,
   onStatus,
+  onReject,
   onSelfDelivery,
   deliveryBusy,
   onDispatch,
@@ -1569,12 +1605,32 @@ function OrdersPage({
 }: {
   orders: SellerOrder[];
   onStatus: (order: SellerOrder, status: number) => void;
+  onReject: (
+    order: SellerOrder,
+    reason: string,
+    note: string,
+  ) => Promise<boolean>;
   onSelfDelivery: (order: SellerOrder, complete?: boolean) => void;
   deliveryBusy: string | null;
   deliveryAvailable: boolean;
   onDispatch: (order: SellerOrder, action: "retry" | "stop") => void;
 }) {
+  // `filter` is an order status; -1 is the store's own rejection bin.
   const [filter, setFilter] = useState(0);
+  const [rejecting, setRejecting] = useState<SellerOrder | null>(null);
+  const [rejectKind, setRejectKind] = useState<string>("stock");
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejectBusy, setRejectBusy] = useState(false);
+  const shownOrders = orders.filter(
+    (o) => !filter || (filter === -1 ? o.status === 0 : o.status === filter),
+  );
+  const confirmReject = async () => {
+    if (!rejecting) return;
+    setRejectBusy(true);
+    const ok = await onReject(rejecting, rejectKind, rejectNote);
+    setRejectBusy(false);
+    if (ok) setRejecting(null);
+  };
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -1607,6 +1663,13 @@ function OrdersPage({
         >
           همه <span>{money(orders.length)}</span>
         </button>
+        <button
+          className={`filter ${filter === -1 ? "active" : ""}`}
+          onClick={() => setFilter(-1)}
+        >
+          رد شده{" "}
+          <span>{money(orders.filter((o) => o.status === 0).length)}</span>
+        </button>
         {stages.map((label, i) => (
           <button
             key={i}
@@ -1620,7 +1683,7 @@ function OrdersPage({
           </button>
         ))}
       </div>
-      {orders.filter((o) => !filter || o.status === filter).length === 0 ? (
+      {shownOrders.length === 0 ? (
         <section className="panel">
           <EmptyState
             icon={ShoppingBag}
@@ -1630,9 +1693,7 @@ function OrdersPage({
         </section>
       ) : (
         <div className="order-list">
-          {orders
-            .filter((o) => !filter || o.status === filter)
-            .map((order) => (
+          {shownOrders.map((order) => (
               <article
                 className={`panel order-card stage-${order.status}`}
                 key={order.id}
@@ -1651,7 +1712,9 @@ function OrdersPage({
                   </div>
                   <span className={`status-pill status-${order.status}`}>
                     {order.status === 0
-                      ? "لغوشده"
+                      ? order.rejectedBy === "seller"
+                        ? "رد شده توسط شما"
+                        : "لغوشده"
                       : order.deliveryMode === "seller" && order.status === 4
                         ? "ارسال توسط فروشگاه"
                         : stages[order.status - 1]}
@@ -1728,6 +1791,18 @@ function OrdersPage({
                       onClick={() => onStatus(order, 2)}
                     >
                       تأیید و شروع آماده‌سازی <ArrowLeft size={15} />
+                    </button>
+                  )}
+                  {(order.status === 1 || order.status === 2) && (
+                    <button
+                      className="btn reject small"
+                      onClick={() => {
+                        setRejecting(order);
+                        setRejectKind("stock");
+                        setRejectNote("");
+                      }}
+                    >
+                      <X size={15} /> رد سفارش
                     </button>
                   )}
                   {order.status === 2 && (
@@ -1878,6 +1953,55 @@ function OrdersPage({
               </article>
             ))}
         </div>
+      )}
+      {rejecting && (
+        <Modal
+          title={`رد سفارش ${rejecting.id}`}
+          subtitle="کالاها به موجودی برمی‌گردد، کد تخفیف مصرف‌شده به حساب مشتری بازمی‌گردد و در اپ مشتری نوشته می‌شود که فروشگاه دیگری انتخاب کند."
+          onClose={() => (rejectBusy ? null : setRejecting(null))}
+        >
+          <div className="reject-form">
+            <div className="reject-reasons" role="radiogroup" aria-label="دلیل رد سفارش">
+              {rejectReasons.map(([key, label]) => (
+                <label className="reject-reason" key={key}>
+                  <input
+                    type="radio"
+                    name="reject-reason"
+                    value={key}
+                    checked={rejectKind === key}
+                    onChange={() => setRejectKind(key)}
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <Field label="توضیح برای مشتری (اختیاری)">
+              <TextInput
+                maxLength={140}
+                value={rejectNote}
+                placeholder="مثلاً فقط تا ساعت ۱۲ تحویل داریم"
+                onChange={(e) => setRejectNote(e.target.value)}
+              />
+            </Field>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setRejecting(null)}
+              >
+                انصراف
+              </button>
+              <button
+                type="button"
+                className="btn reject"
+                disabled={rejectBusy}
+                onClick={() => void confirmReject()}
+              >
+                {rejectBusy ? "در حال ثبت…" : "رد سفارش"}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </PageHeading>
   );

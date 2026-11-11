@@ -578,7 +578,7 @@ export function AccountDetailPage({
       <ScreenHeader
         title={title}
         onBack={() => c.closeSub()}
-        hideBackOnDesktop
+        hideOnDesktop
       />
       {kind === "codes" && (
         <DiscountCodeList c={c} />

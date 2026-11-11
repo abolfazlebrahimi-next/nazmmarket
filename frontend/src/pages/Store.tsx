@@ -105,7 +105,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
       </div>
       <div
         key={cat}
-        className="fade-rise grid grid-cols-2 gap-2.5 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        className="fade-rise grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7"
       >
         {visible.map((p) => (
           <ProductCard key={p.id} product={p} h={c.cardHandlers(store.id)} />
@@ -150,7 +150,7 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
       <ScreenHeader
         title={cat?.name ?? ""}
         onBack={() => c.closeSub()}
-        hideBackOnDesktop
+        hideOnDesktop
       />
       <label className="category-search mx-4 mt-3 flex h-11 items-center gap-2 rounded-2xl bg-[#f4f4f3] px-3.5 text-muted">
         <Search className="h-4 w-4 shrink-0" />
@@ -172,7 +172,7 @@ export function CategoryPage({ c, catId }: { c: AppCtx; catId: string }) {
         )}
       </label>
       {list.length ? (
-        <div className="grid grid-cols-2 gap-2.5 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
           {list.map((p) => (
             <ProductCard key={p.id} product={p} h={c.cardHandlers()} />
           ))}
@@ -284,7 +284,7 @@ export function SearchPage({ c }: { c: AppCtx }) {
           <p className="px-4 pb-2 pt-4 text-[12px] font-black text-ink">
             کالاها ({pd(results.products.length)})
           </p>
-          <div className="grid grid-cols-2 gap-2.5 px-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 px-4 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7">
             {results.products.map((p) => (
               <ProductCard key={p.id} product={p} h={c.cardHandlers()} />
             ))}
@@ -307,6 +307,19 @@ export function ProductModal({ c }: { c: AppCtx }) {
   const p = c.productModal;
   if (!p) return null;
   const qty = c.qtyOf(p.id);
+  // Same-category neighbours. Kept for the phone layout, where the modal is a
+  // full screen and browsing sideways is cheap; the desktop dialog stays about
+  // this one product.
+  const suggestions = products
+    .filter(
+      (item) =>
+        item.category === p.category &&
+        item.id !== p.id &&
+        item.active !== false &&
+        Number(item.stock) > 0,
+    )
+    .slice(0, 8);
+  const saved = Math.max(0, Number(p.oldPrice ?? 0) - Number(p.price));
   const addAction =
     qty === 0 ? (
       <button
@@ -391,33 +404,55 @@ export function ProductModal({ c }: { c: AppCtx }) {
             )}
             <div className="mt-4 hidden items-center justify-between border-t border-dashed border-line pt-4 md:flex">
               <div>
-                {p.oldPrice && (
-                  <p className="text-[11px] font-medium text-[#b6b1aa] line-through">
-                    {faNum(p.oldPrice)}
-                  </p>
-                )}
-                <p className="text-[16px] font-black text-ink">
+                <p className="text-[19px] font-black leading-8 text-ink">
                   {faNum(p.price)}{" "}
                   <span className="text-[10px] font-bold text-muted">
                     تومان
                   </span>
                 </p>
+                {saved > 0 && (
+                  <p className="mt-0.5 text-[10px] font-bold text-mint">
+                    {faNum(saved)} تومان تخفیف
+                  </p>
+                )}
               </div>
               {addAction}
             </div>
           </div>
+          {suggestions.length > 0 && (
+            <section className="product-modal-suggestions mt-6 md:hidden">
+              <div className="flex items-center justify-between px-4">
+                <h4 className="text-[13px] font-black text-ink">
+                  همین دسته را ببینید
+                </h4>
+                <span className="text-[10px] font-medium text-muted">
+                  {pd(suggestions.length)} کالا
+                </span>
+              </div>
+              <div className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto px-4 pb-2">
+                {suggestions.map((item) => (
+                  <ProductCard
+                    key={item.id}
+                    product={item}
+                    h={c.cardHandlers()}
+                    width="w-[164px]"
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
         <div className="sticky bottom-0 z-20 flex shrink-0 items-center justify-between gap-3 border-t border-line bg-white/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur md:hidden">
           <div>
-            {p.oldPrice && (
-              <p className="text-[10px] text-muted line-through">
-                {faNum(p.oldPrice)}
+            <p className="text-[15.5px] font-black leading-6 text-ink">
+              {faNum(p.price)}{" "}
+              <span className="text-[9px] font-bold text-muted">تومان</span>
+            </p>
+            {saved > 0 && (
+              <p className="text-[9.5px] font-bold text-mint">
+                {faNum(saved)} تومان تخفیف
               </p>
             )}
-            <p className="text-[14px] font-black text-ink">
-              {faNum(p.price)}{" "}
-              <span className="text-[9px] text-muted">تومان</span>
-            </p>
           </div>
           {qty === 0 ? (
             addAction

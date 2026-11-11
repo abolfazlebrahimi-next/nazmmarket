@@ -114,6 +114,11 @@ export function ProductCard({
 }) {
   const qty = h.qtyOf(product.id);
   const offerPrice = product.price - Math.floor(product.price / 2);
+  // The price is the decision; the amount saved is a footnote under it, so the
+  // struck-through old price is replaced by the saving itself.
+  const saved = firstOrderOffer
+    ? product.price - offerPrice
+    : Math.max(0, Number(product.oldPrice ?? 0) - Number(product.price));
   return (
     <article className={`market-product ${width ?? ""}`}>
       <div className="market-product-image">
@@ -188,10 +193,10 @@ export function ProductCard({
           {faNum(firstOrderOffer ? offerPrice : product.price)}{" "}
           <small>تومان</small>
         </strong>
-        {(firstOrderOffer || product.oldPrice) && (
-          <del>
-            {faNum(firstOrderOffer ? product.price : product.oldPrice!)}
-          </del>
+        {saved > 0 && (
+          <em className="market-product-saving">
+            {faNum(saved)} تومان تخفیف
+          </em>
         )}
       </div>
       {firstOrderOffer && (
@@ -312,19 +317,20 @@ export function ScreenHeader({
   title,
   onBack,
   end,
-  hideBackOnDesktop = false,
+  hideOnDesktop = false,
 }: {
   title: string;
   onBack: () => void;
   end?: ReactNode;
   /**
-   * Browse screens are reachable from the desktop header, so the back chevron
-   * beside the title is dropped there and kept on touch layouts only.
+   * Browse screens are reachable from the desktop header, so the whole heading
+   * — the chevron *and* its caption — is dropped there and kept on touch
+   * layouts only. Hiding only the button used to leave an orphan title.
    */
-  hideBackOnDesktop?: boolean;
+  hideOnDesktop?: boolean;
 }) {
   return (
-    <div className={`screen-heading${hideBackOnDesktop ? " no-desktop-back" : ""}`}>
+    <div className={`screen-heading${hideOnDesktop ? " no-desktop-heading" : ""}`}>
       <BackButton onBack={onBack} />
       <h1>{title}</h1>
       {end}

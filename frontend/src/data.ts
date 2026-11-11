@@ -183,6 +183,9 @@ export type Order = {
   paymentStatus?: string;
   deliveryMode?: "courier" | "seller";
   promoCode?: string | null;
+  /** Who ended an order in status 0; the seller gets a different notice. */
+  rejectedBy?: "seller" | "customer" | null;
+  rejectReason?: string | null;
   status: number;
   time: string;
   createdAt?: string;

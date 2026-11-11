@@ -663,10 +663,9 @@ export function DoneView({ c, order }: { c: AppCtx; order: Order }) {
         سفارش شما ثبت شد!
       </h2>
       <p className="mx-auto mt-2 max-w-80 text-[12px] font-medium leading-6 text-muted">
-        سفارش{" "}
-        <strong className="text-ink">{pd(order.id.replace("NM-", ""))}</strong>{" "}
-        در پایگاه‌داده ثبت شد و منتظر تأیید فروشگاه است. پرداخت در محل انجام
-        می‌شود؛ زمان و ارسال پس از تأیید فروشگاه هماهنگ خواهد شد.
+        سفارش شما در ساعت {pd(order.time)} ثبت شد و برای{" "}
+        <strong className="text-ink">{order.storeName}</strong> فرستاده شد.
+        پس از تأیید فروشگاه، زمان تحویل را به شما می‌گوییم.
       </p>
       <Receipt order={order} />
       <div className="mt-7 w-full max-w-xs space-y-2.5">
@@ -695,7 +694,7 @@ export function DoneView({ c, order }: { c: AppCtx; order: Order }) {
 export function CartDrawer({ c }: { c: AppCtx }) {
   return (
     <div
-      className="fixed inset-0 z-[75] lg:flex"
+      className="fixed inset-0 z-[75] md:flex md:items-center md:justify-center md:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="سبد خرید"
@@ -706,7 +705,7 @@ export function CartDrawer({ c }: { c: AppCtx }) {
         onClick={() => c.setCartDrawer(false)}
         className="fade-in absolute inset-0 bg-ink/45 backdrop-blur-[2px]"
       />
-      <div className="drawer-in absolute inset-y-0 left-0 flex w-full max-w-[420px] flex-col bg-white shadow-2xl">
+      <div className="cart-sheet drawer-in absolute inset-y-0 left-0 flex w-full max-w-[420px] flex-col bg-white shadow-2xl md:relative md:inset-auto md:h-auto md:max-h-[86vh] md:w-[520px] md:max-w-[92vw] md:overflow-hidden md:rounded-[26px]">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h3 className="text-[16px] font-black text-ink">سبد خرید</h3>
           <div className="flex items-center gap-2">

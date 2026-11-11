@@ -1,36 +1,42 @@
 import { api } from "../api/client";
 import { useState } from "react";
-import { Check, ReceiptText, ShoppingBasket } from "lucide-react";
-import { BackButton, Empty, pd } from "../components/ui";
+import {
+  Check,
+  ChevronLeft,
+  ReceiptText,
+  ShoppingBasket,
+  Store,
+  X,
+} from "lucide-react";
+import { Empty, pd, ScreenHeader } from "../components/ui";
 import type { AppCtx } from "../ctx";
 import type { Order } from "../data";
 import { faNum } from "../data";
 
-const statusSteps = [
-  "ثبت سفارش",
-  "در حال آماده‌سازی",
-  "آماده تحویل",
-  "تحویل به سفیر",
-  "تکمیل سفارش",
-];
-const statusLabel = (status: number) =>
-  status === 0
-    ? "لغوشده"
-    : ([
-        "",
-        "ثبت سفارش",
-        "در حال آماده‌سازی",
-        "آماده تحویل",
-        "تحویل به سفیر",
-        "تکمیل‌شده",
-      ][status] ?? "نامشخص");
+/**
+ * What the customer is shown, in three steps. «ثبت سفارش» is a formality (the
+ * card would open with a step already ticked) and «آماده تحویل» is the store's
+ * own warehouse state, so both are folded away; the last step reads as the
+ * handing-over, not as paperwork.
+ */
+const statusSteps = ["در حال آماده‌سازی", "تحویل به سفیر", "تقدیم به شما شده"];
 const progressFor = (status: number) =>
-  status >= 1 && status <= 5 ? status - 1 : -1;
+  status >= 5 ? 2 : status >= 3 ? 1 : status >= 1 ? 0 : -1;
+/** The short name on the pill, in the same three words as the steps. */
+const statusLabel = (o: Order) =>
+  o.status === 5
+    ? "تقدیم به شما شده"
+    : o.status === 0
+      ? o.rejectedBy === "seller"
+        ? "فروشگاه انجامش نداد"
+        : "لغو شده"
+      : o.status >= 3
+        ? o.deliveryMode === "seller"
+          ? "ارسال توسط فروشگاه"
+          : "تحویل به سفیر"
+        : "در حال آماده‌سازی";
 
 function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
-  const [events, setEvents] = useState<
-    { status: number; actor_role: string; created_at: string }[] | null
-  >(null);
   const [deliveryCode, setDeliveryCode] = useState(""),
     [codeError, setCodeError] = useState(""),
     [loadingCode, setLoadingCode] = useState(false);
@@ -42,66 +48,87 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
             {o.storeName}
           </p>
           <p className="mt-1 text-[10px] font-medium leading-5 text-muted sm:text-[10.5px]">
-            سفارش ناز-{pd(o.id.replace("NM-", ""))} · ساعت {o.time} · تحویل در{" "}
-            {o.addressTitle} ({o.slot})
+            سفارش در ساعت {o.time} ثبت شد · تحویل به {o.addressTitle}
           </p>
         </div>
         <span
           className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${o.status === 5 ? "bg-emerald-50 text-mint" : o.status === 0 ? "bg-red-50 text-red-700" : "bg-brand-soft text-brand"}`}
         >
-          {o.deliveryMode === "seller" && o.status === 4
-            ? "ارسال توسط فروشگاه"
-            : statusLabel(o.status)}
+          {statusLabel(o)}
         </span>
       </div>
 
-      {o.status > 0 && (
-        <div className="mt-4 flex items-center" dir="rtl">
-          {statusSteps.map((step, i) => {
-            const progress = progressFor(o.status);
-            return (
-              <div
-                key={
-                  o.deliveryMode === "seller" && i === 3
-                    ? "ارسال فروشگاه"
-                    : step
-                }
-                className="flex flex-1 items-center last:flex-none"
-              >
-                <div className="flex flex-col items-center gap-1.5">
-                  <span
-                    className={`relative flex h-6 w-6 items-center justify-center rounded-full text-white ${i <= progress ? "bg-mint" : "bg-[#ddd9d3]"}`}
-                  >
-                    {i < progress ? (
-                      <Check className="relative h-3 w-3" strokeWidth={3.5} />
-                    ) : (
-                      <span className="relative h-1.5 w-1.5 rounded-full bg-white" />
-                    )}
-                  </span>
-                  <span
-                    className={`text-center text-[8px] font-bold sm:text-[9px] ${i <= progress ? "text-ink" : "text-muted"}`}
-                  >
-                    {o.deliveryMode === "seller" && i === 3
-                      ? "ارسال فروشگاه"
-                      : step}
-                  </span>
-                </div>
-                {i < statusSteps.length - 1 && (
-                  <span
-                    className={`mx-1 mb-4 h-0.5 flex-1 rounded-full ${i < progress ? "bg-mint" : "bg-[#eeece9]"}`}
-                  />
-                )}
-              </div>
-            );
-          })}
+      {o.status === 0 && o.rejectedBy === "seller" && (
+        <div className="mt-3 rounded-2xl border border-red-100 bg-red-50/70 p-3.5">
+          <p className="flex items-center gap-2 text-[11.5px] font-black text-red-700">
+            <X className="h-4 w-4 shrink-0" />
+            {o.storeName} نتوانست این سفارش را انجام دهد
+          </p>
+          <p className="mt-1.5 text-[10.5px] font-medium leading-5 text-red-700/85">
+            {o.rejectReason || "فروشگاه آن را رد کرد."}{" "}
+            مبلغی از شما گرفته نشده و کد تخفیفی که مصرف کرده بودید به حسابتان
+            برگشته است.
+          </p>
+          <button
+            type="button"
+            onClick={() => c.openSub({ name: "stores" })}
+            className="mt-2.5 inline-flex items-center gap-1.5 rounded-xl bg-red-600 px-3.5 py-2 text-[11px] font-black text-white transition active:scale-95"
+          >
+            <Store className="h-3.5 w-3.5" />
+            فروشگاه دیگری انتخاب کنید
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
 
+      {o.status > 0 &&
+        (() => {
+          const progress = progressFor(o.status);
+          const steps = statusSteps.map((step, i) =>
+            i === 1 && o.deliveryMode === "seller" ? "ارسال فروشگاه" : step,
+          );
+          return (
+            <div className="mt-4 flex items-center" dir="rtl">
+              {steps.map((step, i) => (
+                <div
+                  key={step}
+                  className="flex flex-1 items-center last:flex-none"
+                >
+                  <div className="flex flex-col items-center gap-1.5">
+                    <span
+                      className={`relative flex h-6 w-6 items-center justify-center rounded-full text-white ${i <= progress ? "bg-mint" : "bg-[#ddd9d3]"}`}
+                    >
+                      {i < progress ? (
+                        <Check
+                          className="relative h-3 w-3"
+                          strokeWidth={3.5}
+                        />
+                      ) : (
+                        <span className="relative h-1.5 w-1.5 rounded-full bg-white" />
+                      )}
+                    </span>
+                    <span
+                      className={`text-center text-[8.5px] font-bold sm:text-[9.5px] ${i <= progress ? "text-ink" : "text-muted"}`}
+                    >
+                      {step}
+                    </span>
+                  </div>
+                  {i < steps.length - 1 && (
+                    <span
+                      className={`mx-1 mb-4 h-0.5 flex-1 rounded-full ${i < progress ? "bg-mint" : "bg-[#eeece9]"}`}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
       {o.status === 4 && o.deliveryMode !== "seller" && (
         <section className="my-4 rounded-2xl border border-mint/20 bg-mint/5 p-4">
-          <p className="text-xs font-bold">کد تأیید تحویل به سفیر</p>
+          <p className="text-xs font-bold">کد تحویل</p>
           <p className="my-2 text-[10px] text-muted">
-            این کد را فقط پس از دریافت بسته در اختیار سفیر قرار دهید.
+            وقتی بسته را گرفتید، این کد را به سفیر بگویید.
           </p>
           {deliveryCode && (
             <p
@@ -129,7 +156,7 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
             {loadingCode
               ? "در حال دریافت…"
               : deliveryCode
-                ? "تازه‌سازی کد تحویل"
+                ? "کد تازه"
                 : "نمایش کد تحویل"}
           </button>
           {codeError && (
@@ -141,7 +168,7 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
       )}
       {o.status === 4 && o.deliveryMode === "seller" && (
         <p className="my-4 rounded-2xl bg-mint/5 p-4 text-xs text-mint">
-          سفارش توسط فروشگاه ارسال می‌شود؛ نیازی به کد تحویل سفیر نیست.
+          بسته را خودِ فروشگاه می‌آورد؛ کد تحویل لازم نیست.
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -160,38 +187,6 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
         )}
       </div>
 
-      <button
-        type="button"
-        className="mt-4 text-[11px] font-black text-brand"
-        onClick={async () => {
-          if (events) {
-            setEvents(null);
-            return;
-          }
-          try {
-            setEvents((await api.orders.events(o.id)).events);
-          } catch (err) {
-            c.toast((err as Error).message);
-          }
-        }}
-      >
-        {events ? "بستن تاریخچه" : "مشاهده تاریخچه سفارش"}
-      </button>
-      {events && (
-        <ol className="mt-3 rounded-2xl bg-[#f7f9f7] p-3">
-          {events.map((event, i) => (
-            <li
-              key={i}
-              className="flex flex-wrap justify-between gap-2 border-b border-line py-2 text-[10px] last:border-0"
-            >
-              <strong>{statusLabel(event.status)}</strong>
-              <span className="text-muted">
-                {new Date(event.created_at).toLocaleString("fa-IR")}
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
       {Number(o.discount ?? 0) > 0 && (
         <p className="mt-2 text-[10.5px] font-bold leading-5 text-mint">
           تخفیف {faNum(Number(o.discount))} تومان
@@ -205,25 +200,10 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
         </p>
       )}
       <div className="mt-3.5 flex items-center justify-between border-t border-dashed border-line pt-3">
-        <p className="text-[12px] font-black text-ink sm:text-[13px]">
+        <p className="text-[10px] font-bold text-muted">قابل پرداخت</p>
+        <p className="text-[13.5px] font-black text-ink sm:text-[14.5px]">
           {faNum(o.total)} تومان
         </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => c.setSheet("support")}
-            className="rounded-xl bg-[#f4f3f0] px-3 py-2 text-[11px] font-black text-ink transition hover:bg-line"
-          >
-            پشتیبانی
-          </button>
-          <button
-            type="button"
-            onClick={() => c.reorder(o)}
-            className="rounded-xl bg-brand px-3 py-2 text-[11px] font-black text-white transition active:scale-95"
-          >
-            خرید مجدد
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -244,10 +224,11 @@ export default function OrdersView({
   return (
     <div className="fade-rise mx-auto w-full max-w-5xl px-4 pb-6 pt-5 md:pb-6">
       {historyOnly && (
-        <div className="screen-heading order-history-heading">
-          <BackButton onBack={() => c.closeSub()} />
-          <h1>تاریخچه سفارش‌ها</h1>
-        </div>
+        <ScreenHeader
+          title="تاریخچه سفارش‌ها"
+          onBack={() => c.closeSub()}
+          hideOnDesktop
+        />
       )}
       {orders.length ? (
         <div className="grid gap-4 md:grid-cols-2">

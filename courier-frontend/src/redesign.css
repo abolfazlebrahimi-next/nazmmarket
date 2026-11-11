@@ -1,7 +1,7 @@
 @import url("../../shared/persianDateField.css");
 /* Reference-inspired courier workspace. Forms keep their existing, tested structure. */
 :root {
-  font-family: "Vazirmatn Variable", Tahoma, sans-serif;
+  font-family: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, sans-serif;
   color: #26352e;
   background: #ffffff;
   --green: #16865b;
