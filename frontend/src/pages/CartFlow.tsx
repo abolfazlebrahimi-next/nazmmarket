@@ -217,6 +217,10 @@ export function CartBody({
     offer && c.firstOrderEligible && c.firstOrderDiscount === 0
       ? Math.max(0, offer.minBasket - c.subtotal)
       : 0;
+  // حداقل خریدِ خودِ فروشگاه؛ تا رسیدن به آن، خرید از همان فروشگاه کامل می‌شود.
+  const storeMinLeft = c.cartStore
+    ? Math.max(0, c.cartStore.minBasket - c.subtotal)
+    : 0;
 
   return (
     <div
@@ -288,18 +292,38 @@ export function CartBody({
             {fa(Math.max(0, c.subtotal - c.firstOrderDiscount))} تومان
           </span>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            c.setCartDrawer(false);
-            if (!c.user) return c.requireLogin("checkout");
-            c.openSub({ name: "checkout" });
-          }}
-          disabled={!c.cartStore}
-          className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition enabled:active:scale-[0.99] disabled:opacity-50"
-        >
-          تکمیل خرید
-        </button>
+        {storeMinLeft > 0 && c.cartStore ? (
+          <>
+            <p className="mt-2.5 rounded-2xl bg-amber-50 px-3.5 py-2.5 text-[10.5px] font-bold leading-5 text-amber-800">
+              حداقل خرید از «{c.cartStore.name}» {fa(c.cartStore.minBasket)}{" "}
+              تومان است؛ {fa(storeMinLeft)} تومان دیگر اضافه کنید.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                const store = c.cartStore;
+                c.setCartDrawer(false);
+                if (store) c.openSub({ name: "store", id: store.id });
+              }}
+              className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-[0.99]"
+            >
+              ادامهٔ خرید از {c.cartStore.name}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={() => {
+              c.setCartDrawer(false);
+              if (!c.user) return c.requireLogin("checkout");
+              c.openSub({ name: "checkout" });
+            }}
+            disabled={!c.cartStore}
+            className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition enabled:active:scale-[0.99] disabled:opacity-50"
+          >
+            تکمیل خرید
+          </button>
+        )}
       </div>
     </div>
   );

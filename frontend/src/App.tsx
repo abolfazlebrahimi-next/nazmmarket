@@ -96,7 +96,9 @@ export default function App() {
     load("naz_address_id", 0),
   );
   const [orders, setOrders] = useState<Order[]>([]);
-  const [firstOrderEligible, setFirstOrderEligible] = useState(false);
+  // کمپین «خرید اول» برای مهمان فعال است (خوش‌بینانه)؛ هنگام ورود، سرور تصمیم
+  // نهایی را می‌گیرد و اگر این حساب قبلاً خرید کرده باشد، تخفیف برداشته می‌شود.
+  const [firstOrderEligible, setFirstOrderEligible] = useState(true);
   const [firstOrderProductId, setFirstOrderProductId] = useState<number | null>(
     null,
   );
@@ -241,7 +243,9 @@ export default function App() {
     setAddresses(nextAddrs);
     setOrders(state.orders ?? []);
     setFirstOrderEligible(Boolean(state.firstOrderEligible));
-    setFirstOrderProductId(null);
+    // انتخاب «خرید اول» فقط وقتی برداشته می‌شود که این حساب مجاز نباشد؛
+    // برای حساب تازه، انتخاب مهمان حفظ می‌شود.
+    if (!state.firstOrderEligible) setFirstOrderProductId(null);
     setWallet(state.wallet ?? 0);
     synced.current = {
       cart: JSON.stringify({
@@ -730,6 +734,8 @@ export default function App() {
       setSelectedAddressId(0);
       setFavorites([]);
       setFirstOrderProductId(null);
+      // بعد از خروج، کمپین «خرید اول» دوباره برای مهمان فعال می‌شود.
+      setFirstOrderEligible(true);
       setAppliedCode(null);
       setAppliedPromo(null);
     }
@@ -894,6 +900,9 @@ export default function App() {
     showToast(
       `خوش آمدید${res.user.firstName ? `، ${res.user.firstName}` : ""}!`,
     );
+    // اگر مهمان کالای «خرید اول» را انتخاب کرده باشد، فقط برای حسابی که مجاز
+    // است حفظ می‌شود؛ حسابی که قبلاً خرید کرده نباید تخفیف بگیرد.
+    const hadFirstOffer = firstOrderProductId != null;
     Promise.all([api.state(), api.catalog()])
       .then(([state, catalog]) => {
         hydrateCatalog(catalog);
@@ -920,6 +929,8 @@ export default function App() {
           };
         });
         setCatalogTick((t) => t + 1);
+        if (hadFirstOffer && !state.firstOrderEligible)
+          showToast("تخفیف «خرید اول» برای این حساب قبلاً استفاده شده است");
         applyServerState(state);
       })
       .catch(() => setApiOnline(false));

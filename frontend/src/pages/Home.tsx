@@ -185,6 +185,18 @@ export function HomePage({ c }: { c: AppCtx }) {
           </p>
         </section>
       )}
+      {/* یک ردیف دسته‌بندی بین «خرید اول» و «تخفیف‌ها» تا با اسکرول دیده شود */}
+      {rows.slice(0, 1).map(({ cat, items }) => (
+        <ProductRail
+          key={cat.id}
+          title={cat.name}
+          onAll={() => c.openSub({ name: "category", id: cat.id })}
+        >
+          {items.map((p) => (
+            <ProductCard key={p.id} product={p} h={c.cardHandlers(p.storeId)} />
+          ))}
+        </ProductRail>
+      ))}
       {!!amazing.length && (
         <ProductRail title="تخفیف‌های شگفت‌انگیز" tone="deal">
           {amazing.map((p) => (
@@ -192,7 +204,7 @@ export function HomePage({ c }: { c: AppCtx }) {
           ))}
         </ProductRail>
       )}
-      {rows.map(({ cat, items }) => (
+      {rows.slice(1).map(({ cat, items }) => (
         <ProductRail
           key={cat.id}
           title={cat.name}

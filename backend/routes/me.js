@@ -35,11 +35,14 @@ const readOrders = async (id) =>
     )
   ).map(mapOrder);
 router.get("/state", async (req, res) => {
-  const [cart, favorites, addresses, orders] = await Promise.all([
+  const [cart, favorites, addresses, orders, redeemed] = await Promise.all([
     readCart(req.user.id),
     readFavorites(req.user.id),
     readAddresses(req.user.id),
     readOrders(req.user.id),
+    db.get("SELECT user_id FROM first_offer_redemptions WHERE user_id=?", [
+      req.user.id,
+    ]),
   ]);
   res.json({
     user: req.user,
@@ -49,7 +52,8 @@ router.get("/state", async (req, res) => {
     orders,
     wallet: req.user.wallet,
     pro: req.user.pro,
-    firstOrderEligible: orders.length === 0,
+    // هم‌خوان با قاعدهٔ ثبت سفارش: حتی یک سفارش یا مصرف «خرید اول» → تمام.
+    firstOrderEligible: orders.length === 0 && !redeemed,
   });
 });
 router.put("/cart", async (req, res) => {
