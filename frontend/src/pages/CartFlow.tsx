@@ -129,7 +129,9 @@ export function CartBody({
   if (c.cartCount === 0) {
     return (
       <Empty
-        align="start"
+        // The phone cart is a tall page, so its empty state sits at the top;
+        // the desktop dialog is sized to its content and wants to be centred.
+        align={compact ? "center" : "start"}
         icon={ShoppingCart}
         title="سبد خریدی ندارید!"
         desc="کالاهای مورد نیاز خود را از فروشگاه‌های نظرآباد به سبد اضافه کنید."

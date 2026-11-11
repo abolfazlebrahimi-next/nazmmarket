@@ -1,7 +1,9 @@
 @import url("../../shared/persianDateField.css");
-@import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap");
+/* @fontsource-variable/vazirmatn is imported in main.tsx — the same face the
+   customer app bundles, so no panel ever falls back to a system font. */
 :root {
-  font-family: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: "Vazirmatn Variable", "Vazirmatn", ui-sans-serif, system-ui, -apple-system,
+    sans-serif;
   color: #26352e;
   background: #f5f7f5;
   font-synthesis: none;

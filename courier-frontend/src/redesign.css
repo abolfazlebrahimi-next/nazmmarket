@@ -1,7 +1,8 @@
 @import url("../../shared/persianDateField.css");
 /* Reference-inspired courier workspace. Forms keep their existing, tested structure. */
 :root {
-  font-family: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: "Vazirmatn Variable", "Vazirmatn", ui-sans-serif, system-ui,
+    -apple-system, sans-serif;
   color: #26352e;
   background: #ffffff;
   --green: #16865b;
@@ -17,11 +18,14 @@ body {
   background:
     radial-gradient(ellipse at 80% 0, #edf8f3 0, transparent 35%), #ffffff;
 }
+/* Form controls and the bottom bar take the platform face and its size, so no
+   label here renders in the browser default. */
 button,
 input,
 textarea,
 select {
   font-family: inherit;
+  font-size: inherit;
 }
 button {
   font-weight: 650;
@@ -446,6 +450,7 @@ h2 {
 .dispatch-map {
   position: relative;
   isolation: isolate;
+  z-index: 0;
   height: 320px;
   border: 1px solid #e5ece7;
   border-radius: 21px;
@@ -3061,7 +3066,9 @@ html {
 .notif-layer {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  /* Above the leaflet map and above the fixed bottom bar (1000/1001), so an
+     open notification list can never be painted under the page. */
+  z-index: 1050;
   display: flex;
   justify-content: flex-end;
 }
@@ -3299,5 +3306,119 @@ html {
   }
   .jalali-field-caption {
     font-size: 9px;
+  }
+}
+
+/* Skeletons that hold their own height, so a slow map or a first response never
+   moves the cards around the rider who is reading them. */
+.map-skeleton {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    linear-gradient(#eef4f0 1px, transparent 1px) 0 0 / 100% 34px,
+    linear-gradient(90deg, #eef4f0 1px, transparent 1px) 0 0 / 34px 100%,
+    #e9efeb;
+}
+.skeleton-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    #ffffffa8 46%,
+    transparent 72%
+  );
+  background-size: 220% 100%;
+  animation: skeleton-sweep 1.25s linear infinite;
+}
+@keyframes skeleton-sweep {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -30% 0;
+  }
+}
+.map-skeleton-pill {
+  position: relative;
+  z-index: 1;
+  padding: 8px 17px;
+  border-radius: 20px;
+  background: #ffffffed;
+  color: #5f7a68;
+  font-size: 10px;
+  font-weight: 700;
+}
+.list-skeleton {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+.list-skeleton > span {
+  position: relative;
+  height: 104px;
+  overflow: hidden;
+  border: 1px solid #e5ece7;
+  border-radius: 18px;
+  background: #f7faf8;
+}
+.skeleton-num {
+  display: inline-block;
+  width: 46px;
+  height: 20px;
+  border-radius: 7px;
+  background: #eef4f0;
+  vertical-align: -3px;
+}
+.skeleton-num.wide {
+  width: 74px;
+}
+/* A pending photo keeps its square; the shimmer sits behind it and disappears as
+   soon as the image paints. */
+.photo-thumb::before,
+.avatar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, #f2f6f3 20%, #fff 46%, #f2f6f3 72%);
+  background-size: 220% 100%;
+  animation: skeleton-sweep 1.25s linear infinite;
+}
+.photo-thumb img,
+.avatar img {
+  position: relative;
+  z-index: 1;
+}
+.avatar {
+  position: relative;
+}
+.avatar::before {
+  border-radius: 50%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-sweep,
+  .photo-thumb::before,
+  .avatar::before {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+/* Bottom bar on a phone: the labels are kept as small as the customer app's own
+   bottom bar (7.5px, icon 19px) while min-height keeps the tap target at 48px.
+   Declared last, so no other block can bring the desktop 11px size back. */
+@media (max-width: 750px) {
+  .sidebar nav button,
+  .sidebar nav button span {
+    font-size: 7.5px;
+    line-height: 1.2;
+    letter-spacing: -0.15px;
+  }
+  .sidebar nav button {
+    gap: 3px;
+  }
+  .sidebar nav button svg {
+    width: 19px;
+    height: 19px;
   }
 }

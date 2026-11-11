@@ -26,6 +26,7 @@ export default function Dashboard({
   busy,
   message,
   approved,
+  loading = false,
   children,
 }: {
   courier: Courier;
@@ -35,6 +36,8 @@ export default function Dashboard({
   busy: boolean;
   message: string;
   approved: boolean;
+  /** First response pending: placeholders keep the page height. */
+  loading?: boolean;
   children: ReactNode;
 }) {
   const [summary, setSummary] = useState<Summary | null>(null),
@@ -85,12 +88,23 @@ export default function Dashboard({
       )}
       <div className="dashboard-body">
         <div className="dashboard-center">
-          <DispatchMap
-            courier={courier}
-            orders={orders}
-            onLocate={onLocate}
-            busy={busy}
-          />
+          {loading ? (
+            <div
+              className="dispatch-map map-skeleton"
+              role="status"
+              aria-label="در حال آماده‌سازی نقشه"
+            >
+              <span className="skeleton-sweep" aria-hidden="true" />
+              <span className="map-skeleton-pill">در حال دریافت نقشه…</span>
+            </div>
+          ) : (
+            <DispatchMap
+              courier={courier}
+              orders={orders}
+              onLocate={onLocate}
+              busy={busy}
+            />
+          )}
           <div
             className={`dispatch-status ${!approved ? "needs-review" : ""}`}
             role="status"
@@ -109,7 +123,15 @@ export default function Dashboard({
               </button>
             ) : null}
           </div>
-          {children}
+          {loading ? (
+            <div className="list-skeleton" aria-hidden="true">
+              <span className="skeleton-sweep" />
+              <span className="skeleton-sweep" />
+              <span className="skeleton-sweep" />
+            </div>
+          ) : (
+            children
+          )}
         </div>
         <aside className="dashboard-rail">
           <section className="weekly-panel">
@@ -120,11 +142,23 @@ export default function Dashboard({
             </div>
             <div className="weekly-numbers">
               <span>
-                <b>{summary ? money(weekTrips) : "—"}</b>
+                <b>
+                  {summary ? (
+                    money(weekTrips)
+                  ) : (
+                    <i className="skeleton-num" aria-hidden="true" />
+                  )}
+                </b>
                 <small>سفر تکمیل‌شده</small>
               </span>
               <span>
-                <b>{summary ? money(weekEarnings) : "—"}</b>
+                <b>
+                  {summary ? (
+                    money(weekEarnings)
+                  ) : (
+                    <i className="skeleton-num wide" aria-hidden="true" />
+                  )}
+                </b>
                 <small>تومان درآمد</small>
               </span>
             </div>

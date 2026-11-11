@@ -52,6 +52,10 @@ export default function CourierApp() {
     [openNotice, setOpenNotice] = useState(0),
     [ticketTrip, setTicketTrip] = useState(""),
     [orders, setOrders] = useState<Row[]>([]),
+    // The map and the offer list are inserted into the flow once the first
+    // response lands; until then their skeletons hold the same height, so the
+    // page does not jump under the rider's thumb.
+    [ordersLoaded, setOrdersLoaded] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [offerError, setOfferError] = useState(""),
@@ -131,6 +135,8 @@ export default function CourierApp() {
       setCourier((c) => (c ? { ...c, online: r.online } : c));
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setOrdersLoaded(true);
     }
   }
   async function loadWallet() {
@@ -817,6 +823,7 @@ export default function CourierApp() {
             busy={busy || !isApproved}
             message={dispatchMessage}
             approved={isApproved}
+            loading={!ordersLoaded}
           >
             <p className="spec-hint">
               با آنلاین شدن، موقعیت با اجازهٔ مرورگر و هر دو دقیقه برای پیشنهاد

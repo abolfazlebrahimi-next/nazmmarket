@@ -64,7 +64,7 @@ test("the surfaces touched this round are styled, not only markup", async () => 
   const css = await read("../src/index.css");
   for (const cls of [
     "cart-sheet",
-    "market-cat-grid",
+    "market-category-shortcuts",
     "market-reject-alert",
     "market-product-saving",
     "screen-heading.no-desktop-heading",

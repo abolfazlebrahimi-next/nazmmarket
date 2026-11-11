@@ -10,15 +10,39 @@ import { uploadDir } from "../storage-paths.js";
 import { db, mapOrder } from "../db.js";
 import { bearerToken, loginThrottle, verifyPassword } from "../auth.js";
 import { normalizeImage } from "../images.js";
+export const ADMIN_SESSION_TTL_MS = 8 * 3600 * 1000;
+const unauthorized = (res, message) =>
+  res.status(401).json({ error: { message } });
+
+/* The session is renewed while the admin keeps working, so an expired token is
+   never what breaks a dashboard mid-task; after eight idle hours it still dies.
+   Rows written by older code carry no usable expiry and stay accepted. */
 export const requireAdmin = async (req, res, next) => {
+  const token = bearerToken(req) || "";
+  if (!token) return unauthorized(res, "ورود مدیر الزامی است.");
   const row = await db.get(
-    "SELECT token FROM admin_sessions WHERE token=? AND expires_at>?",
-    [bearerToken(req) || "", new Date().toISOString()],
+    "SELECT token, expires_at FROM admin_sessions WHERE token=?",
+    [token],
   );
-  if (!row)
-    return res
-      .status(401)
-      .json({ error: { message: "ورود مدیر الزامی است." } });
+  if (!row) return unauthorized(res, "ورود مدیر الزامی است.");
+  const expiresAt = Date.parse(row.expires_at ?? "");
+  if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+    try {
+      await db.run("DELETE FROM admin_sessions WHERE token=?", [token]);
+    } catch {}
+    return unauthorized(
+      res,
+      "نشست مدیریت تمام شده است؛ دوباره وارد شوید.",
+    );
+  }
+  if (Number.isFinite(expiresAt) && expiresAt - Date.now() < ADMIN_SESSION_TTL_MS / 4) {
+    try {
+      await db.run("UPDATE admin_sessions SET expires_at=? WHERE token=?", [
+        new Date(Date.now() + ADMIN_SESSION_TTL_MS).toISOString(),
+        token,
+      ]);
+    } catch {}
+  }
   next();
 };
 const router = Router();
@@ -38,7 +62,7 @@ router.post("/login", loginThrottle, async (req, res) => {
   const token = crypto.randomBytes(32).toString("hex");
   await db.run("INSERT INTO admin_sessions (token,expires_at) VALUES (?,?)", [
     token,
-    new Date(Date.now() + 8 * 3600000).toISOString(),
+    new Date(Date.now() + ADMIN_SESSION_TTL_MS).toISOString(),
   ]);
   res.json({ token });
 });

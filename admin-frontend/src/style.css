@@ -1,7 +1,8 @@
-/* The same face the customer app uses, so the four panels read as one product. */
-@import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap");
+/* The same face the customer app bundles, so all four panels read as one
+   product — including buttons, inputs and status pills, which inherit it. */
 :root {
-  font-family: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: "Vazirmatn Variable", "Vazirmatn", ui-sans-serif, system-ui, -apple-system,
+    sans-serif;
   color: #20352f;
   background: #f5f7f7;
   font-synthesis: none;
@@ -821,4 +822,51 @@ footer {
   border-radius: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* Loading placeholders sized like the values they stand in for, so a slow query
+   never moves the admin's cards or table rows around. */
+.skeleton-num,
+.skeleton-bar,
+.skeleton-line {
+  display: inline-block;
+  border-radius: 7px;
+  background: linear-gradient(100deg, #edf2f0 20%, #fff 46%, #edf2f0 72%);
+  background-size: 220% 100%;
+  animation: admin-skeleton 1.25s linear infinite;
+  vertical-align: -3px;
+}
+.skeleton-num {
+  width: 64px;
+  height: 20px;
+}
+.skeleton-bar {
+  width: 54px;
+  height: 12px;
+}
+.skeleton-bar.wide {
+  width: 96px;
+}
+.skeleton-line {
+  width: min(420px, 60%);
+  height: 13px;
+}
+.table-skeleton-row td {
+  padding: 13px 14px;
+}
+@keyframes admin-skeleton {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -30% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-num,
+  .skeleton-bar,
+  .skeleton-line {
+    animation: none;
+    opacity: 0.7;
+  }
 }

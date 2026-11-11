@@ -170,11 +170,31 @@ const labels: Record<string, string> = {
   status4: "در حال ارسال",
   status5: "سفارش تکمیل‌شده",
 };
+/* One expiry per dead session: the dashboard fires several requests at once and
+   each 401 would otherwise re-render the login card and log another failed
+   resource, which is what made the panel look broken. */
+let expiring = false;
+function expireAdminSession(message: string) {
+  sessionStorage.removeItem("naz_admin");
+  if (expiring) return;
+  expiring = true;
+  window.dispatchEvent(new CustomEvent("admin-expired", { detail: message }));
+}
+function adminToken() {
+  return sessionStorage.getItem("naz_admin");
+}
+/* A request sent without a token can only be answered with 401. Refusing it
+   here keeps the console clean and shows the login form instead. */
 async function api(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData))
     headers.set("Content-Type", "application/json");
-  const token = sessionStorage.getItem("naz_admin");
+  const token = adminToken();
+  if (!token && path !== "/login") {
+    const message = "برای دیدن این بخش، اول وارد حساب مدیر شوید.";
+    expireAdminSession(message);
+    throw new Error(message);
+  }
   if (token) headers.set("Authorization", `Bearer ${token}`);
   let res: Response;
   try {
@@ -184,11 +204,13 @@ async function api(path: string, init: RequestInit = {}) {
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    if (res.status === 401 && path != "/login") {
-      sessionStorage.removeItem("naz_admin");
-      window.dispatchEvent(new Event("admin-expired"));
-    }
     const message = data?.error?.message;
+    if (res.status === 401 && path != "/login")
+      expireAdminSession(
+        typeof message === "string" && message.trim()
+          ? message
+          : "نشست مدیریت تمام شده است؛ دوباره وارد شوید.",
+      );
     throw new Error(
       typeof message === "string" && message.trim()
         ? message
@@ -221,7 +243,10 @@ export default function AdminApp() {
     [courierProfile, setCourierProfile] = useState<Row | null>(null);
   const [tableRows, setTableRows] = useState<Row[]>([]),
     [tableTotal, setTableTotal] = useState(0),
-    [tablePage, setTablePage] = useState(1);
+    [tablePage, setTablePage] = useState(1),
+    // Placeholders hold the table's height on the first paint; later refreshes
+    // keep the rows already on screen, so nothing moves under the cursor.
+    [tableLoading, setTableLoading] = useState(true);
   const [review, setReview] = useState<Courier | null>(null),
     [reason, setReason] = useState(""),
     [navOpen, setNavOpen] = useState(false);
@@ -244,7 +269,11 @@ export default function AdminApp() {
     }
   }
   useEffect(() => {
-    const expire = () => setLogged(false);
+    const expire = (event: Event) => {
+      setLogged(false);
+      const detail = (event as CustomEvent).detail;
+      if (typeof detail === "string" && detail) setError(detail);
+    };
     window.addEventListener("admin-expired", expire);
     return () => window.removeEventListener("admin-expired", expire);
   }, []);
@@ -272,6 +301,9 @@ export default function AdminApp() {
         })
         .catch((e) => {
           if (live) setError(e.message);
+        })
+        .finally(() => {
+          if (live) setTableLoading(false);
         });
     const timer = setTimeout(() => void read(), 250),
       refresh = setInterval(() => void read(), 30000);
@@ -347,6 +379,9 @@ export default function AdminApp() {
     },
   ];
   const nav: NavItem[] = navGroups.flatMap((group) => group.items);
+  /* A dashboard that has not answered yet shows placeholders, not zeros: «۰»
+     would read as a dead marketplace for the second it takes to load. */
+  const ready = Object.keys(data.stats).length > 0;
   if (!logged)
     return (
       <main className="login-wrap">
@@ -362,6 +397,7 @@ export default function AdminApp() {
                 body: JSON.stringify(Object.fromEntries(b)),
               });
               sessionStorage.setItem("naz_admin", r.token);
+              expiring = false;
               setLogged(true);
               setError("");
             } catch (err) {
@@ -503,7 +539,9 @@ export default function AdminApp() {
             <small>به‌روزرسانی خودکار هر ۶۰ ثانیه</small>
             <button disabled={busy} onClick={() => void load()}>
               <RefreshCw size={16} className={busy ? "spin" : ""} />{" "}
-              {busy ? "به‌روزرسانی…" : "به‌روزرسانی"}
+              {/* the label never changes: only the icon spins, so the header row
+                  keeps its width while the panel polls */}
+              به‌روزرسانی
             </button>
           </span>
         </header>
@@ -550,7 +588,13 @@ export default function AdminApp() {
                     </span>
                     <div>
                       <span>{String(title)}</span>
-                      <strong>{money(data.stats[key])}</strong>
+                      <strong>
+                        {ready ? (
+                          money(data.stats[key])
+                        ) : (
+                          <i className="skeleton-num" aria-hidden="true" />
+                        )}
+                      </strong>
                     </div>
                   </article>
                 );
@@ -561,7 +605,13 @@ export default function AdminApp() {
                 <article className={`pipe stage-${index}`} key={label}>
                   <header>
                     <span>{label}</span>
-                    <strong>{money(data.stats["status" + index])}</strong>
+                    <strong>
+                      {ready ? (
+                        money(data.stats["status" + index])
+                      ) : (
+                        <i className="skeleton-num" aria-hidden="true" />
+                      )}
+                    </strong>
                   </header>
                   <i>
                     <b
@@ -597,11 +647,16 @@ export default function AdminApp() {
                 </section>
               ))}
             </div>
-            <p className="definition">{data.activeDefinition}</p>
+            <p className="definition">
+              {data.activeDefinition ?? (
+                <i className="skeleton-line" aria-hidden="true" />
+              )}
+            </p>
             <div className="report-grid">
               <section className="panel">
                 <h2>عملکرد فروشندگان</h2>
                 <Table
+                  loading={!ready}
                   headings={["فروشگاه", "سفارش", "فروش تکمیل‌شده"]}
                   rows={data.sellerReport.map((r: Row) => [
                     r.name,
@@ -613,6 +668,7 @@ export default function AdminApp() {
               <section className="panel">
                 <h2>عملکرد سفیرها</h2>
                 <Table
+                  loading={!ready}
                   headings={["سفیر", "دریافت‌شده", "تحویل نهایی"]}
                   rows={data.courierReport.map((r: Row) => [
                     r.full_name,
@@ -757,14 +813,23 @@ export default function AdminApp() {
                               key={kind}
                               onClick={async () => {
                                 try {
-                                  const r = await fetch(
-                                    `/api/admin/couriers/${c.id}/documents/${kind}`,
-                                    {
-                                      headers: {
-                                        Authorization: `Bearer ${sessionStorage.getItem("naz_admin")}`,
-                                      },
-                                    },
-                                  );
+                                  const documentToken = adminToken();
+                                  const r = documentToken
+                                    ? await fetch(
+                                        `/api/admin/couriers/${c.id}/documents/${kind}`,
+                                        {
+                                          headers: {
+                                            Authorization: `Bearer ${documentToken}`,
+                                          },
+                                        },
+                                      )
+                                    : null;
+                                  if (!r) {
+                                    expireAdminSession(
+                                      "نشست مدیریت تمام شده است؛ دوباره وارد شوید.",
+                                    );
+                                    return;
+                                  }
                                   if (!r.ok) {
                                     const body = await r
                                       .json()
@@ -832,6 +897,7 @@ export default function AdminApp() {
             {page === "orders" && (
               <section className="panel">
                 <Table
+                  loading={tableLoading}
                   headings={[
                     "شناسه",
                     "فروشگاه",
@@ -1158,12 +1224,15 @@ function Empty({ text }: { text: string }) {
 function Table({
   headings,
   rows,
+  loading = false,
 }: {
   headings: string[];
   rows: React.ReactNode[][];
+  /** Rows of the same height as the real ones, until the first response lands. */
+  loading?: boolean;
 }) {
   return (
-    <div className="table-scroll">
+    <div className="table-scroll" aria-busy={loading || undefined}>
       <table>
         <thead>
           <tr>
@@ -1173,13 +1242,23 @@ function Table({
           </tr>
         </thead>
         <tbody>
-          {rows.map((r, i) => (
-            <tr key={i}>
-              {r.map((c, j) => (
-                <td key={j}>{c}</td>
+          {loading && !rows.length
+            ? [0, 1, 2, 3].map((i) => (
+                <tr className="table-skeleton-row" key={`s${i}`} aria-hidden="true">
+                  {headings.map((h, j) => (
+                    <td key={`${h}${j}`}>
+                      <i className={`skeleton-bar${j === 0 ? " wide" : ""}`} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            : rows.map((r, i) => (
+                <tr key={i}>
+                  {r.map((c, j) => (
+                    <td key={j}>{c}</td>
+                  ))}
+                </tr>
               ))}
-            </tr>
-          ))}
         </tbody>
       </table>
       {!rows.length && <Empty text="نتیجه‌ای برای این بخش وجود ندارد." />}

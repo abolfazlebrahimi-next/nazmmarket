@@ -138,19 +138,17 @@ export function HomePage({ c }: { c: AppCtx }) {
             مشاهده همه <ChevronLeft size={15} />
           </button>
         </div>
-        <div className="market-cat-grid market-category-shortcuts">
+        <div className="market-category-shortcuts no-scrollbar">
           {categoryShelf(products, categories).map((cat) => (
             <button
               type="button"
               key={cat.id}
               onClick={() => c.openSub({ name: "category", id: cat.id })}
-              title={cat.name}
             >
               <span>
-                <cat.icon size={22} strokeWidth={1.6} />
+                <cat.icon size={25} strokeWidth={1.5} />
               </span>
               <small>{cat.name}</small>
-              <em>{pd(cat.count)} کالا</em>
             </button>
           ))}
         </div>
@@ -448,19 +446,15 @@ export function EasyPage({ c }: { c: AppCtx }) {
     <div className="market-home easy-buy-page">
       <section className="easy-buy-categories">
         <h2>دسترسی سریع به دسته‌ها</h2>
-        <div className="market-cat-grid">
+        <div>
           {categoryShelf(products, categories).map((cat) => (
             <button
               type="button"
               key={cat.id}
               onClick={() => c.openSub({ name: "category", id: cat.id })}
-              title={cat.name}
             >
-              <span>
-                <cat.icon size={22} strokeWidth={1.6} />
-              </span>
-              <small>{cat.name}</small>
-              <em>{pd(cat.count)} کالا</em>
+              <cat.icon size={25} />
+              <span>{cat.name}</span>
             </button>
           ))}
         </div>

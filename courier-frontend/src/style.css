@@ -1,7 +1,9 @@
-/* The same face the customer app uses, so the four panels read as one product. */
-@import url("https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap");
+/* main.tsx bundles @fontsource-variable/vazirmatn — the same face the customer
+   app fetches from Google Fonts. Naming both keeps every weight (650, 750…)
+   available without a second download over the phone network. */
 :root {
-  font-family: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: "Vazirmatn Variable", "Vazirmatn", ui-sans-serif, system-ui,
+    -apple-system, sans-serif;
   color: #233b35;
   background: #f4f7f6;
   font-synthesis: none;
