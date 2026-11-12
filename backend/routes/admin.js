@@ -307,6 +307,13 @@ const categories = [
   "hygiene",
   "other",
 ];
+/** اعداد فارسی/عربی و ممیز ویرگولی را برای Number آماده می‌کند. */
+function faNum(v) {
+  return String(v ?? "")
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/[،,]/g, ".");
+}
 function productInput(b) {
   const p = {
     name: String(b.name || "")
@@ -319,9 +326,9 @@ function productInput(b) {
     unit: String(b.unit || "")
       .trim()
       .slice(0, 120),
-    base_price: Number(b.base_price),
-    weight_kg: Number(b.weight_kg ?? 0.5),
-    max_discount: Number(b.max_discount),
+    base_price: Number(faNum(b.base_price)),
+    weight_kg: Number(faNum(b.weight_kg ?? 0.5)),
+    max_discount: Number(faNum(b.max_discount)),
   };
   if (
     !p.name ||
@@ -381,7 +388,11 @@ router.put("/products/:id", upload.single("image"), async (req, res) => {
     ]);
   if (!p || !old) {
     if (req.file) fs.unlinkSync(req.file.path);
-    return fail(res, 400, "اطلاعات محصول معتبر نیست.");
+    return fail(
+      res,
+      400,
+      "اطلاعات محصول معتبر نیست؛ وزن باید عددی بین ۰٫۰۱ تا ۲۰۰ کیلوگرم، قیمت عدد صحیح مثبت و تخفیف بین ۰ تا ۹۰ باشد.",
+    );
   }
   try {
     if (req.file) await normalizeImage(req.file, true);

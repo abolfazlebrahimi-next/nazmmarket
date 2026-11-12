@@ -1094,7 +1094,7 @@ export default function AdminApp() {
                   placeholder=" "
                   min="0.01"
                   required
-                  step="0.1"
+                  step="any"
                   defaultValue={editing?.weight_kg ?? 0.5}
                 />
               </label>
