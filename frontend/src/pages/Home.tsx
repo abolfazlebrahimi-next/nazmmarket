@@ -67,12 +67,23 @@ export function HomePage({ c }: { c: AppCtx }) {
     setSeenRejections(next);
     save(REJECT_SEEN_KEY, next);
   };
-  // انتخاب «خرید اول» از خانه: کالا به سبد می‌رود و مشتری به همان فروشگاه
-  // منتقل می‌شود تا سبد را به حداقل خرید فروشگاه برساند.
+  // انتخاب «خرید اول» از خانه: فقط یک کالا با تخفیف انتخاب می‌شود و مشتری به
+  // همان فروشگاه منتقل می‌شود؛ بعد از آن هرچه بخواهد با قیمت عادی اضافه می‌کند.
+  const lockedPick =
+    c.firstOrderProductId != null && c.qtyOf(c.firstOrderProductId) > 0
+      ? c.firstOrderProductId
+      : null;
   const pickOffer = (product: (typeof products)[number], storeId: number) => {
-    if (!c.qtyOf(product.id)) c.handleAdd(product, storeId);
-    c.setFirstOrderProductId(product.id);
-    c.openSub({ name: "store", id: storeId });
+    if (lockedPick == null) {
+      if (!c.qtyOf(product.id)) c.handleAdd(product, storeId);
+      c.setFirstOrderProductId(product.id);
+      c.openSub({ name: "store", id: storeId });
+      return;
+    }
+    // تخفیف «خرید اول» فقط برای یک کالاست؛ کالاهای بعدی با قیمت عادی.
+    if (lockedPick !== product.id)
+      c.toast("تخفیف «خرید اول» فقط برای یک کالاست؛ این کالا با قیمت عادی اضافه شد");
+    c.handleAdd(product, storeId);
   };
   return (
     <div className="market-home">
@@ -155,6 +166,13 @@ export function HomePage({ c }: { c: AppCtx }) {
                 key={product.id}
                 product={product}
                 percent={offer.percent}
+                state={
+                  lockedPick == null
+                    ? "offer"
+                    : lockedPick === product.id
+                      ? "selected"
+                      : "locked"
+                }
                 onOpen={() =>
                   c.openSub({
                     name: "store",

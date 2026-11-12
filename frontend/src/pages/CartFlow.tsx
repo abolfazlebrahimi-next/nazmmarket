@@ -117,7 +117,10 @@ function CartLine({
 }) {
   const isOfferLine =
     c.firstOrderProductId === product.id && c.firstOrderDiscount > 0;
+  const offer = firstOffers.find((o) => o.productId === product.id);
   const disc = discountOf(product);
+  const lineGross = product.price * qty;
+  const lineNet = isOfferLine ? lineGross - c.firstOrderDiscount : lineGross;
   return (
     <div className="flex items-center gap-3 border-b border-line py-3 last:border-b-0">
       <div className="h-[58px] w-[58px] shrink-0">
@@ -128,18 +131,25 @@ function CartLine({
           {product.name}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
+          {/* قیمت واقعی اعمال‌شده: برای کالای «خرید اول» با تخفیف یک واحد */}
           <span className="text-[12px] font-black text-ink">
-            {fa(product.price * qty)} تومان
+            {fa(lineNet)} تومان
           </span>
-          {Number(product.oldPrice ?? 0) > product.price && (
+          {(isOfferLine || Number(product.oldPrice ?? 0) > product.price) && (
             <del className="text-[9px] font-bold text-muted">
-              {fa(Number(product.oldPrice) * qty)}
+              {fa(isOfferLine ? lineGross : Number(product.oldPrice) * qty)}
             </del>
           )}
-          {disc > 0 && (
+          {isOfferLine && offer ? (
             <span className="rounded-lg bg-brand-soft px-1.5 py-0.5 text-[8.5px] font-black text-brand-dark">
-              {pd(disc)}٪
+              {pd(offer.percent)}٪ خرید اول
             </span>
+          ) : (
+            disc > 0 && (
+              <span className="rounded-lg bg-brand-soft px-1.5 py-0.5 text-[8.5px] font-black text-brand-dark">
+                {pd(disc)}٪
+              </span>
+            )
           )}
         </div>
         {isOfferLine && (
@@ -307,7 +317,7 @@ export function CartBody({
         {storeMinLeft > 0 && c.cartStore && (
           <div className="mt-2.5">
             <div className="flex items-center justify-between text-[10.5px] font-bold">
-              <span className="text-red-500">
+              <span className="text-mint">
                 حداقل خرید: {fa(c.cartStore.minBasket)} تومان
               </span>
               <span className="text-ink">
@@ -332,7 +342,7 @@ export function CartBody({
             c.openSub({ name: "checkout" });
           }}
           disabled={!c.cartStore || storeMinLeft > 0}
-          className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition enabled:active:scale-[0.99] disabled:bg-[#fbd8c0] disabled:shadow-none"
+          className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition enabled:active:scale-[0.99] disabled:bg-[#a9cbb8] disabled:shadow-none"
         >
           تکمیل خرید
         </button>
@@ -663,7 +673,19 @@ export function CheckoutView({ c }: { c: AppCtx }) {
                         )}
                     </p>
                     <p className="shrink-0 text-[11px] font-black text-ink">
-                      {fa(product.price * qty)} تومان
+                      {fa(
+                        product.price * qty -
+                          (c.firstOrderProductId === product.id
+                            ? c.firstOrderDiscount
+                            : 0),
+                      )}{" "}
+                      تومان
+                      {c.firstOrderProductId === product.id &&
+                        c.firstOrderDiscount > 0 && (
+                          <del className="mr-1 text-[9px] font-bold text-muted">
+                            {fa(product.price * qty)}
+                          </del>
+                        )}
                     </p>
                   </div>
                 ))}

@@ -21,6 +21,7 @@ import type { ServerState } from "./api/client";
 import type { AppCtx, Sub, View } from "./ctx";
 import type { Address, CartState, Order, Product, User } from "./data";
 import {
+  faNum,
   firstOffers,
   hydrateCatalog,
   products,
@@ -1282,6 +1283,37 @@ export default function App() {
           </div>
         </footer>
       )}
+
+      {/* نوار شناور حداقل خرید فروشگاه — پایین صفحه، بالای نویگیشن موبایل */}
+      {cartStore &&
+        cartCount > 0 &&
+        subtotal < cartStore.minBasket &&
+        view !== "cart" &&
+        sub?.name !== "checkout" && (
+          <button
+            type="button"
+            className="min-basket-bar global-min-bar"
+            onClick={() => go("cart")}
+          >
+            <span className="min-basket-bar-cart">
+              <ShoppingCart className="h-4.5 w-4.5" />
+              <i>{pd(cartCount)}</i>
+            </span>
+            <span className="min-basket-bar-body">
+              <span className="min-basket-bar-text">
+                {faNum(cartStore.minBasket - subtotal)} تا حداقل خرید از
+                فروشگاه
+              </span>
+              <span className="min-basket-bar-track">
+                <span
+                  style={{
+                    width: `${Math.min(100, (subtotal / Math.max(1, cartStore.minBasket)) * 100)}%`,
+                  }}
+                />
+              </span>
+            </span>
+          </button>
+        )}
 
       {/* ---------- mobile bottom nav only ---------- */}
       {!sub && (

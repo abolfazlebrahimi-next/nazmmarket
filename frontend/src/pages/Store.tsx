@@ -4,7 +4,6 @@ import {
   CheckCircle2,
   Search,
   ShoppingBasket,
-  ShoppingCart,
   Star,
   Store,
   TicketPercent,
@@ -137,20 +136,41 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
                   const product = storeProducts.find(
                     (p) => p.id === offer.productId,
                   );
-                  return product ? (
+                  if (!product) return null;
+                  const locked =
+                    c.firstOrderProductId != null &&
+                    c.qtyOf(c.firstOrderProductId) > 0
+                      ? c.firstOrderProductId
+                      : null;
+                  return (
                     <FirstOfferCard
                       key={product.id}
                       product={product}
                       percent={offer.percent}
-                      onOpen={() =>
-                        c.cardHandlers(storeId).onOpen(product)
+                      state={
+                        locked == null
+                          ? "offer"
+                          : locked === product.id
+                            ? "selected"
+                            : "locked"
                       }
+                      onOpen={() => c.cardHandlers(storeId).onOpen(product)}
                       onAdd={() => {
-                        if (!c.qtyOf(product.id)) c.handleAdd(product, storeId);
-                        c.setFirstOrderProductId(product.id);
+                        if (locked == null) {
+                          if (!c.qtyOf(product.id))
+                            c.handleAdd(product, storeId);
+                          c.setFirstOrderProductId(product.id);
+                          return;
+                        }
+                        // تخفیف «خرید اول» فقط برای یک کالاست.
+                        if (locked !== product.id)
+                          c.toast(
+                            "تخفیف «خرید اول» فقط برای یک کالاست؛ این کالا با قیمت عادی اضافه شد",
+                          );
+                        c.handleAdd(product, storeId);
                       }}
                     />
-                  ) : null;
+                  );
                 })}
             </div>
           </section>
@@ -173,22 +193,36 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
         className="fade-rise grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7"
       >
         {visible.map((p) => {
-          // «خرید اول»: اگر این کالا در پیشنهاد خرید اول فروشگاه باشد، مشتری
-          // فقط یکی از این کالاها را می‌تواند با تخفیف انتخاب کند.
+          // «خرید اول»: فقط یک کالا با تخفیف انتخاب می‌شود؛ بعد از انتخاب،
+          // کالاهای دیگر با قیمت عادی نشان داده و اضافه می‌شوند.
           const offer = firstOffers.find((o) => o.productId === p.id);
+          const locked =
+            c.firstOrderProductId != null && c.qtyOf(c.firstOrderProductId) > 0
+              ? c.firstOrderProductId
+              : null;
+          const showOffer =
+            !!offer &&
+            c.firstOrderEligible &&
+            (locked == null || locked === p.id);
           return (
             <ProductCard
               key={p.id}
               product={p}
               h={c.cardHandlers(store.id)}
               firstOrderOffer={
-                offer && c.firstOrderEligible
+                showOffer && offer
                   ? {
-                      selected:
-                        c.firstOrderProductId === p.id && c.qtyOf(p.id) > 0,
+                      selected: locked === p.id,
                       onSelect: () => {
-                        if (!c.qtyOf(p.id)) c.handleAdd(p, store.id);
-                        c.setFirstOrderProductId(p.id);
+                        if (locked == null) {
+                          if (!c.qtyOf(p.id)) c.handleAdd(p, store.id);
+                          c.setFirstOrderProductId(p.id);
+                          return;
+                        }
+                        if (locked !== p.id)
+                          c.toast(
+                            "تخفیف «خرید اول» فقط برای یک کالاست؛ قبلاً انتخابش کرده‌اید",
+                          );
                       },
                       percent: offer.percent,
                     }
@@ -198,49 +232,23 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           );
         })}
       </div>
-      {c.cartCount > 0 && (
+      {c.cartCount > 0 && storeMinLeft === 0 && (
         <div className="fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] md:bottom-6 z-40 mx-auto w-full max-w-[430px] px-4">
-          {storeMinLeft > 0 ? (
-            /* تا رسیدن به حداقل خرید فروشگاه، خرید کامل نمی‌شود (تصویر مرجع) */
-            <button
-              type="button"
-              className="min-basket-bar"
-              onClick={() => c.go("cart")}
-            >
-              <span className="min-basket-bar-cart">
-                <ShoppingCart className="h-4.5 w-4.5" />
-                <i>{pd(c.cartCount)}</i>
+          <button
+            type="button"
+            onClick={() => c.go("cart")}
+            className="flex w-full items-center justify-between rounded-2xl bg-ink px-4 py-3.5 text-white shadow-2xl transition active:scale-[0.99]"
+          >
+            <span className="flex items-center gap-2 text-[12px] font-black">
+              <span className="flex h-6 min-w-6 items-center justify-center rounded-lg bg-brand px-1 text-[11px]">
+                {pd(c.cartCount)}
               </span>
-              <span className="min-basket-bar-body">
-                <span className="min-basket-bar-text">
-                  {faNum(storeMinLeft)} تا حداقل خرید از فروشگاه
-                </span>
-                <span className="min-basket-bar-track">
-                  <span
-                    style={{
-                      width: `${Math.min(100, (c.subtotal / Math.max(1, store.minBasket)) * 100)}%`,
-                    }}
-                  />
-                </span>
-              </span>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => c.go("cart")}
-              className="flex w-full items-center justify-between rounded-2xl bg-ink px-4 py-3.5 text-white shadow-2xl transition active:scale-[0.99]"
-            >
-              <span className="flex items-center gap-2 text-[12px] font-black">
-                <span className="flex h-6 min-w-6 items-center justify-center rounded-lg bg-brand px-1 text-[11px]">
-                  {pd(c.cartCount)}
-                </span>
-                مشاهده سبد خرید
-              </span>
-              <span className="text-[13px] font-black">
-                {faNum(c.subtotal)} تومان
-              </span>
-            </button>
-          )}
+              مشاهده سبد خرید
+            </span>
+            <span className="text-[13px] font-black">
+              {faNum(c.subtotal)} تومان
+            </span>
+          </button>
         </div>
       )}
     </div>

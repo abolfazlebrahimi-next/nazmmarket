@@ -1205,9 +1205,9 @@ textarea::placeholder {
   overflow: hidden;
   border-radius: 20px;
   background:
-    radial-gradient(circle at 8% 0%, #ffd9a866, transparent 40%),
-    linear-gradient(120deg, #ff7a1a, #ff9436 55%, #ffb262);
-  box-shadow: 0 12px 26px #ff7a1a33;
+    radial-gradient(circle at 8% 0%, #bfe8d366, transparent 40%),
+    linear-gradient(120deg, #12805a, #1f9c68 55%, #2bb374);
+  box-shadow: 0 12px 26px #16865b33;
 }
 .first-order-shelf::before {
   content: "";
@@ -1229,7 +1229,7 @@ textarea::placeholder {
 .first-order-shelf-head h2 {
   font-size: 17px;
   font-weight: 900;
-  text-shadow: 0 1px 3px #c25a1266;
+  text-shadow: 0 1px 3px #0d5c3f66;
 }
 .first-order-shelf-badge {
   font-size: 32px;
@@ -1237,7 +1237,7 @@ textarea::placeholder {
   line-height: 1;
   color: transparent;
   -webkit-text-stroke: 2px #fff;
-  text-shadow: 0 2px 6px #c25a1240;
+  text-shadow: 0 2px 6px #0d5c3f40;
 }
 .first-order-rail {
   display: grid;
@@ -1281,7 +1281,7 @@ textarea::placeholder {
   gap: 2px;
   padding: 2px 6px;
   border-radius: 8px;
-  background: #ff7a1a;
+  background: #16865b;
   color: #fff;
   font-size: 8.5px;
   font-weight: 900;
@@ -1292,7 +1292,7 @@ textarea::placeholder {
   right: 4px;
   padding: 2px 6px;
   border-radius: 8px 8px 8px 2px;
-  background: #ff7a1a;
+  background: #16865b;
   color: #fff;
   font-size: 7.5px;
   font-weight: 900;
@@ -1361,9 +1361,9 @@ textarea::placeholder {
   padding: 10px 12px;
   border: 0;
   border-radius: 28px;
-  background: linear-gradient(120deg, #ff7a1a, #ff9436);
+  background: linear-gradient(120deg, #12805a, #1f9c68);
   color: #fff;
-  box-shadow: 0 12px 26px #ff7a1a55;
+  box-shadow: 0 12px 26px #16865b55;
   text-align: right;
 }
 .min-basket-bar-cart {
@@ -1416,6 +1416,28 @@ textarea::placeholder {
   height: 100%;
   border-radius: 999px;
   background: #fff;
+}
+.first-order-card.is-selected {
+  outline: 2px solid #16865b;
+  outline-offset: -1px;
+}
+.first-order-card-limit.is-selected-label {
+  border-radius: 8px;
+}
+/* نوار سراسری حداقل خرید — پایین صفحه، بالای نویگیشن موبایل */
+.global-min-bar {
+  position: fixed;
+  bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  width: min(92vw, 430px);
+}
+@media (min-width: 768px) {
+  .global-min-bar {
+    bottom: 1.5rem;
+    width: min(92vw, 380px);
+  }
 }
 .market-favorites {
   display: flex;
