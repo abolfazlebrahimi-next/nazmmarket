@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Search,
   ShoppingBasket,
+  ShoppingCart,
   Star,
   Store,
   TicketPercent,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import {
   BackButton,
+  FirstOfferCard,
   ProductCard,
   ProductVisual,
   QtyStepper,
@@ -44,6 +46,11 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
   const storeCats = categories.filter(
     (ct) => ct.id === "all" || storeProducts.some((p) => p.category === ct.id),
   );
+  // تا رسیدن به حداقل خرید فروشگاه، خرید کامل نمی‌شود (مانند تصویر مرجع).
+  const storeMinLeft =
+    c.cartStore?.id === storeId
+      ? Math.max(0, store.minBasket - c.subtotal)
+      : 0;
 
   return (
     <div
@@ -104,6 +111,50 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
           </span>
         ))}
       </div>
+      {c.firstOrderEligible &&
+        firstOffers.some((o) => o.storeId === storeId) && (
+          <section
+            className="first-order-shelf store-first-order"
+            aria-label="خرید اول"
+          >
+            <div className="first-order-shelf-head">
+              <h2>ویژهٔ خرید اول!</h2>
+              <span className="first-order-shelf-badge">
+                {pd(
+                  Math.max(
+                    ...firstOffers
+                      .filter((o) => o.storeId === storeId)
+                      .map((o) => o.percent),
+                  ),
+                )}
+                ٪
+              </span>
+            </div>
+            <div className="first-order-rail no-scrollbar">
+              {firstOffers
+                .filter((o) => o.storeId === storeId)
+                .map((offer) => {
+                  const product = storeProducts.find(
+                    (p) => p.id === offer.productId,
+                  );
+                  return product ? (
+                    <FirstOfferCard
+                      key={product.id}
+                      product={product}
+                      percent={offer.percent}
+                      onOpen={() =>
+                        c.cardHandlers(storeId).onOpen(product)
+                      }
+                      onAdd={() => {
+                        if (!c.qtyOf(product.id)) c.handleAdd(product, storeId);
+                        c.setFirstOrderProductId(product.id);
+                      }}
+                    />
+                  ) : null;
+                })}
+            </div>
+          </section>
+        )}
       <div className="no-scrollbar sticky top-0 z-20 flex gap-2 overflow-x-auto border-b border-line bg-white/95 px-4 py-2.5 backdrop-blur md:top-16">
         {storeCats.map((ct) => (
           <button
@@ -149,21 +200,47 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
       </div>
       {c.cartCount > 0 && (
         <div className="fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] md:bottom-6 z-40 mx-auto w-full max-w-[430px] px-4">
-          <button
-            type="button"
-            onClick={() => c.go("cart")}
-            className="flex w-full items-center justify-between rounded-2xl bg-ink px-4 py-3.5 text-white shadow-2xl transition active:scale-[0.99]"
-          >
-            <span className="flex items-center gap-2 text-[12px] font-black">
-              <span className="flex h-6 min-w-6 items-center justify-center rounded-lg bg-brand px-1 text-[11px]">
-                {pd(c.cartCount)}
+          {storeMinLeft > 0 ? (
+            /* تا رسیدن به حداقل خرید فروشگاه، خرید کامل نمی‌شود (تصویر مرجع) */
+            <button
+              type="button"
+              className="min-basket-bar"
+              onClick={() => c.go("cart")}
+            >
+              <span className="min-basket-bar-cart">
+                <ShoppingCart className="h-4.5 w-4.5" />
+                <i>{pd(c.cartCount)}</i>
               </span>
-              مشاهده سبد خرید
-            </span>
-            <span className="text-[13px] font-black">
-              {faNum(c.subtotal)} تومان
-            </span>
-          </button>
+              <span className="min-basket-bar-body">
+                <span className="min-basket-bar-text">
+                  {faNum(storeMinLeft)} تا حداقل خرید از فروشگاه
+                </span>
+                <span className="min-basket-bar-track">
+                  <span
+                    style={{
+                      width: `${Math.min(100, (c.subtotal / Math.max(1, store.minBasket)) * 100)}%`,
+                    }}
+                  />
+                </span>
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => c.go("cart")}
+              className="flex w-full items-center justify-between rounded-2xl bg-ink px-4 py-3.5 text-white shadow-2xl transition active:scale-[0.99]"
+            >
+              <span className="flex items-center gap-2 text-[12px] font-black">
+                <span className="flex h-6 min-w-6 items-center justify-center rounded-lg bg-brand px-1 text-[11px]">
+                  {pd(c.cartCount)}
+                </span>
+                مشاهده سبد خرید
+              </span>
+              <span className="text-[13px] font-black">
+                {faNum(c.subtotal)} تومان
+              </span>
+            </button>
+          )}
         </div>
       )}
     </div>

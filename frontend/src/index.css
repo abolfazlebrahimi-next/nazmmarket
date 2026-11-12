@@ -1231,27 +1231,13 @@ textarea::placeholder {
   font-weight: 900;
   text-shadow: 0 1px 3px #c25a1266;
 }
-.first-order-shelf-head p {
-  margin-top: 2px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff7ee;
-}
 .first-order-shelf-badge {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-  padding: 6px 12px;
-  border-radius: 999px 12px 12px 999px;
-  background: #fff;
-  color: #e2620f;
-  font-size: 22px;
+  font-size: 32px;
   font-weight: 900;
-  box-shadow: 0 4px 10px #a64b0d33;
-}
-.first-order-shelf-badge small {
-  font-size: 10px;
-  font-weight: 850;
+  line-height: 1;
+  color: transparent;
+  -webkit-text-stroke: 2px #fff;
+  text-shadow: 0 2px 6px #c25a1240;
 }
 .first-order-rail {
   display: grid;
@@ -1274,39 +1260,75 @@ textarea::placeholder {
   background: #fff;
   scroll-snap-align: start;
   text-align: right;
-  transition: transform 0.15s ease;
-}
-.first-order-card:active {
-  transform: scale(0.97);
 }
 .first-order-card-visual {
   position: relative;
   display: block;
 }
+.fo-card-open {
+  display: block;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
 .first-order-card-chip {
   position: absolute;
   top: 4px;
   right: 4px;
-  padding: 2px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
   border-radius: 8px;
-  background: #e2620f;
+  background: #ff7a1a;
   color: #fff;
   font-size: 8.5px;
   font-weight: 900;
+}
+.first-order-card-limit {
+  position: absolute;
+  bottom: 6px;
+  right: 4px;
+  padding: 2px 6px;
+  border-radius: 8px 8px 8px 2px;
+  background: #ff7a1a;
+  color: #fff;
+  font-size: 7.5px;
+  font-weight: 900;
+}
+.first-order-card-add {
+  position: absolute;
+  bottom: -6px;
+  left: 2px;
+  display: flex;
+  height: 28px;
+  width: 28px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #eee9e3;
+  border-radius: 999px;
+  background: #fff;
+  color: #26352e;
+  box-shadow: 0 3px 8px #0000001f;
+  transition: transform 0.15s ease;
+}
+.first-order-card-add:active {
+  transform: scale(0.9);
 }
 .first-order-card-name {
   display: -webkit-box;
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin-top: 4px;
+  border: 0;
+  padding: 0;
+  background: transparent;
   font-size: 9.5px;
   font-weight: 800;
   color: #26352e;
-}
-.first-order-card-store {
-  font-size: 8px;
-  font-weight: 700;
-  color: #8c9c90;
+  text-align: right;
 }
 .first-order-card-price {
   display: flex;
@@ -1329,6 +1351,71 @@ textarea::placeholder {
   font-size: 9.5px;
   font-weight: 700;
   line-height: 1.9;
+}
+/* نوار حداقل خرید فروشگاه (صفحهٔ فروشگاه) — مانند تصویر مرجع */
+.min-basket-bar {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 28px;
+  background: linear-gradient(120deg, #ff7a1a, #ff9436);
+  color: #fff;
+  box-shadow: 0 12px 26px #ff7a1a55;
+  text-align: right;
+}
+.min-basket-bar-cart {
+  position: relative;
+  display: flex;
+  height: 38px;
+  width: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ffffff2b;
+}
+.min-basket-bar-cart i {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  display: flex;
+  height: 17px;
+  min-width: 17px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #26352e;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 900;
+}
+.min-basket-bar-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+}
+.min-basket-bar-text {
+  font-size: 11.5px;
+  font-weight: 900;
+}
+.min-basket-bar-track {
+  display: block;
+  height: 3.5px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ffffff47;
+}
+.min-basket-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: #fff;
 }
 .market-favorites {
   display: flex;

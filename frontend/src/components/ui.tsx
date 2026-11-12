@@ -238,6 +238,58 @@ export function ProductCard({
   );
 }
 
+/**
+ * کارت «خرید اول» مانند تصویر مرجع: چیپ درصد با شعله، «تنها ۱ عدد»، دکمهٔ +
+ * روی تصویر و قیمت با قیمت قدیمی خط‌خورده.
+ */
+export function FirstOfferCard({
+  product,
+  percent,
+  onOpen,
+  onAdd,
+}: {
+  product: Product;
+  percent: number;
+  onOpen: () => void;
+  onAdd: () => void;
+}) {
+  const off = Math.floor((product.price * percent) / 100);
+  return (
+    <article className="first-order-card">
+      <div className="first-order-card-visual">
+        <button
+          type="button"
+          className="fo-card-open"
+          onClick={onOpen}
+          aria-label={product.name}
+        >
+          <ProductVisual product={product} hideDiscount />
+        </button>
+        <span className="first-order-card-chip">
+          <Flame className="h-2.5 w-2.5 fill-current" />
+          {pd(percent)}٪
+        </span>
+        <span className="first-order-card-limit">تنها ۱ عدد</span>
+        <button
+          type="button"
+          className="first-order-card-add"
+          onClick={onAdd}
+          aria-label={`افزودن ${product.name} به سبد`}
+        >
+          <Plus className="h-4 w-4" strokeWidth={3} />
+        </button>
+      </div>
+      <button type="button" className="first-order-card-name" onClick={onOpen}>
+        {product.name}
+      </button>
+      <div className="first-order-card-price">
+        <strong>{faNum(product.price - off)} تومان</strong>
+        <del>{faNum(product.price)}</del>
+      </div>
+    </article>
+  );
+}
+
 export function StoreAvatar({
   store,
   className = "",

@@ -16,15 +16,15 @@ import {
 } from "lucide-react";
 import {
   Empty,
+  FirstOfferCard,
   ProductCard,
-  ProductVisual,
   ScreenHeader,
   StoreCard,
   pd,
 } from "../components/ui";
 import MapPicker from "../components/MapPicker";
 import type { AppCtx } from "../ctx";
-import { categories, faNum, firstOffers, products, stores } from "../data";
+import { categories, firstOffers, products, stores } from "../data";
 
 /** Which store rejections this device already acknowledged. */
 const REJECT_SEEN_KEY = "naz_reject_seen";
@@ -66,6 +66,13 @@ export function HomePage({ c }: { c: AppCtx }) {
     const next = [...seenRejections, rejection.id];
     setSeenRejections(next);
     save(REJECT_SEEN_KEY, next);
+  };
+  // انتخاب «خرید اول» از خانه: کالا به سبد می‌رود و مشتری به همان فروشگاه
+  // منتقل می‌شود تا سبد را به حداقل خرید فروشگاه برساند.
+  const pickOffer = (product: (typeof products)[number], storeId: number) => {
+    if (!c.qtyOf(product.id)) c.handleAdd(product, storeId);
+    c.setFirstOrderProductId(product.id);
+    c.openSub({ name: "store", id: storeId });
   };
   return (
     <div className="market-home">
@@ -136,52 +143,33 @@ export function HomePage({ c }: { c: AppCtx }) {
           aria-label="خرید اول"
         >
           <div className="first-order-shelf-head">
-            <div>
-              <h2>خرید اول!</h2>
-              <p>یک کالا با تخفیف ویژه انتخاب کن و وارد همان فروشگاه شو</p>
-            </div>
+            <h2>ویژهٔ خرید اول!</h2>
             <span className="first-order-shelf-badge">
               {pd(Math.max(...offerProducts.map((x) => x.offer.percent)))}
-              <small>٪ تخفیف</small>
+              ٪
             </span>
           </div>
           <div className="first-order-rail no-scrollbar">
-            {offerProducts.map(({ offer, product }) => {
-              const off = Math.floor((product.price * offer.percent) / 100);
-              return (
-                <button
-                  key={product.id}
-                  type="button"
-                  className="first-order-card"
-                  onClick={() =>
-                    c.openSub({
-                      name: "store",
-                      id: product.storeId ?? offer.storeId,
-                    })
-                  }
-                  aria-label={`${product.name} از ${offer.storeName}`}
-                >
-                  <span className="first-order-card-visual">
-                    <ProductVisual product={product} hideDiscount />
-                    <span className="first-order-card-chip">
-                      {pd(offer.percent)}٪
-                    </span>
-                  </span>
-                  <span className="first-order-card-name">{product.name}</span>
-                  <span className="first-order-card-store">
-                    {offer.storeName}
-                  </span>
-                  <span className="first-order-card-price">
-                    <strong>{faNum(product.price - off)} تومان</strong>
-                    <del>{faNum(product.price)}</del>
-                  </span>
-                </button>
-              );
-            })}
+            {offerProducts.map(({ offer, product }) => (
+              <FirstOfferCard
+                key={product.id}
+                product={product}
+                percent={offer.percent}
+                onOpen={() =>
+                  c.openSub({
+                    name: "store",
+                    id: product.storeId ?? offer.storeId,
+                  })
+                }
+                onAdd={() =>
+                  pickOffer(product, product.storeId ?? offer.storeId)
+                }
+              />
+            ))}
           </div>
           <p className="first-order-terms">
-            فقط یک کالا با تخفیف خرید اول؛ مابقی سبد را از همان فروشگاه با قیمت
-            عادی بخرید. با کلیک روی هر کالا وارد فروشگاه آن می‌شوید.
+            فقط یک کالا با تخفیف خرید اول؛ با انتخاب هر کالا وارد همان فروشگاه
+            می‌شوید و تا رسیدن به حداقل خرید فروشگاه ادامه می‌دهید.
           </p>
         </section>
       )}

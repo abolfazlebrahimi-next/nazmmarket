@@ -232,24 +232,36 @@ export function CartBody({
     >
       {/* فروشگاه */}
       <div className="flex items-center gap-2.5 border-b border-line px-4 pb-3 pt-1">
-        {c.cartStore ? (
-          <StoreAvatar
-            store={c.cartStore}
-            className="h-10 w-10 rounded-2xl text-[11px]"
-          />
-        ) : (
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f4f3f0]">
-            <Store className="h-5 w-5 text-[#a8a49e]" />
+        <button
+          type="button"
+          onClick={() => {
+            if (!c.cartStore) return;
+            const store = c.cartStore;
+            c.setCartDrawer(false);
+            c.openSub({ name: "store", id: store.id });
+          }}
+          className="flex min-w-0 flex-1 items-center gap-2.5 text-right"
+        >
+          {c.cartStore ? (
+            <StoreAvatar
+              store={c.cartStore}
+              className="h-10 w-10 rounded-2xl text-[11px]"
+            />
+          ) : (
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#f4f3f0]">
+              <Store className="h-5 w-5 text-[#a8a49e]" />
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[12px] font-black text-ink">
+              {c.cartStore ? c.cartStore.name : "در انتظار انتخاب فروشگاه"}
+            </span>
+            <span className="mt-0.5 block text-[10px] font-medium text-muted">
+              {pd(c.cartCount)} کالا
+            </span>
           </span>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[12px] font-black text-ink">
-            {c.cartStore ? c.cartStore.name : "در انتظار انتخاب فروشگاه"}
-          </p>
-          <p className="mt-0.5 text-[10px] font-medium text-muted">
-            {pd(c.cartCount)} کالا
-          </p>
-        </div>
+          <ChevronLeft className="h-4 w-4 shrink-0 text-muted" />
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -292,38 +304,38 @@ export function CartBody({
             {fa(Math.max(0, c.subtotal - c.firstOrderDiscount))} تومان
           </span>
         </div>
-        {storeMinLeft > 0 && c.cartStore ? (
-          <>
-            <p className="mt-2.5 rounded-2xl bg-amber-50 px-3.5 py-2.5 text-[10.5px] font-bold leading-5 text-amber-800">
-              حداقل خرید از «{c.cartStore.name}» {fa(c.cartStore.minBasket)}{" "}
-              تومان است؛ {fa(storeMinLeft)} تومان دیگر اضافه کنید.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                const store = c.cartStore;
-                c.setCartDrawer(false);
-                if (store) c.openSub({ name: "store", id: store.id });
-              }}
-              className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-[0.99]"
-            >
-              ادامهٔ خرید از {c.cartStore.name}
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              c.setCartDrawer(false);
-              if (!c.user) return c.requireLogin("checkout");
-              c.openSub({ name: "checkout" });
-            }}
-            disabled={!c.cartStore}
-            className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition enabled:active:scale-[0.99] disabled:opacity-50"
-          >
-            تکمیل خرید
-          </button>
+        {storeMinLeft > 0 && c.cartStore && (
+          <div className="mt-2.5">
+            <div className="flex items-center justify-between text-[10.5px] font-bold">
+              <span className="text-red-500">
+                حداقل خرید: {fa(c.cartStore.minBasket)} تومان
+              </span>
+              <span className="text-ink">
+                باقی‌مانده: {fa(storeMinLeft)} تومان
+              </span>
+            </div>
+            <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[#f0ece7]">
+              <div
+                className="h-full rounded-full bg-brand transition-all"
+                style={{
+                  width: `${Math.min(100, (c.subtotal / Math.max(1, c.cartStore.minBasket)) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
         )}
+        <button
+          type="button"
+          onClick={() => {
+            c.setCartDrawer(false);
+            if (!c.user) return c.requireLogin("checkout");
+            c.openSub({ name: "checkout" });
+          }}
+          disabled={!c.cartStore || storeMinLeft > 0}
+          className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition enabled:active:scale-[0.99] disabled:bg-[#fbd8c0] disabled:shadow-none"
+        >
+          تکمیل خرید
+        </button>
       </div>
     </div>
   );
