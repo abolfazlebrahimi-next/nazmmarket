@@ -2283,7 +2283,7 @@ function FirstOfferPanel({ products }: { products: Product[] }) {
           />
         </label>
         <label className="field">
-          <span>حداقل مبلغ خرید از فروشگاه (تومان)</span>
+          <span>حداقل مبلغ سبد برای تکمیل خرید اول (تومان)</span>
           <input
             type="number"
             min={0}

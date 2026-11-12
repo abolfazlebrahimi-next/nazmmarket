@@ -220,17 +220,9 @@ export function CartBody({
     );
   }
 
-  const offer = firstOffers.find(
-    (o) => o.productId === c.firstOrderProductId,
-  );
-  const minLeft =
-    offer && c.firstOrderEligible && c.firstOrderDiscount === 0
-      ? Math.max(0, offer.minBasket - c.subtotal)
-      : 0;
-  // حداقل خریدِ خودِ فروشگاه؛ تا رسیدن به آن، خرید از همان فروشگاه کامل می‌شود.
-  const storeMinLeft = c.cartStore
-    ? Math.max(0, c.cartStore.minBasket - c.subtotal)
-    : 0;
+  // حداقل مبلغ سبد برای تکمیل خرید (حداقل فروشگاه + حداقل «خرید اول» فعال)؛
+  // قیمت تخفیف‌دار خرید اول از همان اول روی اقلام اعمال شده است.
+  const minLeft = c.checkoutMinLeft;
 
   return (
     <div
@@ -290,12 +282,6 @@ export function CartBody({
         {items.map(({ product, qty }) => (
           <CartLine key={product.id} c={c} product={product} qty={qty} />
         ))}
-        {minLeft > 0 && offer && (
-          <p className="my-3 rounded-2xl bg-brand-soft px-3.5 py-2.5 text-[10px] font-bold leading-5 text-brand-dark">
-            برای فعال شدن «خرید اول»، {fa(minLeft)} تومان دیگر از همین فروشگاه به
-            سبد اضافه کنید (حداقل خرید {fa(offer.minBasket)} تومان).
-          </p>
-        )}
       </div>
 
       {/* جمع و تکمیل خرید */}
@@ -314,21 +300,21 @@ export function CartBody({
             {fa(Math.max(0, c.subtotal - c.firstOrderDiscount))} تومان
           </span>
         </div>
-        {storeMinLeft > 0 && c.cartStore && (
+        {minLeft > 0 && c.cartStore && (
           <div className="mt-2.5">
             <div className="flex items-center justify-between text-[10.5px] font-bold">
               <span className="text-mint">
-                حداقل خرید: {fa(c.cartStore.minBasket)} تومان
+                حداقل خرید: {fa(c.subtotal + minLeft)} تومان
               </span>
               <span className="text-ink">
-                باقی‌مانده: {fa(storeMinLeft)} تومان
+                باقی‌مانده: {fa(minLeft)} تومان
               </span>
             </div>
             <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[#f0ece7]">
               <div
                 className="h-full rounded-full bg-brand transition-all"
                 style={{
-                  width: `${Math.min(100, (c.subtotal / Math.max(1, c.cartStore.minBasket)) * 100)}%`,
+                  width: `${Math.min(100, (c.subtotal / Math.max(1, c.subtotal + minLeft)) * 100)}%`,
                 }}
               />
             </div>
@@ -341,7 +327,7 @@ export function CartBody({
             if (!c.user) return c.requireLogin("checkout");
             c.openSub({ name: "checkout" });
           }}
-          disabled={!c.cartStore || storeMinLeft > 0}
+          disabled={!c.cartStore || minLeft > 0}
           className="mt-3 w-full rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition enabled:active:scale-[0.99] disabled:bg-[#a9cbb8] disabled:shadow-none"
         >
           تکمیل خرید

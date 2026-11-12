@@ -45,11 +45,9 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
   const storeCats = categories.filter(
     (ct) => ct.id === "all" || storeProducts.some((p) => p.category === ct.id),
   );
-  // تا رسیدن به حداقل خرید فروشگاه، خرید کامل نمی‌شود (مانند تصویر مرجع).
-  const storeMinLeft =
-    c.cartStore?.id === storeId
-      ? Math.max(0, store.minBasket - c.subtotal)
-      : 0;
+  // تا رسیدن به حداقل مبلغ سبد (حداقل فروشگاه + حداقل «خرید اول» فعال)،
+  // تکمیل خرید ممکن نیست؛ نوار شناور سراسری آن را نشان می‌دهد.
+  const storeMinLeft = c.checkoutMinLeft;
 
   return (
     <div
@@ -137,38 +135,19 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
                     (p) => p.id === offer.productId,
                   );
                   if (!product) return null;
-                  const locked =
-                    c.firstOrderProductId != null &&
-                    c.qtyOf(c.firstOrderProductId) > 0
-                      ? c.firstOrderProductId
-                      : null;
                   return (
                     <FirstOfferCard
                       key={product.id}
                       product={product}
                       percent={offer.percent}
                       state={
-                        locked == null
-                          ? "offer"
-                          : locked === product.id
-                            ? "selected"
-                            : "locked"
+                        c.firstOrderProductId === product.id &&
+                        c.qtyOf(product.id) > 0
+                          ? "selected"
+                          : "offer"
                       }
                       onOpen={() => c.cardHandlers(storeId).onOpen(product)}
-                      onAdd={() => {
-                        if (locked == null) {
-                          if (!c.qtyOf(product.id))
-                            c.handleAdd(product, storeId);
-                          c.setFirstOrderProductId(product.id);
-                          return;
-                        }
-                        // تخفیف «خرید اول» فقط برای یک کالاست.
-                        if (locked !== product.id)
-                          c.toast(
-                            "تخفیف «خرید اول» فقط برای یک کالاست؛ این کالا با قیمت عادی اضافه شد",
-                          );
-                        c.handleAdd(product, storeId);
-                      }}
+                      onAdd={() => c.selectFirstOffer(product, storeId)}
                     />
                   );
                 })}
@@ -193,8 +172,8 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
         className="fade-rise grid grid-cols-2 gap-2 p-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-7"
       >
         {visible.map((p) => {
-          // «خرید اول»: فقط یک کالا با تخفیف انتخاب می‌شود؛ بعد از انتخاب،
-          // کالاهای دیگر با قیمت عادی نشان داده و اضافه می‌شوند.
+          // «خرید اول»: انتخاب/تعویض فقط از «بخش خرید اول» (قفسه)؛ اگر انتخاب
+          // دیگری فعال باشد، این کالا با قیمت عادی فروخته می‌شود (خرید معمولی).
           const offer = firstOffers.find((o) => o.productId === p.id);
           const locked =
             c.firstOrderProductId != null && c.qtyOf(c.firstOrderProductId) > 0
@@ -213,17 +192,7 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
                 showOffer && offer
                   ? {
                       selected: locked === p.id,
-                      onSelect: () => {
-                        if (locked == null) {
-                          if (!c.qtyOf(p.id)) c.handleAdd(p, store.id);
-                          c.setFirstOrderProductId(p.id);
-                          return;
-                        }
-                        if (locked !== p.id)
-                          c.toast(
-                            "تخفیف «خرید اول» فقط برای یک کالاست؛ قبلاً انتخابش کرده‌اید",
-                          );
-                      },
+                      onSelect: () => c.selectFirstOffer(p, store.id),
                       percent: offer.percent,
                     }
                   : undefined

@@ -476,12 +476,22 @@ export default function App() {
     const offer = firstOffers.find((o) => o.productId === firstOrderProductId);
     const product = products.find((p) => p.id === firstOrderProductId);
     if (!offer || !product) return 0;
-    // تا رسیدن به حداقل خریدِ تعیین‌شدهٔ فروشگاه، تخفیفی اعمال نمی‌شود؛
-    // مابقی سبد را از همان فروشگاه با قیمت عادی کامل می‌کنید.
-    if (subtotal < offer.minBasket) return 0;
+    // قیمت تخفیف‌دار از همان لحظهٔ انتخاب اعمال می‌شود؛ حداقل خریدِ پیشنهاد،
+    // شرط «تکمیل خرید» است (checkoutMinLeft) نه شرط اعمال تخفیف.
     // فقط یک واحد تخفیف می‌گیرد.
     return Math.floor((product.price * offer.percent) / 100);
-  }, [firstOrderEligible, firstOrderProductId, cart, subtotal]);
+  }, [firstOrderEligible, firstOrderProductId, cart]);
+
+  /** باقی‌مانده تا حداقل مبلغ سبد: حداقل فروشگاه + حداقل «خرید اول» فعال. */
+  const checkoutMinLeft = useMemo(() => {
+    const storeMin = cartStore?.minBasket ?? 0;
+    const offerMin =
+      firstOrderDiscount > 0
+        ? (firstOffers.find((o) => o.productId === firstOrderProductId)
+            ?.minBasket ?? 0)
+        : 0;
+    return Math.max(0, Math.max(storeMin, offerMin) - subtotal);
+  }, [cartStore, firstOrderDiscount, firstOrderProductId, subtotal]);
   /**
    * What the typed code alone is worth. The totals used to print `discountAmount`
    * here, which quietly included the first-order offer and made the code look
@@ -587,6 +597,34 @@ export default function App() {
         items,
       };
     });
+  };
+
+  /** انتخاب/تعویض «خرید اول»: فقط یک کالا با تخفیف. انتخاب دوم جایگزین
+   * اولی می‌شود («X با Y عوض شد») و کالای قبلی از سبد حذف می‌گردد. */
+  const selectFirstOffer = (p: Product, fromStoreId: number) => {
+    const locked =
+      firstOrderProductId != null && qtyOf(firstOrderProductId) > 0
+        ? firstOrderProductId
+        : null;
+    if (locked === p.id)
+      return showToast("این کالا قبلاً به عنوان خرید اول انتخاب شده");
+    const oldName = locked
+      ? (products.find((x) => x.id === locked)?.name ?? "کالای قبلی")
+      : null;
+    // اگر کالای جدید از فروشگاه دیگری باشد و سبد کالاهای دیگری داشته باشد،
+    // همان جریان عادی جایگزینی سبد (پیام تأیید) اجرا می‌شود.
+    const crossStore =
+      cart.storeId != null &&
+      cart.storeId !== fromStoreId &&
+      cartCount > (locked ? qtyOf(locked) : 0);
+    if (locked != null && !crossStore) {
+      for (let i = 0; i < qtyOf(locked); i++) handleDec(locked);
+    }
+    if (qtyOf(p.id) < 1) handleAdd(p, fromStoreId);
+    if (!crossStore) {
+      setFirstOrderProductId(p.id);
+      if (oldName) showToast(`${p.name} با ${oldName} عوض شد`);
+    }
   };
 
   const clearCart = () => {
@@ -826,6 +864,8 @@ export default function App() {
     firstOrderProductId,
     setFirstOrderProductId,
     firstOrderDiscount,
+    checkoutMinLeft,
+    selectFirstOffer,
     wallet,
     setWallet,
     productModal,
@@ -1287,7 +1327,7 @@ export default function App() {
       {/* نوار شناور حداقل خرید فروشگاه — پایین صفحه، بالای نویگیشن موبایل */}
       {cartStore &&
         cartCount > 0 &&
-        subtotal < cartStore.minBasket &&
+        checkoutMinLeft > 0 &&
         view !== "cart" &&
         sub?.name !== "checkout" && (
           <button
@@ -1301,13 +1341,12 @@ export default function App() {
             </span>
             <span className="min-basket-bar-body">
               <span className="min-basket-bar-text">
-                {faNum(cartStore.minBasket - subtotal)} تا حداقل خرید از
-                فروشگاه
+                {faNum(checkoutMinLeft)} تا حداقل خرید از فروشگاه
               </span>
               <span className="min-basket-bar-track">
                 <span
                   style={{
-                    width: `${Math.min(100, (subtotal / Math.max(1, cartStore.minBasket)) * 100)}%`,
+                    width: `${Math.min(100, (subtotal / Math.max(1, subtotal + checkoutMinLeft)) * 100)}%`,
                   }}
                 />
               </span>

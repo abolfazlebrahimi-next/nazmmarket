@@ -124,6 +124,10 @@ export interface AppCtx {
   firstOrderProductId: number | null;
   setFirstOrderProductId(id: number | null): void;
   firstOrderDiscount: number;
+  /** باقی‌مانده تا حداقل مبلغ سبد برای تکمیل خرید (حداقل فروشگاه + حداقل «خرید اول» فعال). */
+  checkoutMinLeft: number;
+  /** انتخاب/تعویض «خرید اول»: فقط یک کالا؛ انتخاب دوم جایگزین اولی می‌شود. */
+  selectFirstOffer(product: Product, storeId: number): void;
 
   // account extras
   wallet: number;

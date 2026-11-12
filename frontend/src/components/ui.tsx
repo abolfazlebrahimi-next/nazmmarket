@@ -241,7 +241,7 @@ export function ProductCard({
 /**
  * کارت «خرید اول» مانند تصویر مرجع: چیپ درصد با شعله، «تنها ۱ عدد»، دکمهٔ +
  * روی تصویر و قیمت با قیمت قدیمی خط‌خورده.
- * بعد از انتخاب یک کالا، بقیه قفل می‌شوند و با قیمت عادی نشان داده می‌شوند.
+ * فقط یک کالا انتخاب می‌شود؛ انتخاب دوم جایگزین اولی می‌شود.
  */
 export function FirstOfferCard({
   product,
@@ -252,18 +252,15 @@ export function FirstOfferCard({
 }: {
   product: Product;
   percent: number;
-  /** offer: قابل انتخاب با تخفیف؛ selected: انتخاب‌شده؛ locked: تخفیف گرفته شده — قیمت عادی. */
-  state: "offer" | "selected" | "locked";
+  /** offer: قابل انتخاب با تخفیف؛ selected: انتخاب‌شده (انتخاب دوم جایگزینش می‌کند). */
+  state: "offer" | "selected";
   onOpen: () => void;
   onAdd: () => void;
 }) {
-  const discounted = state !== "locked";
-  const off = discounted
-    ? Math.floor((product.price * percent) / 100)
-    : 0;
+  const off = Math.floor((product.price * percent) / 100);
   return (
     <article
-      className={`first-order-card ${state === "selected" ? "is-selected" : ""} ${state === "locked" ? "is-locked" : ""}`}
+      className={`first-order-card ${state === "selected" ? "is-selected" : ""}`}
     >
       <div className="first-order-card-visual">
         <button
@@ -274,16 +271,13 @@ export function FirstOfferCard({
         >
           <ProductVisual product={product} hideDiscount />
         </button>
-        {discounted && (
-          <span className="first-order-card-chip">
-            <Flame className="h-2.5 w-2.5 fill-current" />
-            {pd(percent)}٪
-          </span>
-        )}
-        {state === "offer" && (
+        <span className="first-order-card-chip">
+          <Flame className="h-2.5 w-2.5 fill-current" />
+          {pd(percent)}٪
+        </span>
+        {state === "offer" ? (
           <span className="first-order-card-limit">تنها ۱ عدد</span>
-        )}
-        {state === "selected" && (
+        ) : (
           <span className="first-order-card-limit is-selected-label">
             انتخاب شد ✓
           </span>
@@ -302,7 +296,7 @@ export function FirstOfferCard({
       </button>
       <div className="first-order-card-price">
         <strong>{faNum(product.price - off)} تومان</strong>
-        {discounted && <del>{faNum(product.price)}</del>}
+        <del>{faNum(product.price)}</del>
       </div>
     </article>
   );

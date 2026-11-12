@@ -19,8 +19,8 @@ export function sellerPrice(base, percent, maximum) {
  * «خرید اول» فروشگاهی: فروشنده چند کالا با درصد تخفیف (۲۵٪ به بالا) و حداقل
  * مبلغ سبد تعیین می‌کند. مشتری فقط یکی از آن کالاها را انتخاب می‌کند و فقط
  * «یک واحد» از همان کالا تخفیف می‌گیرد؛ مابقی سبد (کالاهای دیگر همان فروشگاه)
- * با قیمت عادی محاسبه می‌شود و تا رسیدن به حداقلِ تعیین‌شده، تخفیفی اعمال
- * نمی‌شود.
+ * با قیمت عادی محاسبه می‌شود. تخفیف از همان لحظهٔ انتخاب اعمال می‌شود و حداقل
+ * مبلغ سبد، شرط «تکمیل خرید» است: تا سبد به آن نرسد سفارش ثبت نمی‌شود.
  *
  * `offer` = { percent, minBasket } از ردیفِ فعالِ `store_first_offers` همان
  * فروشگاه. خروجی، مبلغ تخفیفِ «یک واحد» است.
@@ -44,10 +44,17 @@ export function firstOffer(items, productId, used, offer) {
       new Error("کالای پیشنهاد خرید اول باید داخل سبد باشد."),
       { status: 400, code: "first_offer_invalid" },
     );
-  // تا رسیدن به حداقل خریدِ تعیین‌شدهٔ فروشنده، تخفیفی در کار نیست؛ مشتری
-  // مابقی سبد را از همان فروشگاه با قیمت عادی کامل می‌کند.
+  // قیمت تخفیف‌دار از همان اول اعمال می‌شود؛ اما تا سبد به حداقلِ تعیین‌شدهٔ
+  // فروشنده نرسد، «خرید اول» تکمیل نمی‌شود و سفارش ثبت نمی‌گردد.
   const subtotal = items.reduce((sum, i) => sum + Number(i.price) * Number(i.qty), 0);
-  if (subtotal < Number(offer?.minBasket ?? 0)) return 0;
+  const minBasket = Number(offer?.minBasket ?? 0);
+  if (subtotal < minBasket)
+    throw Object.assign(
+      new Error(
+        `برای تکمیل «خرید اول» باید مبلغ سبد خرید به ${minBasket.toLocaleString("fa-IR")} تومان برسد.`,
+      ),
+      { status: 400, code: "minimum_basket" },
+    );
   // فقط یک واحد از همان کالا تخفیف دارد؛ واحدهای بعدی عادی‌اند.
   item.discountedQty = 1;
   item.unitDiscount = Math.floor((Number(item.price) * percent) / 100);

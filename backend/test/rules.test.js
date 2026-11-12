@@ -25,11 +25,11 @@ test("the chosen offer product gets the seller's percent on exactly one unit", (
   assert.equal(items[1].unitDiscount, undefined);
   assert.equal(items.reduce((s, i) => s + i.price * i.qty, 0) - 10000, 130000);
 });
-test("below the seller's minimum basket the deal applies nothing", () => {
-  // جمع سبد ۱۴۰٬۰۰۰ است؛ حداقلِ ۱۵۰٬۰۰۰ یعنی تخفیفی در کار نیست.
-  assert.equal(
-    firstOffer(basket(), 1, false, { percent: 25, minBasket: 150000 }),
-    0,
+test("below the seller's minimum basket checkout is refused", () => {
+  // جمع سبد ۱۴۰٬۰۰۰ است؛ حداقلِ ۱۵۰٬۰۰۰ یعنی «خرید اول» تکمیل نمی‌شود.
+  assert.throws(
+    () => firstOffer(basket(), 1, false, { percent: 25, minBasket: 150000 }),
+    { status: 400, code: "minimum_basket" },
   );
   assert.equal(
     firstOffer(basket(), 1, false, { percent: 25, minBasket: 140000 }),
