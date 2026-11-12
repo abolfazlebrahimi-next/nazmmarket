@@ -3442,3 +3442,314 @@ html {
   white-space: nowrap;
   color: #16865b;
 }
+
+/* ===== کارت «سفر فعال» — طراحی تازه ===== */
+.trip-card {
+  background: #fff;
+  border-radius: 22px;
+  border: 1px solid #e6ebe7;
+  box-shadow: 0 14px 34px rgba(22, 46, 36, 0.08);
+  overflow: hidden;
+}
+.trip-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, #16865b, #0f5c3f);
+  color: #fff;
+}
+.trip-hero small {
+  opacity: 0.85;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.trip-hero h2 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  font-weight: 900;
+}
+.trip-stage-chip {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 10.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.trip-progress {
+  display: flex;
+  margin: 0;
+  padding: 16px 14px 6px;
+  list-style: none;
+  gap: 0;
+}
+.trip-progress li {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.trip-progress li::before {
+  content: "";
+  position: absolute;
+  top: 13px;
+  right: -50%;
+  width: 100%;
+  height: 3px;
+  background: #e3e9e5;
+  z-index: 0;
+}
+.trip-progress li:first-child::before {
+  display: none;
+}
+.trip-progress li.done::before,
+.trip-progress li.current::before {
+  background: #16865b;
+}
+.trip-progress-dot {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e3e9e5;
+  color: #6c766f;
+  font-size: 11px;
+  font-weight: 900;
+  position: relative;
+  z-index: 1;
+  border: 2px solid #fff;
+}
+.trip-progress li.done .trip-progress-dot {
+  background: #16865b;
+  color: #fff;
+}
+.trip-progress li.current .trip-progress-dot {
+  background: #fff;
+  color: #16865b;
+  border-color: #16865b;
+  box-shadow: 0 0 0 4px rgba(22, 134, 91, 0.15);
+}
+.trip-progress li small {
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #6c766f;
+  text-align: center;
+}
+.trip-progress li.current small {
+  color: #16865b;
+}
+.trip-route {
+  margin: 10px 16px 4px;
+  padding: 14px;
+  background: #f6f9f7;
+  border-radius: 16px;
+}
+.trip-route-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.trip-route-item i {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.trip-route-item.pickup i {
+  background: #16865b;
+}
+.trip-route-item.drop i {
+  background: #d64545;
+  border-radius: 50%;
+}
+.trip-route-item small {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #7a8580;
+}
+.trip-route-item b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 900;
+  color: #22322b;
+  margin-top: 1px;
+}
+.trip-route-item p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  line-height: 1.9;
+  color: #5b6560;
+}
+.trip-route-line {
+  width: 2px;
+  height: 16px;
+  margin: 4px 5px;
+  background: repeating-linear-gradient(
+    #c3ccc6 0 4px,
+    transparent 4px 8px
+  );
+}
+.trip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px 4px;
+}
+.trip-actions a,
+.trip-actions .trip-support,
+.trip-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #e0e6e2;
+  background: #fff;
+  color: #26352e;
+  border-radius: 999px;
+  padding: 9px 13px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+}
+.trip-actions .trip-support {
+  color: #b06a00;
+  border-color: #f0dfc2;
+  background: #fdf6ea;
+}
+.trip-finance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 16px 0;
+  padding: 12px 14px;
+  border: 1px solid #cfe6da;
+  background: #eaf4ee;
+  border-radius: 14px;
+}
+.trip-finance small {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #4b6b5c;
+}
+.trip-finance b {
+  display: block;
+  font-size: 15px;
+  font-weight: 900;
+  color: #0f5c3f;
+  margin-top: 2px;
+}
+.trip-finance > span {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #4b6b5c;
+  text-align: left;
+}
+.trip-main-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: calc(100% - 32px);
+  margin: 14px 16px 6px;
+  padding: 15px 0;
+  border: 0;
+  border-radius: 16px;
+  background: #16865b;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(22, 134, 91, 0.28);
+}
+.trip-main-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.trip-hint {
+  margin: 4px 18px 14px;
+  font-size: 10px;
+  line-height: 2;
+  color: #7a8580;
+  text-align: center;
+}
+.trip-code-form {
+  padding: 4px 0 2px;
+}
+.trip-code-form label {
+  display: block;
+  margin: 6px 16px 0;
+}
+.trip-code-form label span {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #39493f;
+  margin-bottom: 6px;
+}
+.trip-code-form input {
+  width: 100%;
+  height: 52px;
+  border-radius: 14px;
+  border: 1.5px solid #d8ded9;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  outline: none;
+}
+.trip-code-form input:focus {
+  border-color: #16865b;
+}
+
+/* ===== هدر تازهٔ صفحات ===== */
+.page-title {
+  margin: 18px 0 20px;
+  padding: 18px 18px 16px;
+  background: #fff;
+  border: 1px solid #e6ebe7;
+  border-radius: 20px;
+  box-shadow: 0 10px 26px rgba(22, 46, 36, 0.06);
+}
+.page-title h1 {
+  font-size: 21px;
+  font-weight: 900;
+  color: #1c2b24;
+  margin-top: 6px;
+}
+.page-title .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eaf4ee;
+  color: #16865b;
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 9.5px;
+  font-weight: 900;
+}
+.page-title .muted {
+  font-size: 11px;
+  margin-top: 6px;
+  color: #66756c;
+  line-height: 1.9;
+}
+@media (max-width: 640px) {
+  .page-title {
+    padding: 14px;
+  }
+  .page-title h1 {
+    font-size: 18px;
+  }
+}

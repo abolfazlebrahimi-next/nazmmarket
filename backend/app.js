@@ -111,6 +111,11 @@ app.use((err, _req, res, _next) => {
     return res.status(err.status).json({
       error: { code: err.code || "invalid_request", message: err.message },
     });
+  /* خطاهای عمدی با status (مثل 503 کلید امنیتی) پیام واقعی خود را نشان دهند. */
+  if (err?.status && err.status >= 500 && err.status < 600 && err.message)
+    return res.status(err.status).json({
+      error: { code: err.code || "server_error", message: err.message },
+    });
   res.status(500).json({
     error: {
       code: "server_error",

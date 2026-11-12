@@ -45,16 +45,14 @@ export function OfferCountdown({
 }
 export function FinanceBreakdown({ order }: { order: Row }) {
   return (
-    <div className="finance-breakdown">
-      <span>
-        کرایهٔ ناخالص<b>{money(order.grossFare ?? order.courierFee)} تومان</b>
-      </span>
-      <span>
-        کمیسیون پلتفرم<b>{money(order.commission)} تومان</b>
-      </span>
-      <span>
-        درآمد خالص شما
+    <div className="trip-finance">
+      <div>
+        <small>درآمد خالص شما از این سفارش</small>
         <b>{money(order.netEarnings ?? order.courierFee)} تومان</b>
+      </div>
+      <span>
+        کرایه {money(order.grossFare ?? order.courierFee)} · کمیسیون{" "}
+        {money(order.commission)}
       </span>
     </div>
   );
@@ -83,59 +81,65 @@ export default function ActiveDelivery({
           : 2;
   const titles = [
     "حرکت به فروشگاه",
-    "رسیدن به فروشگاه",
+    "دریافت بسته",
     "در مسیر مشتری",
     "تحویل نهایی",
   ];
   return (
-    <article className="active-trip-card">
-      <div className="order-top">
-        <h2>
-          <PackageCheck size={20} /> سفر فعال شما
-        </h2>
-        <span className="badge shipping">{titles[stage]}</span>
-      </div>
-      <small>{o.id}</small>
-      <div className="trip-stages">
-        {titles.map((t, i) => (
-          <div
-            key={t}
-            className={`trip-stage ${i < stage ? "done" : i === stage ? "current" : ""}`}
-          >
-            <span>{i < stage ? <Check size={15} /> : money(i + 1)}</span>
-            {t}
-          </div>
-        ))}
-      </div>
-      <div className="route">
+    <article className="trip-card">
+      <header className="trip-hero">
         <div>
-          <MapPin size={17} />
+          <small>سفارش {o.id}</small>
+          <h2>سفر فعال شما</h2>
+        </div>
+        <span className="trip-stage-chip">
+          مرحلهٔ {money(stage + 1)} از ۴ · {titles[stage]}
+        </span>
+      </header>
+
+      <ol className="trip-progress" aria-label={`مرحلهٔ ${stage + 1} از ۴`}>
+        {titles.map((t, i) => (
+          <li
+            key={t}
+            className={`${i < stage ? "done" : i === stage ? "current" : ""}`}
+          >
+            <span className="trip-progress-dot">
+              {i < stage ? <Check size={13} /> : money(i + 1)}
+            </span>
+            <small>{t}</small>
+          </li>
+        ))}
+      </ol>
+
+      <div className="trip-route">
+        <div className="trip-route-item pickup">
+          <i aria-hidden="true" />
           <section>
             <small>دریافت از فروشگاه</small>
             <b>{o.storeName}</b>
             <p>{o.storeAddress}</p>
           </section>
         </div>
-        <div>
-          <MapPin size={17} />
+        <div className="trip-route-line" aria-hidden="true" />
+        <div className="trip-route-item drop">
+          <i aria-hidden="true" />
           <section>
-            <small>مقصد مشتری</small>
+            <small>تحویل به مشتری</small>
             <b>{o.addressTitle}</b>
             <p>{o.addressText}</p>
           </section>
         </div>
       </div>
-      <div className="order-links">
+
+      <div className="trip-actions">
         {stage < 2 && o.storePhone && (
           <a href={`tel:${o.storePhone}`}>
-            <Phone size={15} />
-            تماس فروشگاه
+            <Phone size={15} /> تماس فروشگاه
           </a>
         )}
         {stage >= 2 && o.customerPhone && (
           <a href={`tel:${o.customerPhone}`}>
-            <Phone size={15} />
-            تماس مشتری
+            <Phone size={15} /> تماس مشتری
           </a>
         )}
         {stage < 2 ? (
@@ -151,45 +155,48 @@ export default function ActiveDelivery({
             label="مقصد"
           />
         )}
-        <button className="text-btn" onClick={support}>
-          <Headphones size={15} />
-          گزارش مشکل سفر
+        <button type="button" className="trip-support" onClick={support}>
+          <Headphones size={15} /> گزارش مشکل
         </button>
       </div>
+
       <FinanceBreakdown order={o} />
+
       {stage === 0 && (
         <button
           disabled={busy}
-          className="primary trip-main-action"
+          className="trip-main-action"
           onClick={() => void act(o, "arrive")}
         >
-          به فروشگاه رسیدم
+          <MapPin size={18} />
+          {busy ? "در حال ثبت…" : "به فروشگاه رسیدم"}
         </button>
       )}
       {stage === 1 && (
         <>
           <button
             disabled={busy}
-            className="primary trip-main-action"
+            className="trip-main-action"
             onClick={() => void act(o, "pickup")}
           >
-            بسته را از فروشگاه تحویل گرفتم
+            <PackageCheck size={18} />
+            {busy ? "در حال ثبت…" : "بسته را از فروشگاه تحویل گرفتم"}
           </button>
-          <p className="spec-hint">
+          <p className="trip-hint">
             دریافت را فقط پس از بررسی تعداد اقلام و سلامت بسته ثبت کنید.
           </p>
         </>
       )}
       {stage === 2 && (
         <form
-          className="form-stack"
+          className="trip-code-form"
           onSubmit={(e) => {
             e.preventDefault();
             void act(o, "complete", { code });
           }}
         >
-          <label className="naz-floating-field">
-            <span className="naz-floating-label">کد تحویل مشتری</span>
+          <label>
+            <span>کد تحویل مشتری</span>
             <input
               name="deliveryCode"
               inputMode="numeric"
@@ -210,17 +217,14 @@ export default function ActiveDelivery({
               required
             />
           </label>
-          <button
-            disabled={busy}
-            className="primary trip-main-action"
-          >
-            <ShieldCheck size={17} />
-            تأیید کد و تحویل نهایی
+          <button disabled={busy} className="trip-main-action">
+            <ShieldCheck size={18} />
+            {busy ? "در حال ثبت…" : "تأیید کد و تحویل نهایی"}
           </button>
-          <small>
+          <p className="trip-hint">
             کد در صفحهٔ سفارشِ اپلیکیشن مشتری است؛ فقط پس از تحویل بسته وارد
             کنید. این کد از طریق پیامک ارسال نمی‌شود.
-          </small>
+          </p>
         </form>
       )}
     </article>
