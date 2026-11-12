@@ -642,8 +642,8 @@ export default function SellerApp() {
           const lat = p.coords.latitude.toFixed(6);
           const lng = p.coords.longitude.toFixed(6);
           setProfile((old) => ({ ...old, lat, lng }));
-          // «ثبت موقعیت» بلافاصله ذخیره می‌کند تا به‌تنهایی کافی باشد.
-          void saveStore({ lat, lng });
+          // «ثبت موقعیت» بلافاصله و بدون نیاز به پر بودن بقیهٔ فرم ذخیره می‌کند.
+          void saveStoreLocation({ lat, lng });
         },
         (err) => {
           if (high) {
@@ -663,6 +663,18 @@ export default function SellerApp() {
       );
     };
     attempt(true);
+  };
+  const saveStoreLocation = async ({ lat, lng }: { lat: string; lng: string }) => {
+    try {
+      await sellerApi.saveStoreLocation({ lat: Number(lat), lng: Number(lng) });
+      toast("موقعیت فروشگاه ذخیره شد.");
+    } catch (err) {
+      toast(
+        err instanceof SellerApiError
+          ? err.message
+          : "ذخیرهٔ موقعیت انجام نشد.",
+      );
+    }
   };
   const saveStore = async (overrides?: Partial<SellerProfile>) => {
     const data = overrides ? { ...profile, ...overrides } : profile;
@@ -929,7 +941,7 @@ export default function SellerApp() {
                 const lat = mapPicked.lat.toFixed(6);
                 const lng = mapPicked.lng.toFixed(6);
                 setProfile((old) => ({ ...old, lat, lng }));
-                await saveStore({ lat, lng });
+                await saveStoreLocation({ lat, lng });
                 setMapPick(false);
               }}
             >

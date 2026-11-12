@@ -85,6 +85,9 @@ export default function CourierApp() {
     [locationFresh, setLocationFresh] = useState(false),
     [mapPick, setMapPick] = useState(false),
     [mapPicked, setMapPicked] = useState<LatLng | null>(null),
+    [manualOpen, setManualOpen] = useState(false),
+    [manualLat, setManualLat] = useState(""),
+    [manualLng, setManualLng] = useState(""),
     [dispatchStatus, setDispatchStatus] = useState("offline");
   useEffect(() => {
     if (!courier?.hasPortrait) {
@@ -374,6 +377,28 @@ export default function CourierApp() {
     }, 120000);
     return () => clearInterval(timer);
   }, [courier?.online]);
+  async function saveManualLocation() {
+    const lat = Number(manualLat),
+      lng = Number(manualLng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      setError("مختصات معتبر نیست؛ عرض بین ۹۰- تا ۹۰ و طول بین ۱۸۰- تا ۱۸۰.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const location = { lat, lng };
+      await api("/location", json(location, "PATCH"));
+      setCourier((c) => (c ? { ...c, ...location } : c));
+      setLocationFresh(true);
+      setNotice("موقعیت شما ذخیره شد.");
+      setManualOpen(false);
+      await loadOrders();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function savePickedLocation() {
     if (!mapPicked) return;
     setBusy(true);
@@ -399,30 +424,11 @@ export default function CourierApp() {
       if (["claim", "decline"].includes(action)) setOfferError(message);
       return;
     }
-    if (
-      action === "claim" &&
-      !(await askConfirm(
-        "پیشنهاد را قبول می‌کنید؟ پس از پذیرش، به فروشگاه حرکت کنید. دریافت بسته در مرحلهٔ جدا ثبت می‌شود.",
-      ))
-    )
-      return;
-    if (
-      action === "decline" &&
-      !(await askConfirm(
-        "این پیشنهاد برای ۵ دقیقه پنهان شود؟ اگر تا آن زمان پذیرفته نشود، دوباره به شما پیشنهاد می‌شود.",
-      ))
-    )
-      return;
+    // قبول/رد/رسیدن/دریافت بسته تک‌لمسی ثبت می‌شوند؛ فقط «تحویل نهایی»
+    // (مرحلهٔ پایانی و حساس) یک بار تأیید می‌گیرد.
     if (
       action === "complete" &&
-      !(await askConfirm("آیا سفارش را به مشتری تحویل داده‌اید؟"))
-    )
-      return;
-    if (
-      action === "pickup" &&
-      !(await askConfirm(
-        "بسته را واقعاً از فروشگاه تحویل گرفته‌اید و سلامت آن را بررسی کرده‌اید؟",
-      ))
+      !(await askConfirm("آیا سفارش را به مشتری تحویل داده‌اید؟", "بله، تحویل شد"))
     )
       return;
     setBusy(true);
@@ -916,6 +922,59 @@ export default function CourierApp() {
                 }}
               >
                 ثبت با نقشه
+              </button>
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => setManualOpen((v) => !v)}
+              >
+                مختصات دستی
+              </button>
+            </div>
+          )}
+          {page === "work" && manualOpen && (
+            <div className="location-strip" role="form">
+              <input
+                inputMode="decimal"
+                dir="ltr"
+                placeholder="عرض (lat) مثل 35.96721"
+                aria-label="عرض جغرافیایی"
+                value={manualLat}
+                onChange={(e) => setManualLat(e.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: 120,
+                  height: 38,
+                  borderRadius: 10,
+                  border: "1px solid #d8ded9",
+                  padding: "0 10px",
+                  fontSize: 12,
+                }}
+              />
+              <input
+                inputMode="decimal"
+                dir="ltr"
+                placeholder="طول (lng) مثل 50.65043"
+                aria-label="طول جغرافیایی"
+                value={manualLng}
+                onChange={(e) => setManualLng(e.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: 120,
+                  height: 38,
+                  borderRadius: 10,
+                  border: "1px solid #d8ded9",
+                  padding: "0 10px",
+                  fontSize: 12,
+                }}
+              />
+              <button
+                type="button"
+                className="primary"
+                disabled={busy}
+                onClick={() => void saveManualLocation()}
+              >
+                ذخیره
               </button>
             </div>
           )}

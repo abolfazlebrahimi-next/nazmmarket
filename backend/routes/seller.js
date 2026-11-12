@@ -404,6 +404,28 @@ router.get("/store", async (req, res) => {
   if (!store) return fail(res, 404, "store_missing", "فروشگاه پیدا نشد.");
   res.json({ store: mapStore(store) });
 });
+/* ثبت فقط موقعیت فروشگاه — بدون نیاز به پر بودن بقیهٔ فرم؛
+   برای دکمهٔ «ثبت موقعیت» و «انتخاب روی نقشه». */
+router.patch("/store/location", async (req, res) => {
+  const store = await sellerStore(req.seller.id);
+  if (!store) return fail(res, 404, "store_missing", "فروشگاه پیدا نشد.");
+  const lat = Number((req.body ?? {}).lat),
+    lng = Number((req.body ?? {}).lng);
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    Math.abs(lat) > 90 ||
+    Math.abs(lng) > 180
+  )
+    return fail(res, 400, "invalid_location", "موقعیت جغرافیایی معتبر نیست.");
+  await db.run("UPDATE stores SET lat=?, lng=? WHERE id=? AND seller_id=?", [
+    lat,
+    lng,
+    store.id,
+    req.seller.id,
+  ]);
+  res.json({ ok: true, lat, lng });
+});
 /* باز/بسته بودن فروشگاه: وقتی فروشنده «بسته‌ایم» را انتخاب می‌کند، سفارش
    جدیدی به فروشگاه نمی‌رسد و در واگذاری خودکار سفارش‌های بی‌پاسخ هم نادیده
    گرفته می‌شود. */

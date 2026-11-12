@@ -421,8 +421,8 @@ router.post("/orders/:id/decline", async (req, res) => {
     "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 AND o.delivery_mode='courier' AND o.dispatch_paused=0 AND COALESCE(o.dispatch_started_at,o.created_at)>? AND NOT EXISTS (SELECT 1 FROM order_deliveries d WHERE d.order_id=o.id)",
     [req.params.id, new Date(Date.now() - 15 * 60000).toISOString()],
   );
-  // رد کردن پیشنهاد نباید به موقعیت/فاصله وابسته باشد.
-  if (!c.online || !order)
+  // رد کردن پیشنهاد نباید به موقعیت/فاصله/کلید فعالیت وابسته باشد.
+  if (!order)
     return fail(
       res,
       409,

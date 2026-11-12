@@ -34,8 +34,8 @@ router.post("/orders/:id/claim", async (req, res) => {
           Number(o.status) !== 5 &&
           !["completed", "cancelled", "failed"].includes(existing.trip_status)
         );
-      if (!c?.active || c.verification_status !== "approved" || !c.online)
-        return false;
+      // پذیرش سفارش نباید به کلید فعالیت وابسته باشد؛ با پذیرش، سفیر آنلاین می‌شود.
+      if (!c?.active || c.verification_status !== "approved") return false;
       // پیک‌های پلتفرم فقط سفارش‌های نظرآباد را برمی‌دارند؛
       // نه فاصله (کیلومتر) مهم است نه تازگی موقعیت.
       if (o.address_city && o.address_city !== "نظرآباد") return false;
@@ -59,6 +59,9 @@ router.post("/orders/:id/claim", async (req, res) => {
         [req.courier.id, req.params.id],
       );
       if (!offer) return false;
+      await tx.run("UPDATE courier_accounts SET online=1 WHERE id=?", [
+        req.courier.id,
+      ]);
       await tx.run(
         "INSERT INTO order_deliveries (order_id,courier_id,claimed_at,trip_status) VALUES (?,?,?,'accepted')",
         [o.id, req.courier.id, new Date().toISOString()],
@@ -74,7 +77,7 @@ router.post("/orders/:id/claim", async (req, res) => {
       return fail(
         res,
         409,
-        "سفر فعال دارید، سفارش دیگر در دسترس نیست یا از محدودهٔ مجاز دور است.",
+        "این سفارش هم‌اکنون قابل پذیرش نیست (ممکن است سفیر دیگری آن را پذیرفته یا از بازهٔ جست‌وجو خارج شده باشد)؛ فهرست را تازه‌سازی کنید.",
       );
     res.json({ ok: true });
   } catch (e) {

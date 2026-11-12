@@ -236,6 +236,12 @@ export const sellerApi = {
   dashboard: () =>
     call<{ store: SellerStore; stats: DashboardStats }>("/dashboard"),
   getStore: () => call<{ store: SellerStore }>("/store"),
+  /** ثبت فقط موقعیت فروشگاه (دکمهٔ «ثبت موقعیت» / «انتخاب روی نقشه»). */
+  saveStoreLocation: (body: { lat: number; lng: number }) =>
+    call<{ ok: boolean; lat: number; lng: number }>("/store/location", {
+      method: "PATCH",
+      body,
+    }),
   /** اطلاعات حساب: شبا/کارت برای مالک قابل مشاهده و تغییر است. */
   getAccount: () => call<SellerAccount>("/account"),
   updateAccount: (body: { iban?: string; card?: string }) =>
