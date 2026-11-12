@@ -11,3 +11,6 @@ backend/uploads/
 .DS_Store
 
 **/private-uploads/
+
+# تصاویر مرجع آپلودشده
+.*-reference.jpg
