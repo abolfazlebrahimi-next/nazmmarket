@@ -1462,7 +1462,7 @@ export default function App() {
       <ReplacePrompt c={c} />
       {confirmBox && (
         <div
-          className="fixed inset-0 z-[95] flex items-center justify-center p-6"
+          className="fixed inset-0 z-[120] flex items-center justify-center p-6"
           role="alertdialog"
           aria-modal="true"
           aria-label="تأیید عملیات"

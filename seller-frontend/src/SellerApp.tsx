@@ -54,6 +54,9 @@ import {
   type SellerAccount,
   type SellerOrder,
 } from "./api";
+import LocationMapPicker, {
+  type LatLng,
+} from "./LocationMapPicker";
 
 type Page =
   "overview" | "orders" | "products" | "discounts" | "store" | "account";
@@ -260,6 +263,8 @@ export default function SellerApp() {
     setNotice(text);
     window.setTimeout(() => setNotice(""), 3800);
   };
+  const [mapPick, setMapPick] = useState(false);
+  const [mapPicked, setMapPicked] = useState<LatLng | null>(null);
   /* دیالوگ تأیید حذف/اقدام حساس — تا تأیید فروشنده انجام نمی‌شود. */
   const [confirmBox, setConfirmBox] = useState<{
     text: string;
@@ -884,6 +889,14 @@ export default function SellerApp() {
               profile={profile}
               setProfile={setProfileField}
               onLocation={captureLocation}
+              onMapPick={() => {
+                setMapPicked(
+                  profile.lat && profile.lng
+                    ? { lat: Number(profile.lat), lng: Number(profile.lng) }
+                    : null,
+                );
+                setMapPick(true);
+              }}
               onSave={submitStoreForm}
               onLogo={(file) => setLogoFile(file)}
               busy={busy}
@@ -896,6 +909,38 @@ export default function SellerApp() {
           </footer>
         </div>
       </main>
+      {mapPick && (
+        <Modal
+          title="انتخاب موقعیت فروشگاه روی نقشه"
+          subtitle="روی نقشه بزنید یا مکان را جست‌وجو کنید؛ سپس تأیید کنید."
+          onClose={() => setMapPick(false)}
+        >
+          <LocationMapPicker
+            marker={mapPicked}
+            onPick={setMapPicked}
+            height={340}
+          />
+          <div className="modal-actions">
+            <button
+              className="btn primary"
+              disabled={!mapPicked || busy}
+              onClick={async () => {
+                if (!mapPicked) return;
+                const lat = mapPicked.lat.toFixed(6);
+                const lng = mapPicked.lng.toFixed(6);
+                setProfile((old) => ({ ...old, lat, lng }));
+                await saveStore({ lat, lng });
+                setMapPick(false);
+              }}
+            >
+              <Check size={16} /> تأیید و ذخیرهٔ این نقطه
+            </button>
+            <button className="btn" onClick={() => setMapPick(false)}>
+              انصراف
+            </button>
+          </div>
+        </Modal>
+      )}
       {confirmBox && (
         <Modal
           title="آیا مطمئنید؟"
@@ -2539,6 +2584,7 @@ function StorePage({
   profile,
   setProfile,
   onLocation,
+  onMapPick,
   onSave,
   onLogo,
   busy,
@@ -2546,6 +2592,7 @@ function StorePage({
   profile: SellerProfile;
   setProfile: (k: keyof SellerProfile, v: string) => void;
   onLocation: () => void;
+  onMapPick: () => void;
   onSave: (e: FormEvent) => void;
   onLogo: (file: File) => void;
   busy: boolean;
@@ -2653,6 +2700,13 @@ function StorePage({
               onClick={onLocation}
             >
               <MapPin size={15} /> ثبت موقعیت
+            </button>
+            <button
+              type="button"
+              className="btn secondary small"
+              onClick={onMapPick}
+            >
+              <MapPin size={15} /> انتخاب روی نقشه
             </button>
           </div>
           <div className="form-grid">

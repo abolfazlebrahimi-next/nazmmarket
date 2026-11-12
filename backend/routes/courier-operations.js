@@ -181,8 +181,7 @@ router.get("/summary", async (req, res) => {
   });
 });
 router.patch("/location", async (req, res) => {
-  if (!req.courier.active || req.courier.verificationStatus !== "approved")
-    return fail(res, 403, "برای ثبت موقعیت عملیاتی، حساب باید تأیید شده باشد.");
+  // ثبت موقعیت برای هر سفیر واردشده مجاز است؛ تأیید مدارک فقط برای کار/سفارش لازم است.
   if (!validPoint(req.body.lat, req.body.lng))
     return fail(res, 400, "مختصات معتبر نیست.");
   await db.run(

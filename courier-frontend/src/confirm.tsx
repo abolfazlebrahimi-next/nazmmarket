@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * دیالوگ تأیید داخلی (بدون window.confirm که در پیش‌نمایش iframe کار نمی‌کند):
  * هر حذف/اقدام حساس باید دوباره از کاربر بپرسد.
+ * روی document.body portal می‌شود و بالاتر از همهٔ لایه‌ها (حتی پیشنهاد سفارش
+ * با z-index 10000) نقاشی می‌شود تا هیچ‌وقت بی‌صدا پنهان نماند.
  */
 type Ask = { text: string; okLabel: string; resolve: (ok: boolean) => void };
 let push: ((a: Ask) => void) | null = null;
@@ -34,17 +37,17 @@ export function ConfirmHost() {
     ask.resolve(ok);
     setAsk(null);
   };
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 9999,
+        zIndex: 10050,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: 24,
-        background: "rgba(20,25,22,0.55)",
+        background: "rgba(20,25,22,0.6)",
       }}
       role="alertdialog"
       aria-modal="true"
@@ -58,7 +61,7 @@ export function ConfirmHost() {
           maxWidth: 340,
           width: "100%",
           textAlign: "center",
-          boxShadow: "0 18px 50px rgba(0,0,0,0.25)",
+          boxShadow: "0 18px 50px rgba(0,0,0,0.3)",
         }}
       >
         <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 800 }}>
@@ -81,7 +84,7 @@ export function ConfirmHost() {
               padding: "12px 0",
               borderRadius: 12,
               border: 0,
-              background: "#c0392b",
+              background: "#16865b",
               color: "#fff",
               fontWeight: 800,
               cursor: "pointer",
@@ -107,6 +110,7 @@ export function ConfirmHost() {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { askConfirm } from "./confirm";
 import {
   Bike,
@@ -37,6 +38,9 @@ import DispatchMap from "./DispatchMap";
 import ActiveDelivery from "./ActiveDelivery";
 import AvailableOffer from "./AvailableOffer";
 import IncomingOffer from "./IncomingOffer";
+import LocationMapPicker, {
+  type LatLng,
+} from "./LocationMapPicker";
 type Row = Record<string, any>;
 const nav = [
   ["work", "داشبورد", House],
@@ -79,6 +83,8 @@ export default function CourierApp() {
     [tickets, setTickets] = useState<Row[]>([]),
     [thread, setThread] = useState<Row | null>(null),
     [locationFresh, setLocationFresh] = useState(false),
+    [mapPick, setMapPick] = useState(false),
+    [mapPicked, setMapPicked] = useState<LatLng | null>(null),
     [dispatchStatus, setDispatchStatus] = useState("offline");
   useEffect(() => {
     if (!courier?.hasPortrait) {
@@ -299,7 +305,9 @@ export default function CourierApp() {
       await loadOrders();
       setNotice("موقعیت مکانی تازه شد؛ وضعیت آنلاین/آفلاین شما تغییر نکرد.");
     } catch (e) {
-      setError((e as Error).message);
+      setError(
+        `${(e as Error).message} می‌توانید از «ثبت با نقشه» استفاده کنید.`,
+      );
     } finally {
       setBusy(false);
     }
@@ -366,6 +374,23 @@ export default function CourierApp() {
     }, 120000);
     return () => clearInterval(timer);
   }, [courier?.online]);
+  async function savePickedLocation() {
+    if (!mapPicked) return;
+    setBusy(true);
+    try {
+      const location = { lat: mapPicked.lat, lng: mapPicked.lng };
+      await api("/location", json(location, "PATCH"));
+      setCourier((c) => (c ? { ...c, ...location } : c));
+      setLocationFresh(true);
+      setNotice("موقعیت شما روی نقشه ثبت شد.");
+      setMapPick(false);
+      await loadOrders();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function act(order: Row, action: string, body: Row = {}) {
     if (!navigator.onLine) {
       const message =
@@ -877,6 +902,21 @@ export default function CourierApp() {
               >
                 موقعیت من
               </button>
+              <button
+                type="button"
+                className="text-btn"
+                disabled={busy}
+                onClick={() => {
+                  setMapPicked(
+                    courier.lat != null && courier.lng != null
+                      ? { lat: Number(courier.lat), lng: Number(courier.lng) }
+                      : null,
+                  );
+                  setMapPick(true);
+                }}
+              >
+                ثبت با نقشه
+              </button>
             </div>
           )}
         </div>
@@ -893,6 +933,79 @@ export default function CourierApp() {
             <button onClick={() => setError("")}>بستن</button>
           </p>
         )}
+        {mapPick &&
+          createPortal(
+            <div
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 10050,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 16,
+                background: "rgba(20,25,22,0.6)",
+              }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="انتخاب موقعیت روی نقشه"
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  borderRadius: 20,
+                  padding: 16,
+                  width: "100%",
+                  maxWidth: 420,
+                  boxShadow: "0 18px 50px rgba(0,0,0,0.3)",
+                }}
+              >
+                <h3 style={{ margin: "0 0 4px", fontSize: 15, fontWeight: 800 }}>
+                  ثبت موقعیت روی نقشه
+                </h3>
+                <p
+                  style={{
+                    margin: "0 0 12px",
+                    fontSize: 11.5,
+                    color: "#5b6560",
+                    lineHeight: 2,
+                  }}
+                >
+                  روی نقشه بزنید یا مکان را جست‌وجو کنید؛ سپس تأیید کنید.
+                </p>
+                <LocationMapPicker
+                  marker={mapPicked}
+                  onPick={setMapPicked}
+                  height={320}
+                />
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    marginTop: 12,
+                  }}
+                >
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={!mapPicked || busy}
+                    style={{ flex: 1 }}
+                    onClick={() => void savePickedLocation()}
+                  >
+                    تأیید و ذخیرهٔ این نقطه
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMapPick(false)}
+                    style={{ flex: 1 }}
+                  >
+                    انصراف
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )}
         {notice && (
           <p role="status" className="alert success">
             <span>{notice}</span>
