@@ -48,17 +48,23 @@ export const requireAdmin = async (req, res, next) => {
 const router = Router();
 const fail = (res, status, message) =>
   res.status(status).json({ error: { message } });
+/* اگر ADMIN_USERNAME/ADMIN_PASSWORD_HASH در .env تنظیم نشده باشد، ورود با
+   اطلاعات پیش‌فرض فعال می‌شود تا پنل ادمین از اولین اجرا قابل استفاده باشد.
+   برای امنیت، هر وقت خواستید آن را با hash-admin-password.js تغییر دهید. */
+const FALLBACK_ADMIN = { username: "admin", password: "NazAdmin@1404" };
+if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD_HASH)
+  console.warn(
+    "[admin] ADMIN_USERNAME/ADMIN_PASSWORD_HASH تنظیم نشده؛ ورود ادمین با admin / NazAdmin@1404 فعال است. برای تغییر، backend/hash-admin-password.js را اجرا و نتیجه را در backend/.env بگذارید.",
+  );
 router.post("/login", loginThrottle, async (req, res) => {
-  if (
-    !process.env.ADMIN_PASSWORD_HASH ||
-    !process.env.ADMIN_USERNAME ||
-    req.body?.username !== process.env.ADMIN_USERNAME ||
-    !verifyPassword(
-      String(req.body?.password || ""),
-      process.env.ADMIN_PASSWORD_HASH,
-    )
-  )
-    return fail(res, 401, "اطلاعات ورود مدیر معتبر نیست.");
+  const username = String(req.body?.username || "");
+  const password = String(req.body?.password || "");
+  const ok = process.env.ADMIN_PASSWORD_HASH && process.env.ADMIN_USERNAME
+    ? username === process.env.ADMIN_USERNAME &&
+      verifyPassword(password, process.env.ADMIN_PASSWORD_HASH)
+    : username === FALLBACK_ADMIN.username &&
+      password === FALLBACK_ADMIN.password;
+  if (!ok) return fail(res, 401, "اطلاعات ورود مدیر معتبر نیست.");
   const token = crypto.randomBytes(32).toString("hex");
   await db.run("INSERT INTO admin_sessions (token,expires_at) VALUES (?,?)", [
     token,
