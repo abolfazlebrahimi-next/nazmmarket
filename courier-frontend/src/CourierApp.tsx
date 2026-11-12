@@ -21,7 +21,15 @@ import {
   ShieldCheck,
   Wallet,
 } from "lucide-react";
-import { api, json, TOKEN, type Courier, money, verifyLabel } from "./api";
+import {
+  api,
+  json,
+  getToken,
+  setToken,
+  type Courier,
+  money,
+  verifyLabel,
+} from "./api";
 import Verification from "./Verification";
 import Dashboard from "./Dashboard";
 import TripHistory from "./TripHistory";
@@ -41,7 +49,7 @@ const nav = [
 export default function CourierApp() {
   const [courier, setCourier] = useState<Courier | null>(null),
     [profilePhoto, setProfilePhoto] = useState(""),
-    [boot, setBoot] = useState(!!sessionStorage.getItem(TOKEN)),
+    [boot, setBoot] = useState(!!getToken()),
     [mode, setMode] = useState("login"),
     [showPassword, setShowPassword] = useState(false),
     [page, setPage] = useState("work"),
@@ -80,7 +88,7 @@ export default function CourierApp() {
     let url = "";
     const controller = new AbortController();
     fetch("/api/courier/profile/photo", {
-      headers: { Authorization: `Bearer ${sessionStorage.getItem(TOKEN)}` },
+      headers: { Authorization: `Bearer ${getToken()}` },
       signal: controller.signal,
     })
       .then((r) => {
@@ -157,15 +165,34 @@ export default function CourierApp() {
   }
   useEffect(() => {
     const expired = () => {
-      sessionStorage.removeItem(TOKEN);
+      setToken(null);
       setCourier(null);
     };
     window.addEventListener("courier-expired", expired);
-    if (sessionStorage.getItem(TOKEN))
-      api("/auth/me")
-        .then((r) => setCourier(r.courier))
-        .catch((e) => setError((e as Error).message))
-        .finally(() => setBoot(false));
+    const bootSession = async (attempt = 0) => {
+      if (!getToken()) {
+        setBoot(false);
+        return;
+      }
+      try {
+        const r = await api<{ courier: Courier }>("/auth/me");
+        setCourier(r.courier);
+        setBoot(false);
+        void captureQuiet();
+      } catch (e) {
+        // 401 خودش رویداد انقضا می‌دهد؛ خطای گذرا نباید به صفحهٔ ورود پرتاب کند.
+        if (getToken() && attempt < 2) {
+          window.setTimeout(
+            () => void bootSession(attempt + 1),
+            2500 * (attempt + 1),
+          );
+          return;
+        }
+        setError((e as Error).message);
+        setBoot(false);
+      }
+    };
+    void bootSession();
     return () => window.removeEventListener("courier-expired", expired);
   }, []);
   useEffect(() => {
@@ -218,12 +245,49 @@ export default function CourierApp() {
         reject(new Error("مرورگر از موقعیت مکانی پشتیبانی نمی‌کند."));
         return;
       }
-      navigator.geolocation.getCurrentPosition(
-        resolve,
-        () => reject(new Error("اجازه دسترسی به موقعیت را فعال کنید.")),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
-      );
+      let done = false;
+      const attempt = (high: boolean) => {
+        navigator.geolocation.getCurrentPosition(
+          (p) => {
+            if (done) return;
+            done = true;
+            resolve(p);
+          },
+          (err) => {
+            if (done) return;
+            if (high) {
+              // GPS دقیق اغلب دیر جواب می‌دهد؛ یک بار با دقت عادی تلاش می‌کنیم.
+              attempt(false);
+              return;
+            }
+            done = true;
+            reject(
+              new Error(
+                err.code === err.PERMISSION_DENIED
+                  ? "اجازهٔ دسترسی به موقعیت را در تنظیمات مرورگر فعال کنید."
+                  : "موقعیت دقیق در دسترس نشد؛ دوباره تلاش کنید.",
+              ),
+            );
+          },
+          high
+            ? { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+            : { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+        );
+      };
+      attempt(true);
     });
+  }
+  /** ثبت بی‌صدای موقعیت (لاگین/آنلاین شدن) بدون مزاحمت برای کاربر. */
+  async function captureQuiet() {
+    try {
+      const p = await geo();
+      const location = { lat: p.coords.latitude, lng: p.coords.longitude };
+      await api("/location", json(location, "PATCH"));
+      setCourier((c) => (c ? { ...c, ...location } : c));
+      setLocationFresh(true);
+    } catch {
+      /* بی‌صدا؛ کاربر می‌تواند «موقعیت من» را بزند. */
+    }
   }
   async function refreshLocation() {
     setBusy(true);
@@ -246,7 +310,7 @@ export default function CourierApp() {
       let location: { lat?: number; lng?: number } = {};
       let located = true;
       if (online) {
-        // بدون موقعیت هم می‌توان آنلاین شد؛ موقعیت فقط پیشنهادها را نزدیک‌تر می‌کند.
+        // بدون موقعیت هم می‌توان آنلاین شد؛ موقعیت فقط برای نمایش روی نقشه است.
         try {
           const p = await geo();
           location = { lat: p.coords.latitude, lng: p.coords.longitude };
@@ -256,11 +320,12 @@ export default function CourierApp() {
       }
       await api("/availability", json({ online, ...location }, "PATCH"));
       setCourier((c) => (c ? { ...c, online, ...location } : c));
+      if (located && location.lat != null) setLocationFresh(true);
       setNotice(
         online
           ? located
-            ? "فعال شدید؛ سفارش‌های نزدیک برای شما نمایش داده می‌شوند."
-            : "فعال شدید؛ موقعیت در دسترس نبود اما سفارش‌ها نمایش داده می‌شوند."
+            ? "فعال شدید؛ سفارش‌های نظرآباد برای شما ارسال می‌شوند."
+            : "فعال شدید؛ همهٔ سفارش‌ها ارسال می‌شوند (ثبت موقعیت را از «موقعیت من» انجام دهید)."
           : "حالت غیرفعال شد؛ سفارش جاری همچنان قابل تحویل است.",
       );
       await loadOrders();
@@ -281,7 +346,18 @@ export default function CourierApp() {
               { online: true, lat: p.coords.latitude, lng: p.coords.longitude },
               "PATCH",
             ),
-          ),
+          ).then(() => {
+            setCourier((c) =>
+              c
+                ? {
+                    ...c,
+                    lat: p.coords.latitude,
+                    lng: p.coords.longitude,
+                  }
+                : c,
+            );
+            setLocationFresh(true);
+          }),
         )
         .catch(() => {
           // بدون GPS هم آنلاین می‌مانید؛ فقط موقعیت تازه نیست.
@@ -383,7 +459,7 @@ export default function CourierApp() {
         await api("/availability", json({ online: false }, "PATCH"));
       await api("/auth/logout", { method: "POST" });
     } finally {
-      sessionStorage.removeItem(TOKEN);
+      setToken(null);
       setCourier(null);
       setOrders([]);
     }
@@ -471,7 +547,8 @@ export default function CourierApp() {
                   setNotice("حساب ساخته شد. اکنون وارد شوید.");
                 } else {
                   const r = await api("/auth/login", json(f));
-                  sessionStorage.setItem(TOKEN, r.token);
+                  setToken(r.token);
+                  void captureQuiet();
                   setCourier(r.courier);
                   setError("");
                 }
@@ -577,11 +654,9 @@ export default function CourierApp() {
       ? "یک سفر فعال دارید؛ تا پایان آن پیشنهاد تازه دریافت نمی‌کنید."
       : !courier.online
         ? "برای دریافت پیشنهاد، کلید فعالیت را روشن کنید (موقعیت مکانی اختیاری است)."
-        : !locationFresh || dispatchStatus === "location_stale"
-          ? "موقعیت شما معتبر یا به‌روز نیست؛ موقعیت مکانی را تازه‌سازی کنید."
-          : dispatchStatus === "offers_available"
-            ? "پیشنهادهای آمادهٔ دریافت در ادامه هستند. دریافت پیشنهادها هر ۱۰ ثانیه بررسی می‌شود."
-            : "در شعاع ۱۵ کیلومتری شما سفارش آماده‌ای پیدا نشد. فروشنده باید سفارش را به «آماده تحویل به سفیر» برساند و مختصات فروشگاه ثبت شده باشد. بررسی خودکار هر ۱۰ ثانیه انجام می‌شود.";
+        : dispatchStatus === "offers_available"
+          ? "پیشنهادهای آمادهٔ دریافت در ادامه هستند. دریافت پیشنهادها هر ۱۰ ثانیه بررسی می‌شود."
+          : "فعلاً سفارش آماده‌ای نیست؛ به محض «آماده تحویل» شدن سفارش‌های نظرآباد برای شما ارسال می‌شود. بررسی خودکار هر ۱۰ ثانیه انجام می‌شود.";
   const shown = orders.filter((o) =>
     page === "history"
       ? o.status === 5
@@ -786,6 +861,23 @@ export default function CourierApp() {
                 </small>
               </span>
             </button>
+          )}
+          {page === "work" && (
+            <div className="location-strip" role="status">
+              <span>
+                {courier.lat != null && courier.lng != null
+                  ? `موقعیت شما: ${Number(courier.lat).toFixed(5)} · ${Number(courier.lng).toFixed(5)}${locationFresh ? " (به‌روز)" : ""}`
+                  : "موقعیت هنوز ثبت نشده است."}
+              </span>
+              <button
+                type="button"
+                className="text-btn"
+                disabled={busy}
+                onClick={() => void refreshLocation()}
+              >
+                موقعیت من
+              </button>
+            </div>
           )}
         </div>
         {!connected && (

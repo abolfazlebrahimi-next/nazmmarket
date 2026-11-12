@@ -935,8 +935,8 @@ router.get("/orders", async (req, res) => {
     [store.id],
   );
   const couriers = await db.all(
-    `SELECT c.id,c.lat,c.lng FROM courier_accounts c WHERE c.active=1 AND c.verification_status='approved' AND c.online=1 AND c.location_updated_at>? AND NOT EXISTS(SELECT 1 FROM order_deliveries d WHERE d.courier_id=c.id AND d.completed_at IS NULL AND d.trip_status NOT IN ('cancelled','failed'))`,
-    [new Date(Date.now() - 15 * 60000).toISOString()],
+    `SELECT c.id,c.lat,c.lng FROM courier_accounts c WHERE c.active=1 AND c.verification_status='approved' AND c.online=1 AND NOT EXISTS(SELECT 1 FROM order_deliveries d WHERE d.courier_id=c.id AND d.completed_at IS NULL AND d.trip_status NOT IN ('cancelled','failed'))`,
+    [],
   );
   const declines = await db.all(
     `SELECT d.* FROM courier_declined_orders d JOIN orders o ON o.id COLLATE utf8mb4_unicode_ci=d.order_id COLLATE utf8mb4_unicode_ci WHERE o.store_id=? AND o.status=3 AND d.created_at>?`,

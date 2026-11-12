@@ -11,6 +11,34 @@ export type Courier = {
   hasPortrait?: boolean;
 };
 export const TOKEN = "naz_courier_token";
+/* نشست سفیر باید با بستن پنل/مرورگر از بین نرود؛ در localStorage نگه می‌داریم. */
+export function getToken(): string | null {
+  try {
+    const t = localStorage.getItem(TOKEN);
+    if (t) return t;
+    const legacy = sessionStorage.getItem(TOKEN);
+    if (legacy) {
+      localStorage.setItem(TOKEN, legacy);
+      sessionStorage.removeItem(TOKEN);
+      return legacy;
+    }
+    return null;
+  } catch {
+    return sessionStorage.getItem(TOKEN);
+  }
+}
+export function setToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem(TOKEN, token);
+    else {
+      localStorage.removeItem(TOKEN);
+      sessionStorage.removeItem(TOKEN);
+    }
+  } catch {
+    if (token) sessionStorage.setItem(TOKEN, token);
+    else sessionStorage.removeItem(TOKEN);
+  }
+}
 export async function api<T = any>(
   path: string,
   init: RequestInit = {},
@@ -18,7 +46,7 @@ export async function api<T = any>(
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData))
     headers.set("Content-Type", "application/json");
-  const token = sessionStorage.getItem(TOKEN);
+  const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
   let r: Response;
   try {

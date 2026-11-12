@@ -1,4 +1,3 @@
-import { distanceKm } from "./delivery.js";
 export const SEARCH_WINDOW_MS = 15 * 60000;
 export const DECLINE_COOLDOWN_MS = 5 * 60000;
 export function dispatchStatus(order, couriers, declines, now = Date.now()) {
@@ -10,10 +9,8 @@ export function dispatchStatus(order, couriers, declines, now = Date.now()) {
     return { state: "paused", eligible: 0, declined: 0 };
   if (!start || now - Date.parse(start) >= SEARCH_WINDOW_MS)
     return { state: "timed_out", eligible: 0, declined: 0 };
-  const eligible = couriers.filter((c) => {
-    const d = distanceKm(c, { lat: order.store_lat, lng: order.store_lng });
-    return d !== null && d <= 15;
-  });
+  // همهٔ سفیرهای آنلاین شهر، بدون توجه به فاصله (کیلومتر)، پیشنهاد را می‌گیرند.
+  const eligible = couriers;
   const recent = declines.filter(
     (d) =>
       String(d.order_id) === String(order.id) &&

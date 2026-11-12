@@ -355,10 +355,7 @@ router.get("/orders", async (req, res) => {
         completedAt: r.completed_at,
       };
     })
-    .filter(
-      (o) =>
-        o.claimedByMe || (fresh && (o.pickupKm === null || o.pickupKm <= 15)),
-    )
+    // به کیلومتر/تازگی موقعیت دقت نمی‌شود؛ همهٔ سفارش‌های در جست‌وجو برای سفیر آنلاین می‌آیند.
     .sort(
       (a, b) =>
         Number(b.claimedByMe) - Number(a.claimedByMe) ||
@@ -410,11 +407,9 @@ router.get("/orders", async (req, res) => {
       ? "active_trip"
       : !c.online
         ? "offline"
-        : !fresh
-          ? "location_stale"
-          : orders.some((o) => !o.claimedByMe)
-            ? "offers_available"
-            : "no_nearby_ready",
+        : orders.some((o) => !o.claimedByMe)
+          ? "offers_available"
+          : "no_nearby_ready",
   });
 });
 
@@ -426,14 +421,8 @@ router.post("/orders/:id/decline", async (req, res) => {
     "SELECT o.id,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? AND o.status=3 AND o.delivery_mode='courier' AND o.dispatch_paused=0 AND COALESCE(o.dispatch_started_at,o.created_at)>? AND NOT EXISTS (SELECT 1 FROM order_deliveries d WHERE d.order_id=o.id)",
     [req.params.id, new Date(Date.now() - 15 * 60000).toISOString()],
   );
-  const distance = order ? distanceKm(c, order) : null;
-  if (
-    !c.online ||
-    !c.location_updated_at ||
-    Date.now() - new Date(c.location_updated_at).getTime() > 15 * 60000 ||
-    distance === null ||
-    distance > 15
-  )
+  // رد کردن پیشنهاد نباید به موقعیت/فاصله وابسته باشد.
+  if (!c.online || !order)
     return fail(
       res,
       409,

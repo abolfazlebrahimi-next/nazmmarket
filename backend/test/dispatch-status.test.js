@@ -31,7 +31,7 @@ test("dispatch reports unavailable couriers, active search and all declined trut
     "searching",
   );
 });
-test("dispatch stops on pause or fifteen-minute timeout; no eligible couriers outside radius", () => {
+test("dispatch stops on pause or fifteen-minute timeout; distance is ignored", () => {
   assert.equal(
     dispatchStatus({ ...order, dispatch_paused: 1 }, couriers, [], now).state,
     "paused",
@@ -40,9 +40,10 @@ test("dispatch stops on pause or fifteen-minute timeout; no eligible couriers ou
     dispatchStatus(order, couriers, [], now + 15 * 60000).state,
     "timed_out",
   );
+  // به کیلومتر دقت نمی‌شود؛ سفیر آنلاین در هر نقطه‌ای واجد شرایط است.
   assert.equal(
     dispatchStatus(order, [{ id: 1, lat: 0, lng: 0 }], [], now).state,
-    "no_couriers",
+    "searching",
   );
   assert.equal(
     dispatchStatus({ ...order, assigned_courier_id: 2 }, couriers, [], now)

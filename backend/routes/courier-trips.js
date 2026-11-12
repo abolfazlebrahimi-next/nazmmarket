@@ -1,7 +1,6 @@
 import { notifyCourier } from "../courier-notifications.js";
 import { Router } from "express";
 import { db, mapOrder } from "../db.js";
-import { distanceKm, validPoint } from "../delivery.js";
 import { recordOrderEvent } from "../order-workflow.js";
 import { createDeliveryCode, deliveryCodeMatches } from "../trip-security.js";
 const router = Router();
@@ -37,14 +36,8 @@ router.post("/orders/:id/claim", async (req, res) => {
         );
       if (!c?.active || c.verification_status !== "approved" || !c.online)
         return false;
-      // بدون موقعیت هم پذیرش مجاز است؛ اگر موقعیت ثبت شده باید تازه باشد.
-      if (
-        validPoint(c.lat, c.lng) &&
-        (!c.location_updated_at ||
-          Date.now() - new Date(c.location_updated_at).getTime() > 15 * 60000)
-      )
-        return false;
-      // پیک‌های پلتفرم فقط سفارش‌های نظرآباد را برمی‌دارند.
+      // پیک‌های پلتفرم فقط سفارش‌های نظرآباد را برمی‌دارند؛
+      // نه فاصله (کیلومتر) مهم است نه تازگی موقعیت.
       if (o.address_city && o.address_city !== "نظرآباد") return false;
       if (
         Number(o.status) !== 3 ||
@@ -66,8 +59,6 @@ router.post("/orders/:id/claim", async (req, res) => {
         [req.courier.id, req.params.id],
       );
       if (!offer) return false;
-      const distance = distanceKm(c, o);
-      if (distance === null || distance > 15) return false;
       await tx.run(
         "INSERT INTO order_deliveries (order_id,courier_id,claimed_at,trip_status) VALUES (?,?,?,'accepted')",
         [o.id, req.courier.id, new Date().toISOString()],

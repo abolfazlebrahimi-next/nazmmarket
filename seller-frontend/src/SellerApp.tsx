@@ -631,18 +631,36 @@ export default function SellerApp() {
   const captureLocation = () => {
     if (!navigator.geolocation)
       return toast("مرورگر امکان دریافت موقعیت را ندارد.");
-    navigator.geolocation.getCurrentPosition(
-      (p) =>
-        setProfile((old) => ({
-          ...old,
-          lat: p.coords.latitude.toFixed(6),
-          lng: p.coords.longitude.toFixed(6),
-        })),
-      () => toast("دسترسی موقعیت داده نشد؛ نشانی را دستی وارد کنید."),
-      { enableHighAccuracy: true },
-    );
+    const attempt = (high: boolean) => {
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          const lat = p.coords.latitude.toFixed(6);
+          const lng = p.coords.longitude.toFixed(6);
+          setProfile((old) => ({ ...old, lat, lng }));
+          // «ثبت موقعیت» بلافاصله ذخیره می‌کند تا به‌تنهایی کافی باشد.
+          void saveStore({ lat, lng });
+        },
+        (err) => {
+          if (high) {
+            // GPS دقیق اغلب دیر جواب می‌دهد؛ یک بار با دقت عادی تلاش می‌کنیم.
+            attempt(false);
+            return;
+          }
+          toast(
+            err.code === err.PERMISSION_DENIED
+              ? "اجازهٔ دسترسی به موقعیت داده نشد؛ نشانی را دستی وارد کنید."
+              : "موقعیت دقیق در دسترس نشد؛ دوباره تلاش کنید.",
+          );
+        },
+        high
+          ? { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+          : { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 },
+      );
+    };
+    attempt(true);
   };
-  const saveStore = async () => {
+  const saveStore = async (overrides?: Partial<SellerProfile>) => {
+    const data = overrides ? { ...profile, ...overrides } : profile;
     const body = new FormData();
     for (const key of [
       "shopName",
@@ -654,7 +672,7 @@ export default function SellerApp() {
       "fee",
       "minBasket",
     ] as const)
-      body.append(key === "shopName" ? "name" : key, profile[key]);
+      body.append(key === "shopName" ? "name" : key, data[key]);
     if (logoFile) body.append("logo", logoFile);
     setBusy(true);
     try {
@@ -1978,8 +1996,8 @@ function OrdersPage({
                               تعداد سفیر واجد شرایط:{" "}
                               {money(order.dispatch?.eligible ?? 0)}؛ رد کرده:{" "}
                               {money(order.dispatch?.declined ?? 0)}. نمایش در
-                              پنل سفیر فقط در حالت آنلاین، موقعیت به‌روز و بدون
-                              سفر فعال انجام می‌شود.
+                              پنل همهٔ سفیرهای آنلاین نظرآباد انجام می‌شود؛
+                              فاصله (کیلومتر) شرط نیست.
                             </p>
                           </>
                         ) : searchState(order) === "all_declined" ? (
@@ -1999,8 +2017,8 @@ function OrdersPage({
                               در حال حاضر سفیر واجد شرایط در دسترس نیست
                             </strong>
                             <p>
-                              سفیر باید تأییدشده، آنلاین، بدون سفر فعال و در شعاع
-                              ۱۵ کیلومتری با موقعیت به‌روز باشد. نمایش این وضعیت
+                              سفیر باید تأییدشده، آنلاین و بدون سفر فعال باشد؛
+                              فاصله (کیلومتر) و موقعیت شرط نیست. نمایش این وضعیت
                               به معنی ارسال درخواست به سفیر نیست.
                             </p>
                           </>

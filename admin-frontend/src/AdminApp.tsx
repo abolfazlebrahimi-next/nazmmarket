@@ -176,13 +176,38 @@ const labels: Record<string, string> = {
    resource, which is what made the panel look broken. */
 let expiring = false;
 function expireAdminSession(message: string) {
-  sessionStorage.removeItem("naz_admin");
+  setAdminToken(null);
   if (expiring) return;
   expiring = true;
   window.dispatchEvent(new CustomEvent("admin-expired", { detail: message }));
 }
-function adminToken() {
-  return sessionStorage.getItem("naz_admin");
+/* نشست ادمین با بستن پنل نباید از بین برود؛ localStorage + مهاجرت از sessionStorage. */
+function adminToken(): string | null {
+  try {
+    const t = localStorage.getItem("naz_admin");
+    if (t) return t;
+    const legacy = sessionStorage.getItem("naz_admin");
+    if (legacy) {
+      localStorage.setItem("naz_admin", legacy);
+      sessionStorage.removeItem("naz_admin");
+      return legacy;
+    }
+    return null;
+  } catch {
+    return sessionStorage.getItem("naz_admin");
+  }
+}
+function setAdminToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem("naz_admin", token);
+    else {
+      localStorage.removeItem("naz_admin");
+      sessionStorage.removeItem("naz_admin");
+    }
+  } catch {
+    if (token) sessionStorage.setItem("naz_admin", token);
+    else sessionStorage.removeItem("naz_admin");
+  }
 }
 /* A request sent without a token can only be answered with 401. Refusing it
    here keeps the console clean and shows the login form instead. */
@@ -221,7 +246,7 @@ async function api(path: string, init: RequestInit = {}) {
   return data;
 }
 export default function AdminApp() {
-  const [logged, setLogged] = useState(!!sessionStorage.getItem("naz_admin"));
+  const [logged, setLogged] = useState(!!adminToken());
   const [page, setPage] = useState("dashboard"),
     [data, setData] = useState<Row>({
       stats: {},
@@ -397,7 +422,7 @@ export default function AdminApp() {
                 method: "POST",
                 body: JSON.stringify(Object.fromEntries(b)),
               });
-              sessionStorage.setItem("naz_admin", r.token);
+              setAdminToken(r.token);
               expiring = false;
               setLogged(true);
               setError("");
