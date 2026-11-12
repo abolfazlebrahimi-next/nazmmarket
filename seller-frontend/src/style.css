@@ -2644,3 +2644,52 @@ button:disabled {
 .fo-note.err {
   color: #c0392b;
 }
+
+/* لوکیشن دقیق مشتری در کارت سفارش */
+.order-address .location-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--green);
+  text-decoration: underline;
+}
+
+/* حساب و تسویه: شبا/کارت + درآمد ارسال */
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 4px;
+  flex-wrap: wrap;
+}
+.paid-pill {
+  background: var(--green);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+.ledger-list {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ledger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #f6f7f6;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.ledger-row small {
+  color: #7a8580;
+}

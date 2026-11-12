@@ -103,7 +103,14 @@ export type Store = {
 type WireProduct = Omit<Product, "icon"> & { icon?: string };
 type WireCategory = { id: string; name: string; icon?: string };
 
-const withIcon = (p: WireProduct): Product => ({ ...p, icon: icon(p.icon) });
+const withIcon = (p: WireProduct): Product => ({
+  ...p,
+  // دسته‌های حذف‌شده (میوه و سبزی، پروتئینی، نان و شیرینی) زیر «سایر» می‌روند.
+  category: ["fresh", "protein", "bakery"].includes(p.category)
+    ? "other"
+    : p.category,
+  icon: icon(p.icon),
+});
 
 /* Products and stores start empty and are filled only by live API responses. */
 export const categories: Category[] = [
@@ -112,9 +119,6 @@ export const categories: Category[] = [
   { id: "dairy", name: "لبنیات و تخم‌مرغ", icon: Milk },
   { id: "snacks", name: "تنقلات", icon: Cookie },
   { id: "grocery", name: "خواربار", icon: Wheat },
-  { id: "fresh", name: "میوه و سبزی", icon: Carrot },
-  { id: "protein", name: "پروتئینی", icon: Beef },
-  { id: "bakery", name: "نان و شیرینی", icon: Croissant },
   { id: "hygiene", name: "بهداشتی", icon: SprayCan },
   { id: "other", name: "سایر", icon: Package },
 ];
@@ -244,9 +248,29 @@ export type Address = {
   detail: string;
   phone: string;
   type: "home" | "work";
+  /** شهر/منطقه — «نظرآباد»، «آبیک»، «هشتگرد» یا خارج از محدوده. */
+  city?: string;
   lat?: number;
   lng?: number;
 };
+
+/** محدودهٔ ارسال: فقط نظرآباد، آبیک و هشتگرد. */
+export const ZONE_CITIES = ["نظرآباد", "آبیک", "هشتگرد"];
+export const PLATFORM_CITY = "نظرآباد";
+export const OTHER_CITY = "سایر شهرها";
+
+export function cityOfAddress(a?: Address | null): string {
+  if (!a) return "";
+  if (a.city) return a.city;
+  for (const c of ZONE_CITIES) if (a.address?.includes(c)) return c;
+  return "";
+}
+
+/** نشانی بدون شهر/ناشناخته برای سازگاری قدیمی مجاز فرض می‌شود. */
+export function inDeliveryZone(a?: Address | null): boolean {
+  const c = cityOfAddress(a);
+  return !c || ZONE_CITIES.includes(c);
+}
 
 export const discountOf = (p: Product) =>
   p.oldPrice ? Math.round(((p.oldPrice - p.price) / p.oldPrice) * 100) : 0;

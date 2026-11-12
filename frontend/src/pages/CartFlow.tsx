@@ -26,7 +26,7 @@ import {
 import { codeFamilyLabel, codeOwner } from "../discountCodes";
 import type { Order } from "../data";
 import type { AppCtx } from "../ctx";
-import { discountOf, faNum, firstOffers, productById, stores } from "../data";
+import { discountOf, faNum, firstOffers, inDeliveryZone, productById, stores } from "../data";
 
 const fa = faNum;
 
@@ -162,7 +162,10 @@ function CartLine({
         <button
           type="button"
           aria-label={`حذف ${product.name}`}
-          onClick={() => {
+          onClick={async () => {
+            // حذف کالا از سبد نیاز به تأیید دارد؛ فقط «کم کردن» بدون تأیید است.
+            if (!(await c.askConfirm(`«${product.name}» از سبد حذف شود؟`, "بله، حذف شود")))
+              return;
             for (let i = 0; i < qty; i++) c.handleDec(product.id);
             c.toast(`${product.name} از سبد حذف شد`);
           }}
@@ -266,7 +269,9 @@ export function CartBody({
         </button>
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
+            if (!(await c.askConfirm("همهٔ اقلام سبد خرید حذف شوند؟", "بله، حذف شود")))
+              return;
             c.clearCart();
             c.toast("سبد خرید حذف شد");
           }}
@@ -602,7 +607,16 @@ export function CheckoutView({ c }: { c: AppCtx }) {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+              {!pickup &&
+                c.selectedAddress &&
+                !inDeliveryZone(c.selectedAddress) && (
+                  <p className="mt-3 rounded-2xl bg-red-50 px-3.5 py-2.5 text-[10.5px] font-bold leading-5 text-red-600">
+                    این منطقه خارج از محدودهٔ ارسال (نظرآباد، آبیک و هشتگرد)
+                    است؛ برای ادامه، آدرس را تغییر دهید.
+                  </p>
+                )}
+
+              <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => c.setCartDrawer(true)}
@@ -612,7 +626,13 @@ export function CheckoutView({ c }: { c: AppCtx }) {
               </button>
               <button
                 type="button"
-                onClick={() => setStep("done")}
+                onClick={() => {
+                  if (!pickup && !inDeliveryZone(c.selectedAddress))
+                    return c.toast(
+                      "این منطقه خارج از محدوده است؛ آدرس را تغییر دهید",
+                    );
+                  setStep("done");
+                }}
                 className="flex-1 rounded-2xl bg-brand py-3.5 text-[13px] font-black text-white shadow-lg shadow-brand/30 transition active:scale-[0.99]"
               >
                 ادامه: پایان خرید
@@ -829,7 +849,16 @@ export function CheckoutView({ c }: { c: AppCtx }) {
                   </div>
                   <button
                     type="button"
-                    onClick={() => c.setAppliedCode(null)}
+                    onClick={async () => {
+                      if (
+                        !(await c.askConfirm(
+                          "کد تخفیف از سفارش حذف شود؟",
+                          "بله، حذف شود",
+                        ))
+                      )
+                        return;
+                      c.setAppliedCode(null);
+                    }}
                     aria-label="حذف کد تخفیف"
                     className="shrink-0 text-emerald-700"
                   >

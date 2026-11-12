@@ -1,4 +1,5 @@
 import Operations from "./Operations";
+import { askConfirm } from "./confirm";
 import Promotions from "./Promotions";
 import Customers from "./Customers";
 import { useEffect, useState, type FormEvent } from "react";
@@ -931,8 +932,9 @@ export default function AdminApp() {
                         disabled={busy}
                         onClick={async () => {
                           if (
-                            window.confirm(
+                            await askConfirm(
                               "کد تحویل قبلی باطل شود؟ کد جدید فقط در حساب مشتری نمایش داده می‌شود.",
+                              "بله، بازنشانی شود",
                             )
                           )
                             await action(

@@ -128,6 +128,8 @@ export interface AppCtx {
   checkoutMinLeft: number;
   /** انتخاب/تعویض «خرید اول»: فقط یک کالا؛ انتخاب دوم جایگزین اولی می‌شود. */
   selectFirstOffer(product: Product, storeId: number): void;
+  /** دیالوگ تأیید حذف/اقدام حساس؛ تا تأیید کاربر انجام نمی‌شود. */
+  askConfirm: (text: string, okLabel?: string) => Promise<boolean>;
 
   // account extras
   wallet: number;

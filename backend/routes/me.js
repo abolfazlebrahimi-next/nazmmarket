@@ -122,6 +122,9 @@ router.put("/addresses", async (req, res) => {
         .slice(0, 180),
       phone: normalizePhone(String(a?.phone ?? "")).slice(0, 11),
       type: a?.type === "work" ? "work" : "home",
+      city: String(a?.city ?? "")
+        .trim()
+        .slice(0, 60),
       lat: Number.isFinite(Number(a?.lat)) ? Number(a.lat) : null,
       lng: Number.isFinite(Number(a?.lng)) ? Number(a.lng) : null,
     }))
@@ -130,7 +133,7 @@ router.put("/addresses", async (req, res) => {
     await tx.run("DELETE FROM addresses WHERE user_id = ?", [req.user.id]);
     for (const a of clean)
       await tx.run(
-        "INSERT INTO addresses (user_id, title, address, detail, phone, type, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO addresses (user_id, title, address, detail, phone, type, city, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
           req.user.id,
           a.title,
@@ -138,6 +141,7 @@ router.put("/addresses", async (req, res) => {
           a.detail,
           a.phone,
           a.type,
+          a.city,
           a.lat,
           a.lng,
         ],

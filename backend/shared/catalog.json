@@ -214,7 +214,7 @@
     {
       "id": 20,
       "name": "پرتقال تازه درجه‌یک",
-      "category": "fresh",
+      "category": "other",
       "price": 65000,
       "unit": "۱ کیلوگرم",
       "icon": "Apple",
@@ -226,7 +226,7 @@
     {
       "id": 21,
       "name": "گوجه‌فرنگی بوته‌ای",
-      "category": "fresh",
+      "category": "other",
       "price": 38000,
       "unit": "۱ کیلوگرم",
       "icon": "Apple",
@@ -236,7 +236,7 @@
     {
       "id": 22,
       "name": "خیار رسمی",
-      "category": "fresh",
+      "category": "other",
       "price": 29000,
       "unit": "۱ کیلوگرم",
       "icon": "Carrot",
@@ -246,7 +246,7 @@
     {
       "id": 23,
       "name": "سیب قرمز درختی",
-      "category": "fresh",
+      "category": "other",
       "price": 72000,
       "unit": "۱ کیلوگرم",
       "icon": "Apple",
@@ -257,7 +257,7 @@
     {
       "id": 24,
       "name": "هویج تازه",
-      "category": "fresh",
+      "category": "other",
       "price": 34000,
       "unit": "۱ کیلوگرم",
       "icon": "Carrot",
@@ -267,7 +267,7 @@
     {
       "id": 25,
       "name": "مرغ تازه کامل",
-      "category": "protein",
+      "category": "other",
       "price": 185000,
       "unit": "۱ کیلوگرم",
       "icon": "Fish",
@@ -278,7 +278,7 @@
     {
       "id": 26,
       "name": "گوشت چرخ‌کرده مخلوط",
-      "category": "protein",
+      "category": "other",
       "price": 245000,
       "unit": "۵۰۰ گرم",
       "icon": "Beef",
@@ -288,7 +288,7 @@
     {
       "id": 27,
       "name": "ماهی قزل‌آلا تازه",
-      "category": "protein",
+      "category": "other",
       "price": 320000,
       "unit": "۱ کیلوگرم",
       "icon": "Fish",
@@ -299,7 +299,7 @@
     {
       "id": 28,
       "name": "نان سنگک سنتی",
-      "category": "bakery",
+      "category": "other",
       "price": 15000,
       "unit": "عدد",
       "icon": "Croissant",
@@ -310,7 +310,7 @@
     {
       "id": 29,
       "name": "شیرینی خشک یزدی ۵۰۰ گرمی",
-      "category": "bakery",
+      "category": "other",
       "price": 88000,
       "unit": "جعبه ۵۰۰ گرمی",
       "icon": "Cookie",
@@ -359,9 +359,7 @@
       "minutes": 45,
       "fee": 35400,
       "area": "بلوار آیت‌الله کاشانی، مرکز نظرآباد",
-      "tags": [
-        "تضمین تاریخ"
-      ],
+      "tags": [],
       "gradient": "from-[#ff7a2f] to-[#f04400]",
       "initial": "ناز",
       "minBasket": 100000,
@@ -376,9 +374,7 @@
       "minutes": 29,
       "fee": 33300,
       "area": "خیابان شهید مطهری",
-      "tags": [
-        "ارسال توربو"
-      ],
+      "tags": [],
       "gradient": "from-[#ef4444] to-[#c81e1e]",
       "initial": "دیلی",
       "minBasket": 80000,
@@ -407,10 +403,7 @@
       "minutes": 29,
       "fee": 33800,
       "area": "محله سیدجمال‌الدین",
-      "tags": [
-        "تضمین تاریخ",
-        "ارسال توربو"
-      ],
+      "tags": [],
       "gradient": "from-[#ffb27d] to-[#f97316]",
       "initial": "م",
       "minBasket": 50000,
@@ -423,9 +416,7 @@
       "minutes": 50,
       "fee": 29000,
       "area": "ورودی شهر، جنب میدان صنعت",
-      "tags": [
-        "تضمین تاریخ"
-      ],
+      "tags": [],
       "gradient": "from-[#0ea5a4] to-[#0f766e]",
       "initial": "شهر",
       "minBasket": 150000,
@@ -440,7 +431,6 @@
       "fee": 31000,
       "area": "خیابان امام خمینی",
       "tags": [
-        "ارسال توربو",
         "۲۴ ساعته"
       ],
       "gradient": "from-[#6366f1] to-[#4338ca]",
@@ -505,24 +495,14 @@
       "icon": "Wheat"
     },
     {
-      "id": "fresh",
-      "name": "میوه و سبزی",
-      "icon": "Carrot"
-    },
-    {
-      "id": "protein",
-      "name": "پروتئینی",
-      "icon": "Beef"
-    },
-    {
-      "id": "bakery",
-      "name": "نان و شیرینی",
-      "icon": "Croissant"
-    },
-    {
       "id": "hygiene",
       "name": "بهداشتی",
       "icon": "SprayCan"
+    },
+    {
+      "id": "other",
+      "name": "سایر",
+      "icon": "Package"
     }
   ],
   "brands": [

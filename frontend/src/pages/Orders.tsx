@@ -125,12 +125,15 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
             <button
               type="button"
               disabled={actionBusy}
-              onClick={() => {
-                if (window.confirm("این سفارش لغو شود؟"))
-                  void runAction(
-                    () => api.orders.cancel(o.id),
-                    "سفارش لغو شد؛ مبلغ پرداختی به کیف پول بازگشت.",
-                  );
+              onClick={async () => {
+                if (
+                  !(await c.askConfirm("این سفارش لغو شود؟", "بله، لغو شود"))
+                )
+                  return;
+                void runAction(
+                  () => api.orders.cancel(o.id),
+                  "سفارش لغو شد؛ مبلغ پرداختی به کیف پول بازگشت.",
+                );
               }}
               className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-3.5 py-2 text-[11px] font-black text-red-600 transition active:scale-95 disabled:opacity-50"
             >

@@ -51,6 +51,7 @@ import {
   type Product,
   type Promo,
   type Seller,
+  type SellerAccount,
   type SellerOrder,
 } from "./api";
 
@@ -259,6 +260,17 @@ export default function SellerApp() {
     setNotice(text);
     window.setTimeout(() => setNotice(""), 3800);
   };
+  /* دیالوگ تأیید حذف/اقدام حساس — تا تأیید فروشنده انجام نمی‌شود. */
+  const [confirmBox, setConfirmBox] = useState<{
+    text: string;
+    okLabel: string;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  const askConfirm = (text: string, okLabel = "بله، مطمئنم") =>
+    new Promise<boolean>((resolve) => {
+      if (confirmBox) confirmBox.resolve(false);
+      setConfirmBox({ text, okLabel, resolve });
+    });
   const setProfileField = (key: keyof SellerProfile, value: string) =>
     setProfile((old) => ({ ...old, [key]: value }));
   /* «باز هستیم / بسته‌ایم»: فروشگاه بسته نه سفارش تازه می‌گیرد نه در واگذاری
@@ -483,6 +495,8 @@ export default function SellerApp() {
 
   const deletePromo = async (promo: Promo) => {
     if (promo.id == null) return;
+    if (!(await askConfirm(`کد «${promo.code}» حذف شود؟`, "بله، حذف شود")))
+      return;
     try {
       await sellerApi.deletePromotion(promo.id);
       setPromos((old) => old.filter((p) => p.id !== promo.id));
@@ -529,11 +543,12 @@ export default function SellerApp() {
   const selfDelivery = async (order: SellerOrder, complete = false) => {
     if (deliveryBusy || backend.state !== "ready") return;
     if (
-      !window.confirm(
+      !(await askConfirm(
         complete
           ? "آیا سفارش واقعاً به مشتری تحویل داده شده است؟"
           : "ارسال این سفارش را خودتان انجام می‌دهید؟ پس از تأیید، جست‌وجوی سفیر متوقف می‌شود و مسئولیت ارسال با فروشگاه است.",
-      )
+        "بله، تأیید می‌کنم",
+      ))
     )
       return;
     setDeliveryBusy(order.id);
@@ -856,13 +871,44 @@ export default function SellerApp() {
               busy={busy}
             />
           )}
-          {page === "account" && <AccountPage profile={profile} />}
+          {page === "account" && <AccountPage />}
           <footer className="page-footer">
             <span>ناز مارکت · پنل فروشندگان</span>
             <span>اطلاعات متصل به پایگاه‌داده</span>
           </footer>
         </div>
       </main>
+      {confirmBox && (
+        <Modal
+          title="آیا مطمئنید؟"
+          subtitle={confirmBox.text}
+          onClose={() => {
+            confirmBox.resolve(false);
+            setConfirmBox(null);
+          }}
+        >
+          <div className="modal-actions">
+            <button
+              className="btn primary"
+              onClick={() => {
+                confirmBox.resolve(true);
+                setConfirmBox(null);
+              }}
+            >
+              {confirmBox.okLabel}
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                confirmBox.resolve(false);
+                setConfirmBox(null);
+              }}
+            >
+              انصراف
+            </button>
+          </div>
+        </Modal>
+      )}
       {editProduct && (
         <Modal
           title="قیمت، تخفیف و موجودی"
@@ -1803,6 +1849,16 @@ function OrdersPage({
                     <div>
                       <small>نشانی تحویل</small>
                       <p>{order.addressText}</p>
+                      {order.addressLat != null && order.addressLng != null && (
+                        <a
+                          className="location-link"
+                          href={`https://maps.google.com/?q=${order.addressLat},${order.addressLng}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          مشاهدهٔ موقعیت دقیق مشتری روی نقشه
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1867,7 +1923,9 @@ function OrdersPage({
                       <Check size={15} />{" "}
                       {order.deliveryMode === "pickup"
                         ? "آماده شد؛ به مشتری اطلاع بده"
-                        : "آماده تحویل به سفیر"}
+                        : order.addressCity && order.addressCity !== "نظرآباد"
+                          ? "آماده تحویل"
+                          : "آماده تحویل به سفیر"}
                     </button>
                   )}
                   {order.status === 3 && order.deliveryMode === "pickup" && (
@@ -1898,7 +1956,16 @@ function OrdersPage({
                       </span>
                     ) : (
                       <div className="seller-dispatch" role="status">
-                        {searchState(order) === "searching" ? (
+                        {order.addressCity && order.addressCity !== "نظرآباد" ? (
+                          <>
+                            <strong>خارج از محدودهٔ پیک‌های پلتفرم</strong>
+                            <p>
+                              این سفارش در «{order.addressCity}» است و به
+                              سفیرهای پلتفرم پیشنهاد نمی‌شود؛ خودتان ارسال کنید
+                              یا سفارش را رد کنید.
+                            </p>
+                          </>
+                        ) : searchState(order) === "searching" ? (
                           <>
                             <strong>
                               <span
@@ -1956,6 +2023,18 @@ function OrdersPage({
                             </p>
                           </>
                         )}
+                        {order.addressCity && order.addressCity !== "نظرآباد" ? (
+                          <button
+                            className="btn reject small"
+                            onClick={() => {
+                              setRejecting(order);
+                              setRejectKind("stock");
+                              setRejectNote("");
+                            }}
+                          >
+                            <X size={15} /> رد سفارش
+                          </button>
+                        ) : (
                         <div className="dispatch-controls">
                           <button
                             className="btn small"
@@ -1980,6 +2059,7 @@ function OrdersPage({
                             </button>
                           )}
                         </div>
+                        )}
                         <button
                           className="btn primary small"
                           disabled={
@@ -2606,18 +2686,45 @@ function Checklist({ label, done }: { label: string; done: boolean }) {
     </div>
   );
 }
-function AccountPage({ profile }: { profile: SellerProfile }) {
+function AccountPage() {
+  const [acc, setAcc] = useState<SellerAccount | null>(null);
+  const [iban, setIban] = useState("");
+  const [card, setCard] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => {
+    sellerApi
+      .getAccount()
+      .then((a) => {
+        setAcc(a);
+        setIban(a.iban);
+        setCard(a.card);
+      })
+      .catch((e) => setMsg(e instanceof Error ? e.message : "خطا در دریافت حساب"));
+  }, []);
+  const saveBank = async () => {
+    setBusy(true);
+    setMsg("");
+    try {
+      await sellerApi.updateAccount({ iban, card });
+      setMsg("اطلاعات بانکی ذخیره شد.");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "ذخیره انجام نشد.");
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <PageHeading
       title="حساب و تسویه"
-      subtitle="وضعیت اطلاعات حساب فروشندگی شما."
+      subtitle="اطلاعات بانکی و درآمد ارسال شما."
     >
       <section className="panel form-panel account-panel">
         <div className="panel-head">
           <div>
             <h2>اطلاعات صاحب فروشگاه</h2>
             <p>
-              اطلاعات هویتی در زمان ثبت‌نام به‌شکل رمزگذاری‌شده ذخیره شده است.
+              شماره شبا و کارت را می‌بینید و هر وقت خواستید تغییر می‌دهید.
             </p>
           </div>
           <span className="secure-label">
@@ -2626,36 +2733,63 @@ function AccountPage({ profile }: { profile: SellerProfile }) {
         </div>
         <div className="form-grid">
           <Field label="نام و نام خانوادگی">
-            <TextInput value={profile.name} readOnly />
+            <TextInput value={acc?.ownerName ?? ""} readOnly />
           </Field>
           <Field label="شماره موبایل">
-            <TextInput dir="ltr" value={profile.phone} readOnly />
+            <TextInput dir="ltr" value={acc?.phone ?? ""} readOnly />
           </Field>
           <Field label="کد ملی">
             <TextInput value="ثبت‌شده و رمزگذاری‌شده" readOnly />
           </Field>
-          <Field label="شماره شبا">
-            <TextInput value="ثبت‌شده و رمزگذاری‌شده" readOnly />
+          <Field label="شماره شبا (قابل تغییر)">
+            <TextInput
+              dir="ltr"
+              value={iban}
+              onChange={(e) => setIban(e.target.value)}
+              placeholder="IR..."
+            />
+          </Field>
+          <Field label="شماره کارت (قابل تغییر)">
+            <TextInput
+              dir="ltr"
+              value={card}
+              onChange={(e) => setCard(e.target.value)}
+              placeholder="0000-0000-0000-0000"
+            />
           </Field>
         </div>
-        <div className="notice-inline">
-          <ShieldCheck size={17} />
-          <span>
-            مقادیر کد ملی و شبا برای حفظ حریم خصوصی در پنل نمایش داده نمی‌شوند.
-          </span>
+        <div className="panel-actions">
+          <button className="btn primary" disabled={busy} onClick={saveBank}>
+            {busy ? "در حال ذخیره…" : "ذخیرهٔ اطلاعات بانکی"}
+          </button>
+          {msg && <span className="notice-inline">{msg}</span>}
         </div>
         <div className="settlement-card">
           <span>
             <Wallet size={20} />
           </span>
           <div>
-            <strong>وضعیت تسویه</strong>
+            <strong>درآمد ارسال (خودم ارسال می‌کنم)</strong>
             <small>
-              پرداخت و تسویهٔ آنلاین هنوز در این نسخه پیاده‌سازی نشده است.
+              هزینهٔ پیک سفارش‌هایی که خودتان ارسال کرده‌اید به حساب شما
+              می‌نشیند.
             </small>
           </div>
-          <span className="pending-pill">غیرفعال</span>
+          <span className="paid-pill">
+            {money(acc?.deliveryEarnings ?? 0)} تومان
+          </span>
         </div>
+        {(acc?.ledger?.length ?? 0) > 0 && (
+          <div className="ledger-list">
+            {acc?.ledger.map((row) => (
+              <div key={`${row.order_id}-${row.created_at}`} className="ledger-row">
+                <b>سفارش {row.order_id}</b>
+                <span>{money(row.amount)} تومان</span>
+                <small>{row.created_at.slice(0, 10)}</small>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </PageHeading>
   );

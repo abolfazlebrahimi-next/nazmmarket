@@ -52,6 +52,16 @@ export type Promo = {
   maxUses: number;
   usageCount: number;
 };
+export type SellerAccount = {
+  ownerName: string;
+  phone: string;
+  iban: string;
+  card: string;
+  /** ماندهٔ هزینهٔ ارسال سفارش‌های «خودم ارسال می‌کنم». */
+  deliveryEarnings: number;
+  deliveryCount: number;
+  ledger: { order_id: string; amount: number; created_at: string }[];
+};
 export type SellerOrder = {
   id: string;
   storeName: string;
@@ -60,6 +70,11 @@ export type SellerOrder = {
   subtotal: number;
   addressTitle: string;
   addressText: string;
+  /** لوکیشن دقیق مشتری برای ارسال بدون دردسر. */
+  addressLat?: number | null;
+  addressLng?: number | null;
+  /** شهر تحویل («نظرآباد»، «آبیک»، «هشتگرد»). */
+  addressCity?: string;
   time: string;
   status: number;
   deliveryMode?: "courier" | "seller" | "pickup";
@@ -221,6 +236,10 @@ export const sellerApi = {
   dashboard: () =>
     call<{ store: SellerStore; stats: DashboardStats }>("/dashboard"),
   getStore: () => call<{ store: SellerStore }>("/store"),
+  /** اطلاعات حساب: شبا/کارت برای مالک قابل مشاهده و تغییر است. */
+  getAccount: () => call<SellerAccount>("/account"),
+  updateAccount: (body: { iban?: string; card?: string }) =>
+    call<{ ok: boolean }>("/account", { method: "PATCH", body }),
   /** «باز هستیم» / «بسته‌ایم» — closed stores get no new or reassigned orders. */
   setStoreOpen: (open: boolean) =>
     call<{ store: SellerStore }>("/store/open", {

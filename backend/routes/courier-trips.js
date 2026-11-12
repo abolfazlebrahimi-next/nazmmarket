@@ -20,7 +20,7 @@ router.post("/orders/:id/claim", async (req, res) => {
         [req.courier.id],
       );
       const o = await tx.get(
-        "SELECT o.id,o.status,o.delivery_mode,o.dispatch_paused,COALESCE(o.dispatch_started_at,o.created_at) AS dispatch_started_at,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? FOR UPDATE",
+        "SELECT o.id,o.status,o.delivery_mode,o.dispatch_paused,o.address_city,COALESCE(o.dispatch_started_at,o.created_at) AS dispatch_started_at,s.lat,s.lng FROM orders o JOIN stores s ON s.id=o.store_id WHERE o.id=? FOR UPDATE",
         [req.params.id],
       );
       if (!o) return false;
@@ -35,15 +35,17 @@ router.post("/orders/:id/claim", async (req, res) => {
           Number(o.status) !== 5 &&
           !["completed", "cancelled", "failed"].includes(existing.trip_status)
         );
+      if (!c?.active || c.verification_status !== "approved" || !c.online)
+        return false;
+      // بدون موقعیت هم پذیرش مجاز است؛ اگر موقعیت ثبت شده باید تازه باشد.
       if (
-        !c?.active ||
-        c.verification_status !== "approved" ||
-        !c.online ||
-        !validPoint(c.lat, c.lng) ||
-        !c.location_updated_at ||
-        Date.now() - new Date(c.location_updated_at).getTime() > 15 * 60000
+        validPoint(c.lat, c.lng) &&
+        (!c.location_updated_at ||
+          Date.now() - new Date(c.location_updated_at).getTime() > 15 * 60000)
       )
         return false;
+      // پیک‌های پلتفرم فقط سفارش‌های نظرآباد را برمی‌دارند.
+      if (o.address_city && o.address_city !== "نظرآباد") return false;
       if (
         Number(o.status) !== 3 ||
         o.delivery_mode !== "courier" ||

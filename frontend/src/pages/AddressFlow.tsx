@@ -3,7 +3,12 @@ import { CheckCircle2, ChevronLeft, LoaderCircle, LocateFixed, MapPin, MoreVerti
 import MapPicker from "../components/MapPicker";
 import { BackButton, ScreenHeader, pd, toEn } from "../components/ui";
 import type { AppCtx } from "../ctx";
-import type { Address } from "../data";
+import {
+  OTHER_CITY,
+  ZONE_CITIES,
+  inDeliveryZone,
+  type Address,
+} from "../data";
 
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
   try {
@@ -53,10 +58,13 @@ export function AddressSelect({ c }: { c: AppCtx }) {
     if (c.subReturn === "checkout") c.openSub({ name: "checkout" });
   };
 
-  const removeAddress = (id: number) => {
+  const removeAddress = async (id: number) => {
+    // حذف آدرس نیاز به تأیید دوباره دارد.
+    if (!(await c.askConfirm("این آدرس حذف شود؟", "بله، حذف شود"))) return;
     const next = c.addresses.filter((a) => a.id !== id);
     c.setAddresses(next);
     if (c.selectedAddressId === id && next.length) c.setSelectedAddressId(next[0].id);
+    c.toast("آدرس حذف شد");
   };
 
   return (
@@ -129,6 +137,11 @@ export function AddressSelect({ c }: { c: AppCtx }) {
                 <span className="mt-0.5 block truncate text-[11px] font-medium text-muted">
                   {a.address}، {a.detail}
                 </span>
+                {!inDeliveryZone(a) && (
+                  <span className="mt-1 inline-flex w-fit rounded-lg bg-red-50 px-2 py-0.5 text-[9.5px] font-black text-red-600">
+                    خارج از محدوده
+                  </span>
+                )}
               </span>
               {c.selectedAddressId === a.id && <CheckCircle2 className="h-5 w-5 shrink-0 text-mint" />}
               <MoreVertical className="h-4.5 w-4.5 shrink-0 text-muted" />
@@ -160,6 +173,11 @@ export function AddressForm({ c }: { c: AppCtx }) {
   const [detail, setDetail] = useState("");
   const [phone, setPhone] = useState(c.user?.phone ? pd(c.user.phone) : "");
   const [saving, setSaving] = useState(false);
+  const detectCity = (text: string) =>
+    ZONE_CITIES.find((z) => text.includes(z)) ?? "";
+  const [city, setCity] = useState(
+    () => detectCity(c.pickedLabel) || detectCity(addr),
+  );
 
   const saveAddr = async () => {
     if (!addr.trim() && !c.pickedPin) return c.toast("نشانی را کامل وارد کنید");
@@ -171,6 +189,7 @@ export function AddressForm({ c }: { c: AppCtx }) {
       detail: detail.trim() || "—",
       phone: toEn(phone).replace(/\D/g, "") || c.user?.phone || "",
       type: title,
+      city: city || detectCity(addr),
       lat: c.pickedPin?.lat,
       lng: c.pickedPin?.lng,
     };
@@ -180,7 +199,10 @@ export function AddressForm({ c }: { c: AppCtx }) {
     c.setPickedPin(null);
     c.setPickedLabel("");
     c.openSub({ name: "address" });
-    c.toast("آدرس جدید ذخیره شد");
+    // آدرس ثبت می‌شود؛ اما منطقهٔ خارج از محدوده همان لحظه اعلام می‌شود.
+    if (!inDeliveryZone(a))
+      c.toast("این منطقه خارج از محدوده است؛ ارسال به آن انجام نمی‌شود");
+    else c.toast("آدرس جدید ذخیره شد");
   };
 
   return (
@@ -196,7 +218,11 @@ export function AddressForm({ c }: { c: AppCtx }) {
               c.setPickedPin(p);
               c.setPickedLabel(coordsLabel(p.lat, p.lng));
               reverseGeocode(p.lat, p.lng).then((label) => {
-                if (label) c.setPickedLabel(label);
+                if (label) {
+                  c.setPickedLabel(label);
+                  const detected = detectCity(label);
+                  if (detected) setCity(detected);
+                }
               });
             }}
             height="h-[38dvh] lg:h-64"
@@ -225,6 +251,23 @@ export function AddressForm({ c }: { c: AppCtx }) {
             placeholder="پلاک، واحد، طبقه"
             className="w-full rounded-2xl border border-line px-4 py-3.5 text-[13px] font-semibold outline-none transition focus:border-brand"
           />
+        </label>
+
+        <label className="naz-floating-field address-floating-field mt-5">
+          <span className="naz-floating-label">شهر / منطقه</span>
+          <select
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            className="w-full rounded-2xl border border-line bg-white px-4 py-3.5 text-[13px] font-semibold outline-none transition focus:border-brand"
+          >
+            <option value="">انتخاب کنید (خودکار از نقشه)</option>
+            {ZONE_CITIES.map((z) => (
+              <option key={z} value={z}>
+                {z}
+              </option>
+            ))}
+            <option value={OTHER_CITY}>{OTHER_CITY} (خارج از محدوده)</option>
+          </select>
         </label>
 
         <p className="mt-5 text-[13px] font-black text-ink">

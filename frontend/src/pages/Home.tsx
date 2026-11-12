@@ -4,7 +4,6 @@ import ProductRail from "../components/ProductRail";
 import { previousPurchases } from "../personalization";
 import { useState } from "react";
 import {
-  BadgeCheck,
   ChevronLeft,
   Heart,
   MapPin,
@@ -12,7 +11,6 @@ import {
   ShoppingBasket,
   Store,
   X,
-  Zap,
 } from "lucide-react";
 import {
   Empty,
@@ -24,7 +22,7 @@ import {
 } from "../components/ui";
 import MapPicker from "../components/MapPicker";
 import type { AppCtx } from "../ctx";
-import { categories, firstOffers, products, stores } from "../data";
+import { categories, firstOffers, inDeliveryZone, products, stores } from "../data";
 
 /** Which store rejections this device already acknowledged. */
 const REJECT_SEEN_KEY = "naz_reject_seen";
@@ -73,6 +71,30 @@ export function HomePage({ c }: { c: AppCtx }) {
     c.selectFirstOffer(product, storeId);
     c.openSub({ name: "store", id: storeId });
   };
+  // خارج از محدوده (شهرهایی غیر از نظرآباد، آبیک و هشتگرد): محصولات نمایش
+  // داده نمی‌شوند؛ فقط پیام «خارج از محدوده» با سنجاق سبز و تغییر آدرس.
+  if (c.selectedAddress && !inDeliveryZone(c.selectedAddress))
+    return (
+      <div className="market-home">
+        <div className="flex min-h-[72dvh] flex-col items-center justify-center px-8 text-center">
+          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-brand-soft">
+            <MapPin className="h-10 w-10 fill-brand text-brand" />
+          </span>
+          <h2 className="mt-5 text-[18px] font-black text-ink">خارج از محدوده</h2>
+          <p className="mt-2 max-w-72 text-[11.5px] font-medium leading-6 text-muted">
+            این منطقه خارج از محدودهٔ ارسال است؛ فعلاً به «نظرآباد»، «آبیک» و
+            «هشتگرد» ارسال داریم.
+          </p>
+          <button
+            type="button"
+            onClick={() => c.openAddress("home")}
+            className="mt-5 rounded-2xl bg-brand px-6 py-3 text-[12.5px] font-black text-white transition active:scale-[0.98]"
+          >
+            تغییر آدرس
+          </button>
+        </div>
+      </div>
+    );
   return (
     <div className="market-home">
       {showRejection && rejection && (
@@ -288,13 +310,9 @@ export function HomePage({ c }: { c: AppCtx }) {
 
 /* ---------------- All stores ---------------- */
 export function StoresPage({ c }: { c: AppCtx }) {
-  const [filter, setFilter] = useState<"all" | "hyper" | "date" | "turbo">(
-    "all",
-  );
+  const [filter, setFilter] = useState<"all" | "hyper">("all");
   const list = stores.filter((s) => {
     if (filter === "hyper") return s.type === "hypermarket";
-    if (filter === "date") return s.tags.some((t) => t.includes("تضمین"));
-    if (filter === "turbo") return s.tags.some((t) => t.includes("توربو"));
     return true;
   });
   return (
@@ -309,8 +327,6 @@ export function StoresPage({ c }: { c: AppCtx }) {
           [
             { key: "all", label: "همه فروشگاه‌ها", icon: Store },
             { key: "hyper", label: "هایپرمارکت", icon: ShoppingBasket },
-            { key: "date", label: "تضمین تاریخ", icon: BadgeCheck },
-            { key: "turbo", label: "ارسال توربو", icon: Zap },
           ] as const
         ).map((f) => (
           <button

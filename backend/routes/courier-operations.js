@@ -203,24 +203,24 @@ router.patch("/availability", async (req, res) => {
     req.body.online &&
     (!req.courier.active || req.courier.verificationStatus !== "approved")
   )
-    return fail(res, 403, "برای شروع فعالیت، احراز هویت باید تأیید شود.");
-  if (req.body.online && !validPoint(req.body.lat, req.body.lng))
     return fail(
       res,
-      400,
-      "برای پیدا کردن سفارش نزدیک، موقعیت مکانی را فعال کنید.",
+      403,
+      "برای شروع فعالیت، ابتدا مدارک باید توسط مدیریت تأیید شود.",
     );
+  // بدون موقعیت هم می‌توان آنلاین شد؛ موقعیت فقط برای پیشنهادهای «نزدیک» کمک می‌کند.
+  const hasPoint = validPoint(req.body.lat, req.body.lng);
   await db.run(
-    "UPDATE courier_accounts SET online=?,lat=COALESCE(?,lat),lng=COALESCE(?,lng),location_updated_at=? WHERE id=?",
+    "UPDATE courier_accounts SET online=?,lat=COALESCE(?,lat),lng=COALESCE(?,lng),location_updated_at=COALESCE(?,location_updated_at) WHERE id=?",
     [
       req.body.online ? 1 : 0,
-      req.body.online ? Number(req.body.lat) : null,
-      req.body.online ? Number(req.body.lng) : null,
-      new Date().toISOString(),
+      hasPoint ? Number(req.body.lat) : null,
+      hasPoint ? Number(req.body.lng) : null,
+      hasPoint ? new Date().toISOString() : null,
       req.courier.id,
     ],
   );
-  res.json({ online: req.body.online });
+  res.json({ online: req.body.online, located: hasPoint });
 });
 router.get("/wallet", async (req, res) =>
   res.json({

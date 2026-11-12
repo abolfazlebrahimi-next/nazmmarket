@@ -24,6 +24,7 @@ import {
   faNum,
   firstOffers,
   hydrateCatalog,
+  inDeliveryZone,
   products,
   storeById,
   stores,
@@ -114,6 +115,17 @@ export default function App() {
   const [pickedLabel, setPickedLabel] = useState("");
   const [productModal, setProductModal] = useState<Product | null>(null);
   const [storePicker, setStorePicker] = useState(false);
+  /** دیالوگ تأیید حذف/اقدام حساس؛ تا تأیید کاربر هیچ اقدامی انجام نمی‌شود. */
+  const [confirmBox, setConfirmBox] = useState<{
+    text: string;
+    okLabel: string;
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+  const askConfirm = (text: string, okLabel = "بله، مطمئنم") =>
+    new Promise<boolean>((resolve) => {
+      if (confirmBox) confirmBox.resolve(false);
+      setConfirmBox({ text, okLabel, resolve });
+    });
   const [replacePrompt, setReplacePrompt] = useState<{
     product: Product;
     storeId: number;
@@ -680,6 +692,10 @@ export default function App() {
     const mode = extra?.deliveryMode ?? "courier";
     if (mode === "courier" && !selectedAddress)
       return showToast("ابتدا آدرس تحویل را انتخاب کنید");
+    if (mode === "courier" && !inDeliveryZone(selectedAddress))
+      return showToast(
+        "این منطقه خارج از محدودهٔ ارسال (نظرآباد، آبیک و هشتگرد) است.",
+      );
     if (!cart.storeId || cartCount === 0) {
       setStorePicker(true);
       return showToast("ابتدا فروشگاه را انتخاب کنید");
@@ -905,6 +921,7 @@ export default function App() {
     cartDrawer,
     setCartDrawer,
     toast: showToast,
+    askConfirm,
     /** Opens the login/register overlay; after success returns to `nextView`. */
     requireLogin: requestLogin,
   };
@@ -1443,6 +1460,57 @@ export default function App() {
       <ProductModal c={c} />
       {storePicker && <StorePickerSheet c={c} />}
       <ReplacePrompt c={c} />
+      {confirmBox && (
+        <div
+          className="fixed inset-0 z-[95] flex items-center justify-center p-6"
+          role="alertdialog"
+          aria-modal="true"
+          aria-label="تأیید عملیات"
+        >
+          <button
+            type="button"
+            aria-label="انصراف"
+            onClick={() => {
+              confirmBox.resolve(false);
+              setConfirmBox(null);
+            }}
+            className="fade-in absolute inset-0 bg-ink/50 backdrop-blur-[2px]"
+          />
+          <div className="modal-in relative w-full max-w-[330px] rounded-[26px] bg-white p-5 text-center shadow-2xl">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-500">
+              <Info className="h-7 w-7" />
+            </span>
+            <h3 className="mt-4 text-[15px] font-black text-ink">
+              آیا مطمئنید؟
+            </h3>
+            <p className="mx-auto mt-2 max-w-64 text-[11.5px] font-medium leading-6 text-muted">
+              {confirmBox.text}
+            </p>
+            <div className="mt-5 space-y-2">
+              <button
+                type="button"
+                onClick={() => {
+                  confirmBox.resolve(true);
+                  setConfirmBox(null);
+                }}
+                className="w-full rounded-2xl bg-red-500 py-3.5 text-[13px] font-black text-white transition active:scale-[0.99]"
+              >
+                {confirmBox.okLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmBox.resolve(false);
+                  setConfirmBox(null);
+                }}
+                className="w-full rounded-2xl bg-[#f4f3f0] py-3.5 text-[13px] font-black text-ink transition active:scale-[0.99]"
+              >
+                انصراف
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <AccountSheetHost c={c} />
       {cartDrawer && <CartDrawer c={c} />}
 

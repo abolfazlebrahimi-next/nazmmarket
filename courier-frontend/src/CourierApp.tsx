@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { askConfirm } from "./confirm";
 import {
   Bike,
   Bell,
@@ -243,15 +244,23 @@ export default function CourierApp() {
     setBusy(true);
     try {
       let location: { lat?: number; lng?: number } = {};
+      let located = true;
       if (online) {
-        const p = await geo();
-        location = { lat: p.coords.latitude, lng: p.coords.longitude };
+        // بدون موقعیت هم می‌توان آنلاین شد؛ موقعیت فقط پیشنهادها را نزدیک‌تر می‌کند.
+        try {
+          const p = await geo();
+          location = { lat: p.coords.latitude, lng: p.coords.longitude };
+        } catch {
+          located = false;
+        }
       }
       await api("/availability", json({ online, ...location }, "PATCH"));
       setCourier((c) => (c ? { ...c, online, ...location } : c));
       setNotice(
         online
-          ? "فعال شدید؛ سفارش‌های نزدیک برای شما نمایش داده می‌شوند."
+          ? located
+            ? "فعال شدید؛ سفارش‌های نزدیک برای شما نمایش داده می‌شوند."
+            : "فعال شدید؛ موقعیت در دسترس نبود اما سفارش‌ها نمایش داده می‌شوند."
           : "حالت غیرفعال شد؛ سفارش جاری همچنان قابل تحویل است.",
       );
       await loadOrders();
@@ -274,17 +283,9 @@ export default function CourierApp() {
             ),
           ),
         )
-        .catch(async () => {
+        .catch(() => {
+          // بدون GPS هم آنلاین می‌مانید؛ فقط موقعیت تازه نیست.
           setLocationFresh(false);
-          setError(
-            "دسترسی GPS قطع شد؛ دریافت پیشنهاد تازه متوقف شد. سفر جاری شما حفظ شده است.",
-          );
-          setCourier((c) => (c ? { ...c, online: false } : c));
-          try {
-            await api("/availability", json({ online: false }, "PATCH"));
-          } catch {
-            /* Server also expires stale locations. */
-          }
         });
     }, 120000);
     return () => clearInterval(timer);
@@ -299,28 +300,28 @@ export default function CourierApp() {
     }
     if (
       action === "claim" &&
-      !window.confirm(
+      !(await askConfirm(
         "پیشنهاد را قبول می‌کنید؟ پس از پذیرش، به فروشگاه حرکت کنید. دریافت بسته در مرحلهٔ جدا ثبت می‌شود.",
-      )
+      ))
     )
       return;
     if (
       action === "decline" &&
-      !window.confirm(
+      !(await askConfirm(
         "این پیشنهاد برای ۵ دقیقه پنهان شود؟ اگر تا آن زمان پذیرفته نشود، دوباره به شما پیشنهاد می‌شود.",
-      )
+      ))
     )
       return;
     if (
       action === "complete" &&
-      !window.confirm("آیا سفارش را به مشتری تحویل داده‌اید؟")
+      !(await askConfirm("آیا سفارش را به مشتری تحویل داده‌اید؟"))
     )
       return;
     if (
       action === "pickup" &&
-      !window.confirm(
+      !(await askConfirm(
         "بسته را واقعاً از فروشگاه تحویل گرفته‌اید و سلامت آن را بررسی کرده‌اید؟",
-      )
+      ))
     )
       return;
     setBusy(true);
@@ -575,7 +576,7 @@ export default function CourierApp() {
     : dispatchStatus === "active_trip"
       ? "یک سفر فعال دارید؛ تا پایان آن پیشنهاد تازه دریافت نمی‌کنید."
       : !courier.online
-        ? "برای دریافت پیشنهاد، کلید فعالیت را روشن و اجازهٔ موقعیت مکانی را فعال کنید."
+        ? "برای دریافت پیشنهاد، کلید فعالیت را روشن کنید (موقعیت مکانی اختیاری است)."
         : !locationFresh || dispatchStatus === "location_stale"
           ? "موقعیت شما معتبر یا به‌روز نیست؛ موقعیت مکانی را تازه‌سازی کنید."
           : dispatchStatus === "offers_available"

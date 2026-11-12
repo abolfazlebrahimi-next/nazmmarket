@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { askConfirm } from "./confirm";
 import PersianDateField from "./PersianDateField";
 import {
   Camera,
@@ -244,10 +245,11 @@ export default function Verification({
         )}
       {courier.verificationStatus === "approved" && !editing && (
         <button
-          onClick={() => {
+          onClick={async () => {
             if (
-              window.confirm(
+              await askConfirm(
                 "با ارسال مدارک اصلاح‌شده، فعالیت متوقف و پرونده دوباره برای تأیید مدیر ارسال می‌شود. تا پایان سفر فعال امکان این کار وجود ندارد.",
+                "بله، ادامه",
               )
             ) {
               setEditing(true);

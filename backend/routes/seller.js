@@ -25,7 +25,10 @@ import {
   loginThrottle,
 } from "../auth.js";
 import { requireSellerAuth, createSellerSession } from "../seller-auth.js";
-import { encryptSellerValue } from "../seller-security.js";
+import {
+  decryptSellerValue,
+  encryptSellerValue,
+} from "../seller-security.js";
 
 const router = Router();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -303,6 +306,65 @@ router.get("/auth/me", requireSellerAuth, async (req, res) => {
 });
 
 router.use(requireSellerAuth);
+/** اطلاعات حساب فروشنده: شبا/کارت برای مالک قابل مشاهده و تغییر است. */
+router.get("/account", async (req, res) => {
+  const account = await db.get("SELECT * FROM seller_accounts WHERE id = ?", [
+    req.seller.id,
+  ]);
+  const [earnings, ledger] = await Promise.all([
+    db.get(
+      "SELECT COALESCE(SUM(amount),0) AS deliveryEarnings, COUNT(*) AS deliveryCount FROM seller_ledger WHERE seller_id=? AND kind='delivery_fee'",
+      [req.seller.id],
+    ),
+    db.all(
+      "SELECT order_id, amount, created_at FROM seller_ledger WHERE seller_id=? ORDER BY id DESC LIMIT 100",
+      [req.seller.id],
+    ),
+  ]);
+  res.json({
+    ownerName: account.owner_name,
+    phone: account.phone,
+    iban: decryptSellerValue(account.iban_enc),
+    card: decryptSellerValue(account.card_enc),
+    // هزینهٔ ارسال سفارش‌های «خودم ارسال می‌کنم» به حساب فروشنده می‌نشیند.
+    deliveryEarnings: Number(earnings?.deliveryEarnings ?? 0),
+    deliveryCount: Number(earnings?.deliveryCount ?? 0),
+    ledger,
+  });
+});
+router.patch("/account", async (req, res) => {
+  const sets = [];
+  const args = [];
+  if (req.body?.iban !== undefined) {
+    const iban = String(req.body.iban ?? "")
+      .replace(/\s/g, "")
+      .toUpperCase();
+    if (iban && !/^IR\d{24}$/.test(iban))
+      return fail(res, 400, "invalid_iban", "شماره شبا باید با IR و ۲۴ رقم باشد.");
+    sets.push("iban_enc=?");
+    args.push(encryptSellerValue(iban));
+  }
+  if (req.body?.card !== undefined) {
+    const card = String(req.body.card ?? "").replace(/\D/g, "");
+    if (card && !/^\d{16}$/.test(card))
+      return fail(res, 400, "invalid_card", "شماره کارت باید ۱۶ رقم باشد.");
+    sets.push("card_enc=?");
+    args.push(encryptSellerValue(card));
+  }
+  if (!sets.length)
+    return fail(
+      res,
+      400,
+      "empty_account_update",
+      "مقداری برای به‌روزرسانی ارسال نشده است.",
+    );
+  args.push(req.seller.id);
+  await db.run(
+    `UPDATE seller_accounts SET ${sets.join(", ")} WHERE id=?`,
+    args,
+  );
+  res.json({ ok: true });
+});
 router.get("/dashboard", async (req, res) => {
   const store = await sellerStore(req.seller.id);
   if (!store)
@@ -892,6 +954,10 @@ router.get("/orders", async (req, res) => {
         Date.now() - Date.parse(r.search_started_at) >= 15 * 60000,
       items: parseItems(r.items),
       addressText: r.address_text,
+      // لوکیشن دقیق مشتری تا فروشنده هنگام ارسال به مشکل نخورد.
+      addressLat: r.destination_lat == null ? null : Number(r.destination_lat),
+      addressLng: r.destination_lng == null ? null : Number(r.destination_lng),
+      addressCity: r.address_city ?? "",
       paymentStatus: r.payment_status ?? "unpaid",
       customer: { name: r.customer_name || "مشتری", phone: r.customer_phone },
     })),
@@ -919,8 +985,16 @@ router.patch("/orders/:id/status", async (req, res) => {
         next - 1,
       ],
     );
-    if (result.affectedRows)
+    if (result.affectedRows) {
+      // سفارش‌های خارج از نظرآباد به «پیک‌های پلتفرم» پیشنهاد نمی‌شوند؛
+      // فروشنده خودش ارسال می‌کند یا سفارش را رد می‌کند.
+      if (next === 3)
+        await tx.run(
+          "UPDATE orders SET dispatch_paused=1 WHERE id=? AND delivery_mode='courier' AND address_city NOT IN ('','نظرآباد')",
+          [req.params.id],
+        );
       await recordOrderEvent(tx, req.params.id, next, "seller", req.seller.id);
+    }
     return result.affectedRows;
   });
   if (!changed)
@@ -970,7 +1044,15 @@ router.post("/orders/:id/reject", async (req, res) => {
   ]);
   if (!row)
     return fail(res, 404, "not_found", "این سفارش به این فروشگاه نیست.");
-  if (![1, 2].includes(Number(row.status)))
+  // سفارش آماده (وضعیت ۳) هم تا وقتی سفیری نپذیرفته قابل رد است.
+  const assigned = await db.get(
+    "SELECT order_id FROM order_deliveries WHERE order_id=?",
+    [id],
+  );
+  const rejectable =
+    [1, 2].includes(Number(row.status)) ||
+    (Number(row.status) === 3 && !assigned);
+  if (!rejectable)
     return fail(
       res,
       409,
@@ -983,10 +1065,13 @@ router.post("/orders/:id/reject", async (req, res) => {
   const done = await db.transaction(async (tx) => {
     const changed = await tx.run(
       `UPDATE orders SET status=0, rejected_by='seller', reject_reason=?,
-        dispatch_paused=1 WHERE id=? AND store_id=? AND status IN (1,2)`,
+        dispatch_paused=1 WHERE id=? AND store_id=? AND status IN (1,2,3)`,
       [reason, id, store?.id ?? 0],
     );
     if (!changed.affectedRows) return false;
+    await tx.run("UPDATE courier_offers SET state='cancelled' WHERE order_id=?", [
+      id,
+    ]);
     await recordOrderEvent(tx, id, 0, "seller", req.seller.id);
     await releasePromo(tx, id);
     for (const item of items)
@@ -1131,6 +1216,13 @@ router.post("/orders/:id/self-delivery/complete", async (req, res) => {
       if (![3, 4].includes(Number(o.status))) return false;
     } else if (Number(o.status) !== 4) return false;
     await tx.run("UPDATE orders SET status=5 WHERE id=?", [o.id]);
+    // هزینهٔ پیکِ سفارش‌های «خودم ارسال می‌کنم» به حساب فروشنده می‌نشیند.
+    const fee = Number(o.courier_fee ?? o.delivery ?? 0);
+    if (o.delivery_mode === "seller" && Number.isSafeInteger(fee) && fee > 0)
+      await tx.run(
+        "INSERT IGNORE INTO seller_ledger (seller_id, order_id, kind, amount, created_at) VALUES (?, ?, 'delivery_fee', ?, ?)",
+        [req.seller.id, o.id, fee, new Date().toISOString()],
+      );
     await recordOrderEvent(tx, o.id, 5, "seller", req.seller.id);
     return true;
   });

@@ -2,6 +2,7 @@ import { deliveryQuote, platformSettings } from "../delivery.js";
 import { readDeliveryCode } from "../trip-security.js";
 import { firstOffer } from "../product-rules.js";
 import { recordOrderEvent } from "../order-workflow.js";
+import { isZoneCity, resolveCity } from "../zones.js";
 import { Router } from "express";
 import crypto from "node:crypto";
 import { db, mapOrder, walletMovement } from "../db.js";
@@ -262,6 +263,21 @@ router.post("/orders", requireAuth, async (req, res) => {
           message: "نشانی تحویل سفارش لازم است.",
         },
       });
+    // محدودهٔ ارسال: نظرآباد، آبیک و هشتگرد؛ سفارش خارج از این سه شهر
+    // پذیرفته نمی‌شود («خارج از محدوده»).
+    const addressCity =
+      deliveryMode === "pickup"
+        ? ""
+        : String(addressRow?.city ?? "").trim() ||
+          resolveCity(addressText, addressRow?.lat, addressRow?.lng) ||
+          "";
+    if (deliveryMode !== "pickup" && !isZoneCity(addressCity))
+      return res.status(422).json({
+        error: {
+          code: "out_of_zone",
+          message: "این منطقه خارج از محدودهٔ ارسال (نظرآباد، آبیک و هشتگرد) است.",
+        },
+      });
     // A real payment gateway is not connected yet; do not mark a simulated online payment as paid.
     if (body.payment === "online")
       return res.status(400).json({
@@ -389,9 +405,9 @@ router.post("/orders", requireAuth, async (req, res) => {
       }
       await tx.run(
         `INSERT INTO orders (id, user_id, store_id, store_name, items, subtotal, discount, delivery, total,
-          address_title, address_text, slot, payment, payment_status, promo_code, status, time, created_at,
+          address_title, address_text, address_city, slot, payment, payment_status, promo_code, status, time, created_at,
           reassign_started_at, reassign_count, reassign_history, delivery_mode)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 0, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, 0, ?, ?)`,
         [
           id,
           req.user.id,
@@ -404,6 +420,7 @@ router.post("/orders", requireAuth, async (req, res) => {
           total,
           addressTitle,
           addressText,
+          addressCity,
           slot,
           payment,
           payment === "wallet" ? "paid" : "unpaid",

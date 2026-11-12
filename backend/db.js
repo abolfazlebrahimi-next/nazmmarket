@@ -235,6 +235,14 @@ export async function migrate() {
       CONSTRAINT fk_order_deliveries_order FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
       CONSTRAINT fk_order_deliveries_owner FOREIGN KEY (courier_id) REFERENCES courier_accounts(id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS seller_ledger (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      seller_id BIGINT UNSIGNED NOT NULL, order_id VARCHAR(40) NOT NULL,
+      kind VARCHAR(20) NOT NULL DEFAULT 'delivery_fee', amount BIGINT NOT NULL DEFAULT 0,
+      created_at VARCHAR(32) NOT NULL,
+      UNIQUE KEY uq_seller_ledger_order (order_id, kind), KEY idx_seller_ledger_seller (seller_id, id),
+      CONSTRAINT fk_seller_ledger_seller FOREIGN KEY (seller_id) REFERENCES seller_accounts(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS platform_promos (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
       code VARCHAR(40) NOT NULL, title VARCHAR(180) NOT NULL,
@@ -396,8 +404,21 @@ export async function migrate() {
     reassign_started_at: "VARCHAR(32) NULL",
     reassign_count: "INT NOT NULL DEFAULT 0",
     reassign_history: "TEXT NULL",
-  }))
+  })) {
     await ensureColumn("orders", column, definition);
+  }
+  // نشانی دقیق مشتری (لوکیشن و شهر) تا فروشنده هنگام ارسال به مشکل نخورد.
+  await ensureColumn(
+    "orders",
+    "address_city",
+    "VARCHAR(60) NOT NULL DEFAULT ''",
+  );
+  await ensureColumn("addresses", "city", "VARCHAR(60) NOT NULL DEFAULT ''");
+  await ensureColumn(
+    "seller_accounts",
+    "card_enc",
+    "VARCHAR(600) NOT NULL DEFAULT ''",
+  );
   await db.run(
     `UPDATE orders o SET dispatch_started_at=COALESCE((SELECT MIN(e.created_at) FROM order_events e WHERE e.order_id COLLATE utf8mb4_unicode_ci=o.id COLLATE utf8mb4_unicode_ci AND e.status=3),o.created_at) WHERE o.status=3 AND o.dispatch_started_at IS NULL`,
   );
@@ -666,6 +687,7 @@ export const mapAddress = (r) => ({
   detail: r.detail,
   phone: r.phone,
   type: r.type,
+  city: r.city ?? "",
   ...(r.lat != null ? { lat: Number(r.lat), lng: Number(r.lng) } : {}),
 });
 

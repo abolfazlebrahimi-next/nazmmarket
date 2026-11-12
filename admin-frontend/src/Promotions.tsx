@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { askConfirm } from "./confirm";
 import {
   BadgePercent,
   Pencil,
@@ -175,7 +176,8 @@ export default function Promotions({ api }: { api: Api }) {
     }
   }
   async function remove(row: Code) {
-    if (!window.confirm(`کد «${row.code}» حذف شود؟`)) return;
+    if (!(await askConfirm(`کد «${row.code}» حذف شود؟`, "بله، حذف شود")))
+      return;
     setBusy(true);
     try {
       await api(`/operations/promos/${row.id}`, { method: "DELETE" });
