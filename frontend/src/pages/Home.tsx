@@ -41,7 +41,7 @@ export function HomePage({ c }: { c: AppCtx }) {
   const amazing = amazingDeals(available);
   const drinks = energizingDrinks(available);
   const rows = categories
-    .filter((cat) => cat.id !== "all")
+    .filter((cat) => cat.id !== "all" && cat.id !== "other")
     .map((cat) => ({
       cat,
       items: available.filter((p) => p.category === cat.id),
@@ -141,7 +141,7 @@ export function HomePage({ c }: { c: AppCtx }) {
         </div>
         <div className="market-category-shortcuts no-scrollbar">
           {categories
-            .filter((cat) => cat.id !== "all")
+            .filter((cat) => cat.id !== "all" && cat.id !== "other")
             .map((cat) => (
               <button
                 type="button"

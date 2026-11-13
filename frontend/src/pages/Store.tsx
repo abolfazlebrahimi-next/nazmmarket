@@ -43,7 +43,10 @@ export function StorePage({ c, storeId }: { c: AppCtx; storeId: number }) {
       ? storeProducts
       : storeProducts.filter((p) => p.category === cat);
   const storeCats = categories.filter(
-    (ct) => ct.id === "all" || storeProducts.some((p) => p.category === ct.id),
+    (ct) =>
+      ct.id === "all" ||
+      (ct.id !== "other" &&
+        storeProducts.some((p) => p.category === ct.id)),
   );
   // تا رسیدن به حداقل مبلغ سبد (حداقل فروشگاه + حداقل «خرید اول» فعال)،
   // تکمیل خرید ممکن نیست؛ نوار شناور سراسری آن را نشان می‌دهد.

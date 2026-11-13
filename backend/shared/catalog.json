@@ -171,7 +171,7 @@
     {
       "id": 16,
       "name": "روغن مایع سرخ‌کردنی ۹۰۰ میلی‌لیتری",
-      "category": "grocery",
+      "category": "other",
       "price": 78000,
       "unit": "بطری ۹۰۰ میلی‌لیتری",
       "icon": "GlassWater",
@@ -183,7 +183,7 @@
     {
       "id": 17,
       "name": "برنج ایرانی درجه‌یک ۵ کیلویی",
-      "category": "grocery",
+      "category": "other",
       "price": 895000,
       "unit": "کیسه ۵ کیلویی",
       "icon": "Wheat",
@@ -193,7 +193,7 @@
     {
       "id": 18,
       "name": "ماکارونی رشته‌ای ۷۰۰ گرمی",
-      "category": "grocery",
+      "category": "other",
       "price": 32000,
       "unit": "بسته ۷۰۰ گرمی",
       "icon": "Wheat",
@@ -204,7 +204,7 @@
     {
       "id": 19,
       "name": "رب گوجه‌فرنگی ۸۰۰ گرمی",
-      "category": "grocery",
+      "category": "other",
       "price": 58500,
       "unit": "قوطی ۸۰۰ گرمی",
       "icon": "Salad",
@@ -488,11 +488,6 @@
       "id": "snacks",
       "name": "تنقلات",
       "icon": "Cookie"
-    },
-    {
-      "id": "grocery",
-      "name": "خواربار",
-      "icon": "Wheat"
     },
     {
       "id": "hygiene",

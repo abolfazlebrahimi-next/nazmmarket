@@ -105,8 +105,9 @@ type WireCategory = { id: string; name: string; icon?: string };
 
 const withIcon = (p: WireProduct): Product => ({
   ...p,
-  // دسته‌های حذف‌شده (میوه و سبزی، پروتئینی، نان و شیرینی) زیر «سایر» می‌روند.
-  category: ["fresh", "protein", "bakery"].includes(p.category)
+  // دسته‌های حذف‌شده (میوه و سبزی، پروتئینی، نان و شیرینی، خواربار) زیر «سایر» می‌روند؛
+  // «سایر» در داده‌ها می‌ماند ولی در ریل دسته‌بندی نمایش داده نمی‌شود.
+  category: ["fresh", "protein", "bakery", "grocery"].includes(p.category)
     ? "other"
     : p.category,
   icon: icon(p.icon),
@@ -118,7 +119,6 @@ export const categories: Category[] = [
   { id: "drinks", name: "نوشیدنی", icon: CupSoda },
   { id: "dairy", name: "لبنیات و تخم‌مرغ", icon: Milk },
   { id: "snacks", name: "تنقلات", icon: Cookie },
-  { id: "grocery", name: "خواربار", icon: Wheat },
   { id: "hygiene", name: "بهداشتی", icon: SprayCan },
   { id: "other", name: "سایر", icon: Package },
 ];

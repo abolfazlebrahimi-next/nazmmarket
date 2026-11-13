@@ -63,7 +63,7 @@ export function categoryShelf(
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   return categories
-    .filter((cat) => cat.id !== "all")
+    .filter((cat) => cat.id !== "all" && cat.id !== "other")
     .map((cat) => ({ ...cat, count: counts.get(cat.id) ?? 0 }))
     .filter((cat) => cat.count > 0)
     .sort(
