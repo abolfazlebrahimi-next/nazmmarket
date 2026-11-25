@@ -171,6 +171,18 @@ export const api = {
         body: { phone, password },
         auth: false,
       }),
+    requestOtp: (phone: string) =>
+      request<{ ok: boolean; message: string }>("/auth/otp/request", {
+        method: "POST",
+        body: { phone },
+        auth: false,
+      }),
+    verifyOtp: (phone: string, code: string) =>
+      request<AuthResponse>("/auth/otp/verify", {
+        method: "POST",
+        body: { phone, code },
+        auth: false,
+      }),
     logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
     me: () => request<{ user: User }>("/auth/me"),
     updateProfile: (patch: {

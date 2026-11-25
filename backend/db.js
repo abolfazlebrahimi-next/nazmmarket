@@ -141,6 +141,15 @@ export async function migrate() {
       token CHAR(64) NOT NULL PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, created_at VARCHAR(32) NOT NULL,
       KEY idx_sessions_user (user_id), CONSTRAINT fk_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS auth_otps (
+      phone VARCHAR(20) NOT NULL PRIMARY KEY,
+      code_hash CHAR(64) NOT NULL,
+      salt CHAR(32) NOT NULL,
+      expires_at BIGINT UNSIGNED NOT NULL,
+      sent_at BIGINT UNSIGNED NOT NULL,
+      attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      KEY idx_auth_otps_expiry (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS seller_sessions (
       token CHAR(64) NOT NULL PRIMARY KEY, seller_id BIGINT UNSIGNED NOT NULL, created_at VARCHAR(32) NOT NULL,
       KEY idx_seller_sessions_owner (seller_id), CONSTRAINT fk_seller_sessions_owner FOREIGN KEY (seller_id) REFERENCES seller_accounts(id) ON DELETE CASCADE

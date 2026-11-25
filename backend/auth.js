@@ -1,4 +1,4 @@
-/** Phone-number username and password auth; no OTP/SMS flow. */
+/** Shared phone normalization, password/session helpers, and legacy login throttling. */
 import crypto from "node:crypto";
 import { db, mapUser } from "./db.js";
 
