@@ -12,6 +12,7 @@ process.env.AUTH_OTP_HASH_KEY = "test-only-otp-hash-key-with-enough-length";
 
 const phone = "09123456789";
 const providerCode = "004271";
+let providerCodeResponse = providerCode;
 const user = {
   id: 7,
   phone,
@@ -82,7 +83,7 @@ db.transaction = async (work) => {
 globalThis.fetch = async (input, init) => {
   if (String(input).startsWith("https://console.melipayamak.com/")) {
     providerRequest = { url: String(input), body: JSON.parse(init.body) };
-    return new Response(JSON.stringify({ code: providerCode, status: "sent" }), {
+    return new Response(JSON.stringify({ code: providerCodeResponse, status: "sent" }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -134,6 +135,20 @@ test("OTP verification rejects wrong codes, then creates a normal customer sessi
 
   const replay = await post("/api/auth/otp/verify", { phone, code: providerCode });
   assert.equal(replay.status, 401);
+});
+
+test("OTP request accepts a numeric code field from the provider", async () => {
+  providerCodeResponse = 731946;
+  const request = await post("/api/auth/otp/request", { phone });
+  assert.equal(request.status, 200);
+
+  const response = await post("/api/auth/otp/verify", {
+    phone,
+    code: String(providerCodeResponse),
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).user.phone, phone);
+  assert.equal(otpRow, null);
 });
 
 test.after(async () => {

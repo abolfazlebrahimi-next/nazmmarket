@@ -78,6 +78,26 @@ function isOtpCode(code) {
     [...code].every((digit) => digit >= "0" && digit <= "9");
 }
 
+function providerOtpCode(payload) {
+  const value = payload?.code;
+  if (typeof value === "string") return value.trim();
+  // Some JSON APIs serialize numeric codes as numbers. Accept safe integers;
+  // string responses remain important for codes that begin with zero.
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0)
+    return String(value);
+  return "";
+}
+
+function safeOtpErrorDetails(error) {
+  const rawCode = error?.cause?.code ?? error?.code;
+  const errorCode = typeof rawCode === "string" && /^[A-Z0-9_]{1,40}$/.test(rawCode)
+    ? rawCode
+    : undefined;
+  const rawName = typeof error?.name === "string" ? error.name : "Error";
+  const errorName = /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(rawName) ? rawName : "Error";
+  return { errorName, ...(errorCode ? { errorCode } : {}) };
+}
+
 router.post("/register", async (req, res) => {
   const phone = normalizePhone(req.body?.phone), password = String(req.body?.password ?? "");
   const firstName = sanitizeName(req.body?.firstName), lastName = sanitizeName(req.body?.lastName);
@@ -109,6 +129,7 @@ router.post("/otp/request", otpRequestThrottle, async (req, res) => {
     return res.json({ ok: true, message: genericOtpMessage });
 
   otpSendingPhones.add(phone);
+  let stage = "provider_request";
   try {
     const providerResponse = await fetch(endpoint, {
       method: "POST",
@@ -118,12 +139,27 @@ router.post("/otp/request", otpRequestThrottle, async (req, res) => {
       signal: AbortSignal.timeout(10_000),
     });
     const providerPayload = await providerResponse.json().catch(() => null);
-    const code = typeof providerPayload?.code === "string" ? providerPayload.code.trim() : "";
+    const code = providerOtpCode(providerPayload);
     // MeliPayamak's sample includes a `status` field, but its accepted values
     // are not documented here. Trust the HTTP response and returned code only.
-    if (!providerResponse.ok || !isOtpCode(code))
+    if (!providerResponse.ok || !isOtpCode(code)) {
+      const rawCode = providerPayload && typeof providerPayload === "object"
+        ? providerPayload.code
+        : undefined;
+      const rawStatus = providerPayload && typeof providerPayload === "object"
+        ? providerPayload.status
+        : undefined;
+      console.warn("[auth:otp] provider response rejected", {
+        httpStatus: providerResponse.status,
+        contentType: providerResponse.headers.get("content-type")?.split(";")[0] ?? "unknown",
+        codeType: rawCode === undefined ? "missing" : rawCode === null ? "null" : typeof rawCode,
+        codeLength: code.length,
+        statusType: rawStatus === undefined ? "missing" : rawStatus === null ? "null" : typeof rawStatus,
+      });
       return bad(res, 502, "otp_send_failed", "ارسال کد پیامکی انجام نشد؛ کمی بعد دوباره تلاش کنید.");
+    }
 
+    stage = "otp_storage";
     const salt = crypto.randomBytes(16).toString("hex");
     const sentAt = Date.now();
     await db.run(
@@ -133,7 +169,10 @@ router.post("/otp/request", otpRequestThrottle, async (req, res) => {
       [phone, hashOtp(code, salt), salt, sentAt + OTP_TTL_MS, sentAt],
     );
     return res.json({ ok: true, message: genericOtpMessage });
-  } catch {
+  } catch (error) {
+    console.warn("[auth:otp] request failed", { stage, ...safeOtpErrorDetails(error) });
+    if (stage === "otp_storage")
+      return bad(res, 500, "otp_store_failed", "ثبت کد ورود انجام نشد؛ کمی بعد دوباره تلاش کنید.");
     return bad(res, 502, "otp_send_failed", "ارسال کد پیامکی انجام نشد؛ کمی بعد دوباره تلاش کنید.");
   } finally {
     otpSendingPhones.delete(phone);
