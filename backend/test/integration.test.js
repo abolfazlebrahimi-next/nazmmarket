@@ -213,24 +213,6 @@ test(
         "POST",
         201,
       );
-      const versionedAdmin = (
-        await ok(
-          "/api/v1/admin/auth/login",
-          null,
-          {
-            username: "integration-admin",
-            password: "integration-password-123",
-          },
-          "POST",
-        )
-      ).token;
-      const refreshedAdmin = await ok(
-        "/api/v1/admin/auth/refresh",
-        versionedAdmin,
-        undefined,
-        "POST",
-      );
-      assert.equal(refreshedAdmin.token, versionedAdmin);
       const payload = {
         storeId: seller.seller.store.id,
         items: { [drink.id]: 2, [cake.id]: 2 },

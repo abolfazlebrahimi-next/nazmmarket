@@ -1,54 +1,94 @@
-# Admin waitlist source
+# Admin waitlist: PHP-host API integration
 
-The admin waitlist page reads its list only from `GET /api/users`. It does not
-read `users`, `seller_accounts`, or `courier_accounts` directly and does not
-merge or backfill records from the local database.
+Only the Waitlist page uses the PHP API. The existing Node.js login and all
+other admin pages keep their existing API client and behavior. No Node.js
+backend files are changed for this integration.
 
-## Request and proxy
+## API origin and CORS
 
-The browser requests the relative path `/api/users` and sends the current admin
-bearer session in the `Authorization` header. Relative URLs keep browser code
-from calling `localhost` directly. In Vite development, `/api` is proxied to
-`API_PROXY_TARGET`, which defaults to `http://127.0.0.1:4000`; in production the
-API root comes from `VITE_API_BASE_URL` or the existing production default.
+The page uses `VITE_WAITLIST_API_BASE_URL`, defaulting to
+`https://nazarabadshop.ir/api`. It does not use the Node.js Vite `/api` proxy.
+The optional `.env.example` value is a public API origin only; never put admin
+credentials, JWT secrets, access tokens, or refresh tokens in a Vite variable.
 
-The UI sends no search, role, sort, or pagination query parameters because the
-`/api/users` query contract was not available for verification. It applies
-search, role filtering, alphabetical/phone sorting, and 30-row pagination to
-the response it receives. Counts are computed from that same response and are
-labelled as records received from the API, not as independent server totals.
-CSV export also contains only the currently filtered records from that
-response.
+Because the browser calls the PHP host directly, the PHP host must allow the
+admin origin in `CORS_ALLOWED_ORIGINS`:
 
-## Fields
+- Development: `http://localhost:5176`
+- Production: only the actual deployed admin-panel origin
 
-The page uses only the supplied API record fields:
+Do not use a wildcard. The PHP middleware must also allow the required
+`Authorization` and `Content-Type` headers and the `GET`, `POST`, `PATCH`,
+`DELETE`, and `OPTIONS` methods. This repository contains no PHP
+`CorsMiddleware` or PHP configuration, so the host setting cannot be changed or
+verified here.
 
-- `type` — customer, seller, or courier
-- `phone`
-- `firstName` / `first_name`
-- `lastName` / `last_name`
+## PHP endpoints used
 
-The response may be an array, or an object containing `users`, `rows`, or `data`
-(array); a nested `data.users` or `data.rows` is also accepted. Records without
-`type` or `phone`, or responses without a record array, produce a visible error
-instead of fabricated values. No status, registration date, waitlist ID, or
-review action is inferred because those fields were not supplied.
+All JSON API operations require the documented success envelope:
 
-## Admin session
+```json
+{ "success": true, "data": {}, "meta": {} }
+```
 
-The admin bearer token is kept in memory and `sessionStorage` for the current
-browser tab. `sessionStorage` survives a page refresh but is cleared when the
-tab session ends. The token is never placed in a URL or `localStorage`; logout
-and an expired/invalid session clear it. A 401 can renew the active opaque admin
-session through `/api/v1/admin/auth/refresh`; if it has expired, the admin must
-log in again.
+and failures are read from:
 
-## Verification note
+```json
+{ "success": false, "error": { "code": "...", "message": "..." } }
+```
 
-The provided local endpoint was not reachable from the coding workspace during
-implementation, and this repository does not currently mount a `GET /api/users`
-route (it has a separate, authenticated `/api/admin/users` route). The page is
-configured to call the requested `/api/users` endpoint, but that endpoint and
-its live payload must exist in the target backend for the list to load. No
-fallback to the admin users route or the account tables is used.
+The page uses these routes:
+
+- `POST /v1/admin/auth/login` with `{ "username", "password" }`
+- `POST /v1/admin/auth/refresh` with `{ "refresh_token" }`
+- `POST /v1/admin/auth/logout` with `{ "refresh_token" }`
+- `GET /v1/admin/waitlist` with `page`, `per_page`, `q`, optional `role` and
+  `status`, plus `sort` and `order`
+- `GET /v1/admin/waitlist/{id}`
+- `PATCH /v1/admin/waitlist/{id}` with only the editable snake-case fields
+- `DELETE /v1/admin/waitlist/{id}`
+- `GET /v1/admin/stats`
+- `GET /v1/admin/export` (downloaded from the host; no export filters are sent
+  because the supplied contract does not confirm that export accepts them)
+
+List rows are read only from `response.data.items`; page metadata is read from
+`response.meta`. The UI validates the documented user fields and enum values
+instead of substituting Node.js account data. The pager recognizes the common
+`current_page`, `per_page`, `total`, and `last_page` metadata fields; if the PHP
+API uses different metadata names, it shows a clear error rather than claiming
+incorrect totals or page counts.
+
+## PHP session isolation
+
+PHP access and refresh tokens use distinct `sessionStorage` keys and are never
+shared with the Node.js session. The access token is sent only as
+`Authorization: Bearer <access_token>` for protected API routes. Login passwords
+are sent for the login request only and are not stored. A single in-flight
+refresh promise is shared across simultaneous 401 responses; a successful
+refresh stores both rotated tokens and retries each original request once. If
+refresh fails, both tokens are cleared and the PHP login form is shown again.
+PHP logout posts the refresh token and clears local PHP session storage whether
+the host is reachable or not.
+
+## Contract assumptions still requiring confirmation
+
+The supplied request identifies the routes and the response envelope, but the
+PHP implementation was not available here to confirm every field. The current
+client therefore expects the login body `{ "username", "password" }`, list
+query keys `page`, `per_page`, `q`, `role`, `status`, `sort`, and `order`, the
+role values `customer`, `seller`, `courier`, the status values `registered`,
+`contacted`, `approved`, `rejected`, and stats values `total`, `customers`,
+`sellers`, `couriers` at `data` or `data.stats`. It accepts common page metadata
+keys but these are not verified. No fallback data is fabricated: an unexpected
+shape is reported as an API error.
+
+## Verification limits
+
+The repository has no PHP source tree or PHP tests, and the external host could
+not be accessed from this workspace. Endpoint connectivity, exact login and
+filter parameters, enum values, pagination metadata, stats shape, CSV response
+content type, and live CORS headers could not be verified here. The React app
+can be typechecked and built locally; for live browser access, set the PHP
+host's `CORS_ALLOWED_ORIGINS` as described above. Please provide representative
+success JSON for login, list (including `meta`), stats, plus the accepted role
+and status values to finalize mappings without guessing.

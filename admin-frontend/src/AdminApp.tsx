@@ -3,15 +3,6 @@ import { askConfirm } from "./confirm";
 import Promotions from "./Promotions";
 import Customers from "./Customers";
 import Waitlist from "./Waitlist";
-import {
-  adminV1Api,
-  api,
-  apiRoot,
-  adminToken,
-  expireAdminSession,
-  resetAdminExpiration,
-  setAdminToken,
-} from "./adminApi";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   LayoutDashboard,
@@ -78,7 +69,7 @@ const pageHints: Record<string, string> = {
   dashboard: "نمای کلی عملکرد امروز",
   orders: "پیگیری و مداخله در چرخهٔ سفارش",
   users: "مشتریان، شماره تماس و سابقهٔ خرید",
-  waitlist: "پیگیری ثبت‌نام‌های مشتریان، فروشندگان و پیک‌ها",
+  waitlist: "مدیریت ثبت‌نام‌های در انتظار از API هاست",
   promotions: "کدهای تخفیف سراسری و اختصاصی",
   products: "بانک مرکزی کالاها",
   stores: "تأیید و کنترل فروشگاه‌ها",
@@ -183,6 +174,80 @@ const labels: Record<string, string> = {
   status4: "در حال ارسال",
   status5: "سفارش تکمیل‌شده",
 };
+/* One expiry per dead session: the dashboard fires several requests at once and
+   each 401 would otherwise re-render the login card and log another failed
+   resource, which is what made the panel look broken. */
+let expiring = false;
+function expireAdminSession(message: string) {
+  setAdminToken(null);
+  if (expiring) return;
+  expiring = true;
+  window.dispatchEvent(new CustomEvent("admin-expired", { detail: message }));
+}
+/* نشست ادمین با بستن پنل نباید از بین برود؛ localStorage + مهاجرت از sessionStorage. */
+function adminToken(): string | null {
+  try {
+    const t = localStorage.getItem("naz_admin");
+    if (t) return t;
+    const legacy = sessionStorage.getItem("naz_admin");
+    if (legacy) {
+      localStorage.setItem("naz_admin", legacy);
+      sessionStorage.removeItem("naz_admin");
+      return legacy;
+    }
+    return null;
+  } catch {
+    return sessionStorage.getItem("naz_admin");
+  }
+}
+function setAdminToken(token: string | null) {
+  try {
+    if (token) localStorage.setItem("naz_admin", token);
+    else {
+      localStorage.removeItem("naz_admin");
+      sessionStorage.removeItem("naz_admin");
+    }
+  } catch {
+    if (token) sessionStorage.setItem("naz_admin", token);
+    else sessionStorage.removeItem("naz_admin");
+  }
+}
+/* A request sent without a token can only be answered with 401. Refusing it
+   here keeps the console clean and shows the login form instead. */
+async function api(path: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers);
+  if (init.body && !(init.body instanceof FormData))
+    headers.set("Content-Type", "application/json");
+  const token = adminToken();
+  if (!token && path !== "/login") {
+    const message = "برای دیدن این بخش، اول وارد حساب مدیر شوید.";
+    expireAdminSession(message);
+    throw new Error(message);
+  }
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  let res: Response;
+  try {
+    res = await fetch("/api/admin" + path, { ...init, headers });
+  } catch {
+    throw new Error("ارتباط با سرور مدیریت برقرار نشد؛ دوباره تلاش کنید.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = data?.error?.message;
+    if (res.status === 401 && path != "/login")
+      expireAdminSession(
+        typeof message === "string" && message.trim()
+          ? message
+          : "نشست مدیریت تمام شده است؛ دوباره وارد شوید.",
+      );
+    throw new Error(
+      typeof message === "string" && message.trim()
+        ? message
+        : "درخواست مدیریت انجام نشد؛ اطلاعات را بررسی و دوباره تلاش کنید.",
+    );
+  }
+  return data;
+}
 export default function AdminApp() {
   const [logged, setLogged] = useState(!!adminToken());
   const [page, setPage] = useState("dashboard"),
@@ -357,12 +422,12 @@ export default function AdminApp() {
             const b = new FormData(e.currentTarget);
             setBusy(true);
             try {
-              const r = await adminV1Api("/auth/login", {
+              const r = await api("/login", {
                 method: "POST",
                 body: JSON.stringify(Object.fromEntries(b)),
               });
               setAdminToken(r.token);
-              resetAdminExpiration();
+              expiring = false;
               setLogged(true);
               setError("");
             } catch (err) {
@@ -476,9 +541,9 @@ export default function AdminApp() {
           className="logout"
           onClick={async () => {
             try {
-              await adminV1Api("/auth/logout", { method: "POST" });
+              await api("/logout", { method: "POST" });
             } finally {
-              setAdminToken(null);
+              sessionStorage.removeItem("naz_admin");
               setLogged(false);
             }
           }}
@@ -645,7 +710,7 @@ export default function AdminApp() {
             </div>
           </>
         ) : page === "waitlist" ? (
-          <Waitlist api={apiRoot} />
+          <Waitlist />
         ) : page === "operations" ? (
           <Operations api={api} />
         ) : (
