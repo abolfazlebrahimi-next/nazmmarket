@@ -12,7 +12,8 @@ process.env.AUTH_OTP_HASH_KEY = "test-only-otp-hash-key-with-enough-length";
 
 const phone = "09123456789";
 const providerCode = "004271";
-let providerCodeResponse = providerCode;
+let providerResponsePayload = { code: providerCode, status: "sent" };
+let providerResponseStatus = 200;
 const user = {
   id: 7,
   phone,
@@ -83,8 +84,8 @@ db.transaction = async (work) => {
 globalThis.fetch = async (input, init) => {
   if (String(input).startsWith("https://console.melipayamak.com/")) {
     providerRequest = { url: String(input), body: JSON.parse(init.body) };
-    return new Response(JSON.stringify({ code: providerCodeResponse, status: "sent" }), {
-      status: 200,
+    return new Response(JSON.stringify(providerResponsePayload), {
+      status: providerResponseStatus,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -138,17 +139,42 @@ test("OTP verification rejects wrong codes, then creates a normal customer sessi
 });
 
 test("OTP request accepts a numeric code field from the provider", async () => {
-  providerCodeResponse = 731946;
+  providerResponsePayload = { code: 731946, status: "sent" };
   const request = await post("/api/auth/otp/request", { phone });
   assert.equal(request.status, 200);
 
   const response = await post("/api/auth/otp/verify", {
     phone,
-    code: String(providerCodeResponse),
+    code: "731946",
   });
   assert.equal(response.status, 200);
   assert.equal((await response.json()).user.phone, phone);
   assert.equal(otpRow, null);
+});
+
+test("provider diagnostics redact phone, OTP-like numbers, and endpoint token", async () => {
+  providerResponseStatus = 400;
+  providerResponsePayload = {
+    status: `invalid request for ${phone}; code 555666; token test-provider-key-not-real`,
+  };
+  const warnings = [];
+  const originalWarn = console.warn;
+  console.warn = (...args) => warnings.push(args);
+  try {
+    const response = await post("/api/auth/otp/request", { phone });
+    assert.equal(response.status, 502);
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  const diagnostic = JSON.stringify(warnings);
+  assert.match(diagnostic, /invalid request/);
+  assert.equal(diagnostic.includes(phone), false);
+  assert.equal(diagnostic.includes("555666"), false);
+  assert.equal(diagnostic.includes("test-provider-key-not-real"), false);
+  assert.match(diagnostic, /\[redacted\]/);
+  providerResponseStatus = 200;
+  providerResponsePayload = { code: providerCode, status: "sent" };
 });
 
 test.after(async () => {

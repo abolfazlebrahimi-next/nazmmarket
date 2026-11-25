@@ -40,8 +40,8 @@ with a 4–12 digit `code` (string or safe integer) as successful and does not
 interpret `status`. Confirm the actual response on a test phone before
 production and adjust the status check if the panel defines additional
 success/failure states. If sending returns HTTP 502, check the backend terminal
-for a sanitized `[auth:otp]` diagnostic; it never includes the OTP, phone, or
-provider token. If the panel requires enabling OTP sending, a template, or a
+for a sanitized `[auth:otp]` diagnostic. It includes a short, redacted preview
+of a string `status`, but never the OTP, phone, or provider token. If the panel requires enabling OTP sending, a template, or a
 sender line, enable that there; no provider credentials or panel settings
 belong in the frontend.
 

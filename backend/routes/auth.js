@@ -98,6 +98,22 @@ function safeOtpErrorDetails(error) {
   return { errorName, ...(errorCode ? { errorCode } : {}) };
 }
 
+function safeProviderStatus(status, endpoint, phone, code) {
+  if (typeof status !== "string") return undefined;
+  let safe = status.replace(/[\u0000-\u001f\u007f]/g, " ");
+  const pathToken = endpoint.pathname.split("/").filter(Boolean).at(-1) ?? "";
+  const sensitiveValues = [phone, code, pathToken];
+  try {
+    sensitiveValues.push(decodeURIComponent(pathToken));
+  } catch {
+    // Keep the encoded token candidate only.
+  }
+  for (const value of sensitiveValues)
+    if (typeof value === "string" && value.length >= 4)
+      safe = safe.replaceAll(value, "[redacted]");
+  return safe.replace(/[0-9۰-۹٠-٩]{4,12}/g, "[number]").trim().slice(0, 240);
+}
+
 router.post("/register", async (req, res) => {
   const phone = normalizePhone(req.body?.phone), password = String(req.body?.password ?? "");
   const firstName = sanitizeName(req.body?.firstName), lastName = sanitizeName(req.body?.lastName);
@@ -155,6 +171,7 @@ router.post("/otp/request", otpRequestThrottle, async (req, res) => {
         codeType: rawCode === undefined ? "missing" : rawCode === null ? "null" : typeof rawCode,
         codeLength: code.length,
         statusType: rawStatus === undefined ? "missing" : rawStatus === null ? "null" : typeof rawStatus,
+        statusPreview: safeProviderStatus(rawStatus, endpoint, phone, code),
       });
       return bad(res, 502, "otp_send_failed", "ارسال کد پیامکی انجام نشد؛ کمی بعد دوباره تلاش کنید.");
     }
