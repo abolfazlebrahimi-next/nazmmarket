@@ -7,6 +7,7 @@ import { ConfirmHost } from "./confirm";
 import "@fontsource-variable/vazirmatn";
 import "./style.css";
 import "./adminShell.css";
+import "./waitlist.css";
 import "../../shared/formValidation";
 
 createRoot(document.getElementById("root")!).render(

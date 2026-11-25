@@ -27,7 +27,7 @@ app.use((_req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
   next();
 });
-app.use("/api/admin", (_req, res, next) => {
+app.use(["/api/admin", "/api/v1/admin"], (_req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
 });
@@ -66,6 +66,9 @@ app.use(
     fallthrough: false,
   }),
 );
+// Versioned admin API for the independent control panel. Keep the existing
+// /api/admin mount intact so other current panel screens remain compatible.
+app.use("/api/v1/admin", adminRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/seller", sellerRoutes);
 app.use("/api/courier", courierRoutes);

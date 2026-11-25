@@ -156,18 +156,29 @@ test("invalid JSON gets a readable 400", async () => {
   assert.equal(res.status, 400);
   assert.ok((await res.json()).error.message);
 });
-test("admin has no default credentials", async () => {
-  assert.equal(
-    (
-      await request(
-        "/api/admin/login",
-        null,
-        { username: "admin", password: "admin" },
-        "POST",
-      )
-    ).status,
-    401,
-  );
+test("admin login stays disabled until server credentials are configured", async () => {
+  const previousUsername = process.env.ADMIN_USERNAME;
+  const previousHash = process.env.ADMIN_PASSWORD_HASH;
+  delete process.env.ADMIN_USERNAME;
+  delete process.env.ADMIN_PASSWORD_HASH;
+  try {
+    assert.equal(
+      (
+        await request(
+          "/api/admin/login",
+          null,
+          { username: "admin", password: "admin" },
+          "POST",
+        )
+      ).status,
+      503,
+    );
+  } finally {
+    if (previousUsername === undefined) delete process.env.ADMIN_USERNAME;
+    else process.env.ADMIN_USERNAME = previousUsername;
+    if (previousHash === undefined) delete process.env.ADMIN_PASSWORD_HASH;
+    else process.env.ADMIN_PASSWORD_HASH = previousHash;
+  }
 });
 test("private documents are never mounted as public static files", async () =>
   assert.notEqual(

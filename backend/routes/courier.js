@@ -106,10 +106,18 @@ router.post("/auth/register", async (req, res) => {
       "نام، شماره موبایل معتبر، رمز حداقل ۱۰ نویسه و وسیلهٔ موتورسیکلت الزامی است.",
     );
   try {
-    const result = await db.run(
-      "INSERT INTO courier_accounts (phone, password_hash, full_name, vehicle, active, created_at) VALUES (?, ?, ?, 'motorcycle', 0, ?)",
-      [phone, hashPassword(password), fullName, new Date().toISOString()],
-    );
+    const createdAt = new Date().toISOString();
+    const result = await db.transaction(async (tx) => {
+      const created = await tx.run(
+        "INSERT INTO courier_accounts (phone, password_hash, full_name, vehicle, active, created_at) VALUES (?, ?, ?, 'motorcycle', 0, ?)",
+        [phone, hashPassword(password), fullName, createdAt],
+      );
+      await tx.run(
+        "INSERT INTO admin_waitlist_entries (role,source_id,status,created_at) VALUES ('courier',?,'registered',?)",
+        [created.insertId, createdAt],
+      );
+      return created;
+    });
     return res.status(201).json({
       pendingApproval: true,
       message: "درخواست ثبت شد و پس از بررسی مدارک توسط مدیریت فعال می‌شود.",

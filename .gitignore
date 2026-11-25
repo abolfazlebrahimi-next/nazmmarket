@@ -5,6 +5,8 @@ backend/.env
 backend/.env.local
 .env
 .env.local
+**/.env
+**/.env.local
 backend/data-legacy/
 backend/uploads/
 *.log
