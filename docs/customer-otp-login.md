@@ -39,11 +39,13 @@ configuration, so the send handler currently treats an HTTP-success response
 with a 4–12 digit `code` (string or safe integer) as successful and does not
 interpret `status`. Confirm the actual response on a test phone before
 production and adjust the status check if the panel defines additional
-success/failure states. If sending returns HTTP 502, check the backend terminal
-for a sanitized `[auth:otp]` diagnostic. It includes a short, redacted preview
-of a string `status`, but never the OTP, phone, or provider token. If the panel requires enabling OTP sending, a template, or a
-sender line, enable that there; no provider credentials or panel settings
-belong in the frontend.
+success/failure states. For a missing SMS or HTTP 502, check the backend
+terminal for a sanitized `[auth:otp]` diagnostic. It reports whether sending
+was skipped (unknown customer or resend cooldown) or accepted by the provider,
+and includes a short, redacted preview of a string `status`; it never logs the
+OTP, phone, or provider token. If the panel requires enabling OTP sending, a
+template, or a sender line, enable that there; no provider credentials or panel
+settings belong in the frontend.
 
 ## Routes
 

@@ -136,13 +136,23 @@ router.post("/otp/request", otpRequestThrottle, async (req, res) => {
   const now = Date.now();
   await db.run("DELETE FROM auth_otps WHERE expires_at < ?", [now]);
   const user = await db.get("SELECT id FROM users WHERE phone = ?", [phone]);
-  if (!user) return res.json({ ok: true, message: genericOtpMessage });
+  if (!user) {
+    console.info("[auth:otp] request not sent", { reason: "customer_not_found" });
+    return res.json({ ok: true, message: genericOtpMessage });
+  }
 
   const previous = await db.get("SELECT sent_at FROM auth_otps WHERE phone = ?", [phone]);
-  if (previous && now - Number(previous.sent_at) < OTP_RESEND_MS)
+  if (previous && now - Number(previous.sent_at) < OTP_RESEND_MS) {
+    console.info("[auth:otp] request not sent", {
+      reason: "resend_cooldown",
+      remainingSeconds: Math.ceil((OTP_RESEND_MS - (now - Number(previous.sent_at))) / 1000),
+    });
     return res.json({ ok: true, message: genericOtpMessage });
-  if (otpSendingPhones.has(phone))
+  }
+  if (otpSendingPhones.has(phone)) {
+    console.info("[auth:otp] request not sent", { reason: "send_already_in_progress" });
     return res.json({ ok: true, message: genericOtpMessage });
+  }
 
   otpSendingPhones.add(phone);
   let stage = "provider_request";
@@ -185,6 +195,18 @@ router.post("/otp/request", otpRequestThrottle, async (req, res) => {
        ON DUPLICATE KEY UPDATE code_hash=VALUES(code_hash),salt=VALUES(salt),expires_at=VALUES(expires_at),sent_at=VALUES(sent_at),attempts=0`,
       [phone, hashOtp(code, salt), salt, sentAt + OTP_TTL_MS, sentAt],
     );
+    const rawCode = providerPayload && typeof providerPayload === "object"
+      ? providerPayload.code
+      : undefined;
+    const rawStatus = providerPayload && typeof providerPayload === "object"
+      ? providerPayload.status
+      : undefined;
+    console.info("[auth:otp] provider accepted OTP", {
+      httpStatus: providerResponse.status,
+      codeType: rawCode === undefined ? "missing" : rawCode === null ? "null" : typeof rawCode,
+      codeLength: code.length,
+      statusPreview: safeProviderStatus(rawStatus, endpoint, phone, code),
+    });
     return res.json({ ok: true, message: genericOtpMessage });
   } catch (error) {
     console.warn("[auth:otp] request failed", { stage, ...safeOtpErrorDetails(error) });
