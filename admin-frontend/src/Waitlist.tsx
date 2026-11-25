@@ -1,16 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  BadgeCheck,
   Bike,
-  CalendarDays,
-  PhoneCall,
   ChevronLeft,
   ChevronRight,
-  CircleX,
   ClipboardList,
-  Clock3,
   Download,
-  Eye,
   RefreshCw,
   Search,
   Store,
@@ -18,143 +12,124 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { formatJalali, toPersianDigits } from "../../shared/persianDate";
 
-type Role = "customer" | "seller" | "courier";
-type Status = "registered" | "contacted" | "approved" | "rejected";
-type WaitlistEntry = {
-  id: string;
-  role: Role;
+type RoleKey = "customer" | "seller" | "courier";
+type UserRecord = {
+  key: string;
+  type: string;
+  phone: string;
   firstName: string;
   lastName: string;
-  phone: string;
-  status: Status;
-  createdAt: string | null;
-  updatedAt: string | null;
 };
-type WaitlistStats = {
-  total: number;
-  customers: number;
-  sellers: number;
-  couriers: number;
-  newToday: number;
-  approved: number;
-  pendingReview: number;
-  contacted: number;
-  rejected: number;
-};
-type Api = (path: string, init?: RequestInit) => Promise<any>;
-type Download = (path: string) => Promise<{ blob: Blob; filename: string }>;
+type Api = (path: string, init?: RequestInit) => Promise<unknown>;
+type Props = { api: Api };
 
-type Props = { api: Api; download: Download };
-
-const ROLE_LABEL: Record<Role, string> = {
+const PAGE_SIZE = 30;
+const ROLE_LABEL: Record<RoleKey, string> = {
   customer: "مشتری",
   seller: "فروشنده",
   courier: "پیک",
 };
-const STATUS_LABEL: Record<Status, string> = {
-  registered: "ثبت‌نام جدید",
-  contacted: "تماس گرفته شده",
-  approved: "تأیید شده",
-  rejected: "رد شده",
-};
-const STATUS_OPTIONS: Array<[Status, string]> = [
-  ["registered", STATUS_LABEL.registered],
-  ["contacted", STATUS_LABEL.contacted],
-  ["approved", STATUS_LABEL.approved],
-  ["rejected", STATUS_LABEL.rejected],
-];
-const PAGE_SIZE = 30;
-
-const countLabel = (value: unknown) => {
-  if (value === null || value === undefined || value === "") return "—";
-  const number = Number(value);
-  return Number.isFinite(number)
-    ? toPersianDigits(number.toLocaleString("fa-IR"))
-    : "—";
-};
-const dateLabel = (value: string | null, withTime = false) => {
-  const formatted = formatJalali(value, withTime);
-  return formatted || "—";
-};
-const personName = (entry: WaitlistEntry) =>
-  [entry.firstName, entry.lastName].filter(Boolean).join(" ") || "—";
-
-function queryString({
-  page,
-  q,
-  role,
-  status,
-  sort,
-}: {
-  page?: number;
-  q: string;
-  role: string;
-  status: string;
-  sort: string;
-}) {
-  const params = new URLSearchParams({ q, role, status, sort });
-  if (page !== undefined) {
-    params.set("page", String(page));
-    params.set("size", String(PAGE_SIZE));
-  }
-  return params.toString();
+function roleKey(type: string): RoleKey | null {
+  const value = type.trim().toLocaleLowerCase();
+  if (value === "customer" || value === "مشتری") return "customer";
+  if (value === "seller" || value === "فروشنده" || value === "فرشنده") return "seller";
+  if (value === "courier" || value === "پیک") return "courier";
+  return null;
 }
 
-export default function Waitlist({ api, download }: Props) {
-  const [rows, setRows] = useState<WaitlistEntry[]>([]);
-  const [stats, setStats] = useState<WaitlistStats | null>(null);
-  const [total, setTotal] = useState<number | null>(null);
-  const [size, setSize] = useState(PAGE_SIZE);
-  const [page, setPage] = useState(1);
-  const [searchDraft, setSearchDraft] = useState("");
-  const [search, setSearch] = useState("");
+function roleLabel(type: string) {
+  const key = roleKey(type);
+  return key ? ROLE_LABEL[key] : type || "—";
+}
+
+function extractRecords(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    for (const key of ["users", "rows", "data"]) {
+      if (Array.isArray(record[key])) return record[key] as unknown[];
+    }
+    if (record.data && typeof record.data === "object") {
+      const nested = record.data as Record<string, unknown>;
+      for (const key of ["users", "rows"]) {
+        if (Array.isArray(nested[key])) return nested[key] as unknown[];
+      }
+    }
+  }
+  throw new Error("پاسخ /api/users شامل فهرست کاربران نیست.");
+}
+
+function textField(record: Record<string, unknown>, camel: string, snake: string) {
+  const value = record[camel] ?? record[snake];
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function normalizeRecords(payload: unknown): UserRecord[] {
+  return extractRecords(payload).map((value, index) => {
+    if (!value || typeof value !== "object")
+      throw new Error(`ساختار ردیف ${index + 1} در /api/users معتبر نیست.`);
+    const record = value as Record<string, unknown>;
+    if (record.type === null || record.type === undefined || record.phone === null || record.phone === undefined)
+      throw new Error(`فیلد نوع یا شماره تماس در ردیف ${index + 1} موجود نیست.`);
+    const type = String(record.type);
+    const phone = String(record.phone);
+    return {
+      key: `${String(record.id ?? "")}:${type}:${phone}:${index}`,
+      type,
+      phone,
+      firstName: textField(record, "firstName", "first_name"),
+      lastName: textField(record, "lastName", "last_name"),
+    };
+  });
+}
+
+function persianCount(value: number) {
+  return new Intl.NumberFormat("fa-IR").format(value);
+}
+
+function csvCell(value: string) {
+  let text = String(value ?? "");
+  if (/^[\u0000-\u0020]*[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+export default function Waitlist({ api }: Props) {
+  const [records, setRecords] = useState<UserRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [queryDraft, setQueryDraft] = useState("");
+  const [query, setQuery] = useState("");
   const [role, setRole] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [sort, setSort] = useState("newest");
-  const [loadingRows, setLoadingRows] = useState(true);
-  const [loadingStats, setLoadingStats] = useState(true);
-  const [exporting, setExporting] = useState(false);
+  const [sort, setSort] = useState("name-asc");
+  const [page, setPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [listError, setListError] = useState("");
-  const [exportError, setExportError] = useState("");
-  const [statsError, setStatsError] = useState("");
+  const [detail, setDetail] = useState<UserRecord | null>(null);
+  const [downloading, setDownloading] = useState(false);
   const [notice, setNotice] = useState("");
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const [detail, setDetail] = useState<WaitlistEntry | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState("");
-  const [statusDraft, setStatusDraft] = useState<Status | "">("");
-  const [savingStatus, setSavingStatus] = useState(false);
-  const detailRequest = useRef(0);
-  const activeFilterKey = `${search}\u0000${role}\u0000${status}\u0000${sort}`;
-  const lastFilterKey = useRef(activeFilterKey);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setSearch(searchDraft.trim()), 250);
+    const timer = window.setTimeout(() => setQuery(queryDraft.trim()), 200);
     return () => window.clearTimeout(timer);
-  }, [searchDraft]);
+  }, [queryDraft]);
 
   useEffect(() => {
     setPage(1);
-  }, [search, role, status, sort]);
+  }, [query, role, sort, records]);
 
   useEffect(() => {
     let live = true;
-    setLoadingStats(true);
-    setStatsError("");
-    api("/waitlist/stats")
-      .then((result) => {
-        if (!result?.stats || typeof result.stats !== "object")
-          throw new Error("ساختار پاسخ آمار لیست انتظار معتبر نیست.");
-        if (live) setStats(result.stats as WaitlistStats);
+    setLoading(true);
+    setError("");
+    api("/users")
+      .then((payload) => {
+        if (live) setRecords(normalizeRecords(payload));
       })
-      .catch((error) => {
-        if (live) setStatsError((error as Error).message);
+      .catch((reason) => {
+        if (live) setError((reason as Error).message);
       })
       .finally(() => {
-        if (live) setLoadingStats(false);
+        if (live) setLoading(false);
       });
     return () => {
       live = false;
@@ -162,186 +137,111 @@ export default function Waitlist({ api, download }: Props) {
   }, [api, refreshKey]);
 
   useEffect(() => {
-    let live = true;
-    setLoadingRows(true);
-    setListError("");
-    if (lastFilterKey.current !== activeFilterKey) {
-      lastFilterKey.current = activeFilterKey;
-      setRows([]);
-      setTotal(null);
-    }
-    const params = queryString({ page, q: search, role, status, sort });
-    api(`/waitlist?${params}`)
-      .then((result) => {
-        if (!Array.isArray(result?.rows) || !Number.isFinite(Number(result?.total)))
-          throw new Error("ساختار پاسخ فهرست ثبت‌نام‌ها معتبر نیست.");
-        if (!live) return;
-        setRows(result.rows as WaitlistEntry[]);
-        setTotal(Number(result.total));
-        setSize(Number(result.size) > 0 ? Number(result.size) : PAGE_SIZE);
-      })
-      .catch((error) => {
-        if (live) setListError((error as Error).message);
-      })
-      .finally(() => {
-        if (live) setLoadingRows(false);
-      });
-    return () => {
-      live = false;
-    };
-  }, [api, page, search, role, status, sort, activeFilterKey, refreshKey]);
-
-  useEffect(() => {
-    if (!detailId) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeDetail();
+      if (event.key === "Escape") setDetail(null);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [detailId]);
+  }, []);
 
-  const pageCount = Math.max(1, Math.ceil((total ?? 0) / size));
-  const firstResult = total ? (page - 1) * size + 1 : 0;
-  const lastResult = Math.min(page * size, total ?? 0);
+  const visibleRecords = useMemo(() => {
+    const normalizedQuery = query.toLocaleLowerCase();
+    const filtered = records.filter((record) => {
+      const roleMatch = role === "all" || roleKey(record.type) === role;
+      const searchMatch = !normalizedQuery ||
+        [record.firstName, record.lastName, record.phone, roleLabel(record.type)]
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(normalizedQuery);
+      return roleMatch && searchMatch;
+    });
+    return filtered.sort((a, b) => {
+      if (sort === "phone-asc") return a.phone.localeCompare(b.phone, "fa");
+      if (sort === "phone-desc") return b.phone.localeCompare(a.phone, "fa");
+      const aName = `${a.firstName} ${a.lastName}`.trim();
+      const bName = `${b.firstName} ${b.lastName}`.trim();
+      const result = aName.localeCompare(bName, "fa");
+      return sort === "name-desc" ? -result : result;
+    });
+  }, [records, query, role, sort]);
 
-  const statCards = useMemo(
-    () =>
-      [
-        ["total", "کل ثبت‌نام‌شدگان", Users],
-        ["customers", "مشتریان", UserPlus],
-        ["sellers", "فروشندگان", Store],
-        ["couriers", "پیک‌ها", Bike],
-        ["newToday", "ثبت‌نام‌های امروز", CalendarDays],
-        ["approved", "افراد تأییدشده", BadgeCheck],
-        ["pendingReview", "در انتظار بررسی", Clock3],
-        ["contacted", "تماس گرفته شده", PhoneCall],
-        ["rejected", "افراد ردشده", CircleX],
-      ] as const,
-    [],
+  const stats = useMemo(
+    () => ({
+      total: records.length,
+      customers: records.filter((record) => roleKey(record.type) === "customer").length,
+      sellers: records.filter((record) => roleKey(record.type) === "seller").length,
+      couriers: records.filter((record) => roleKey(record.type) === "courier").length,
+    }),
+    [records],
   );
+  const pageCount = Math.max(1, Math.ceil(visibleRecords.length / PAGE_SIZE));
+  const first = visibleRecords.length ? (page - 1) * PAGE_SIZE + 1 : 0;
+  const last = Math.min(page * PAGE_SIZE, visibleRecords.length);
+  const pageRecords = visibleRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  function closeDetail() {
-    detailRequest.current += 1;
-    setDetailId(null);
-    setDetail(null);
-    setDetailError("");
-    setStatusDraft("");
-  }
-
-  async function showDetails(row: WaitlistEntry) {
-    const requestId = ++detailRequest.current;
-    setDetailId(row.id);
-    setDetail(null);
-    setDetailLoading(true);
-    setDetailError("");
-    try {
-      const result = await api(`/waitlist/${encodeURIComponent(row.id)}`);
-      if (!result?.entry) throw new Error("جزئیات این ثبت‌نام در پاسخ سرور نیست.");
-      if (requestId !== detailRequest.current) return;
-      setDetail(result.entry as WaitlistEntry);
-      setStatusDraft(result.entry.status as Status);
-    } catch (error) {
-      if (requestId === detailRequest.current)
-        setDetailError((error as Error).message);
-    } finally {
-      if (requestId === detailRequest.current) setDetailLoading(false);
-    }
-  }
-
-  async function saveStatus() {
-    if (!detail || !statusDraft || statusDraft === detail.status) return;
-    setSavingStatus(true);
-    setDetailError("");
-    try {
-      const result = await api(`/waitlist/${encodeURIComponent(detail.id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: statusDraft }),
-      });
-      if (!result?.entry) throw new Error("سرور وضعیت به‌روزشده را برنگرداند.");
-      setDetail(result.entry as WaitlistEntry);
-      setStatusDraft(result.entry.status as Status);
-      setNotice("وضعیت ثبت‌نام به‌روزرسانی شد.");
-      setRefreshKey((key) => key + 1);
-    } catch (error) {
-      setDetailError((error as Error).message);
-    } finally {
-      setSavingStatus(false);
-    }
-  }
-
-  async function exportCsv() {
-    setExporting(true);
+  function exportCsv() {
+    setDownloading(true);
     setNotice("");
-    setExportError("");
     try {
-      const params = queryString({ q: search, role, status, sort });
-      const file = await download(`/waitlist/export?${params}`);
-      const url = URL.createObjectURL(file.blob);
+      const header = ["نوع", "نام", "نام خانوادگی", "شماره تماس"];
+      const lines = [
+        header.map(csvCell).join(","),
+        ...visibleRecords.map((record) =>
+          [roleLabel(record.type), record.firstName, record.lastName, record.phone]
+            .map(csvCell)
+            .join(","),
+        ),
+      ];
+      const blob = new Blob(["\uFEFF", lines.join("\r\n")], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = file.filename || "nazarabadshop-waitlist.csv";
+      link.download = "waitlist-users.csv";
       link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-      setNotice("خروجی CSV بر اساس فیلترهای انتخاب‌شده دانلود شد.");
-    } catch (error) {
-      setExportError((error as Error).message);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setNotice("خروجی CSV از داده‌های دریافتی از API آماده شد.");
     } finally {
-      setExporting(false);
+      setDownloading(false);
     }
   }
 
-  const statsValue = (key: keyof WaitlistStats) => {
-    if (loadingStats && !stats) return <i className="waitlist-skeleton" aria-hidden="true" />;
-    return countLabel(stats?.[key]);
-  };
+  const statCards = [
+    ["total", "تعداد دریافتی از API", Users],
+    ["customers", "مشتریان", UserPlus],
+    ["sellers", "فروشندگان", Store],
+    ["couriers", "پیک‌ها", Bike],
+  ] as const;
 
   return (
     <div className="waitlist-page">
-      <section className="waitlist-stat-grid" aria-label="آمار لیست انتظار">
+      <section className="waitlist-stat-grid" aria-label="آمار داده‌های دریافتی از API کاربران">
         {statCards.map(([key, title, Icon]) => (
           <article className="waitlist-stat-card" key={key}>
-            <span className="waitlist-stat-icon">
-              <Icon size={18} />
-            </span>
+            <span className="waitlist-stat-icon"><Icon size={18} /></span>
             <div>
               <span className="waitlist-stat-title">{title}</span>
-              <strong>{statsValue(key)}</strong>
+              <strong>
+                {loading && !records.length ? <i className="waitlist-skeleton" aria-hidden="true" /> : persianCount(stats[key])}
+              </strong>
             </div>
           </article>
         ))}
       </section>
-      {statsError && (
-        <p className="alert error" role="alert">
-          دریافت آمار ناموفق بود: {statsError}
-        </p>
-      )}
 
       <section className="panel directory waitlist-directory">
         <header className="panel-head waitlist-panel-head">
           <div>
-            <h2>
-              <ClipboardList size={18} /> ثبت‌نام‌ها
-              <span>{total === null ? "—" : `${countLabel(total)} نتیجه`}</span>
-            </h2>
-            <p className="waitlist-caption">
-              جست‌وجو و فیلتر روی سرور انجام می‌شود؛ مبنای «امروز» UTC است و آخرین ویرایش مربوط به وضعیت پیگیری است، نه پروفایل منبع.
-            </p>
+            <h2><ClipboardList size={18} /> لیست انتظار <span>{persianCount(visibleRecords.length)} نتیجه</span></h2>
+            <p className="waitlist-caption">منبع داده: GET /api/users؛ جست‌وجو و فیلتر روی پاسخ همین API انجام می‌شود.</p>
           </div>
           <div className="waitlist-actions">
-            <button
-              type="button"
-              onClick={() => setRefreshKey((key) => key + 1)}
-              disabled={loadingRows || loadingStats}
-            >
-              <RefreshCw
-                size={15}
-                className={loadingRows || loadingStats ? "spin" : ""}
-              />
-              بارگذاری مجدد
+            <button type="button" onClick={() => setRefreshKey((value) => value + 1)} disabled={loading}>
+              <RefreshCw size={15} className={loading ? "spin" : ""} /> بارگذاری مجدد
             </button>
-            <button type="button" onClick={() => void exportCsv()} disabled={exporting}>
-              <Download size={15} className={exporting ? "spin" : ""} />
-              {exporting ? "در حال آماده‌سازی…" : "خروجی CSV"}
+            <button type="button" onClick={exportCsv} disabled={downloading || !visibleRecords.length}>
+              <Download size={15} /> {downloading ? "در حال آماده‌سازی…" : "خروجی CSV"}
             </button>
           </div>
         </header>
@@ -351,271 +251,80 @@ export default function Waitlist({ api, download }: Props) {
             <Search size={16} />
             <input
               type="search"
-              value={searchDraft}
-              aria-label="جست‌وجو در نام و شماره موبایل"
-              placeholder="نام، نام خانوادگی یا شماره موبایل…"
-              onChange={(event) => setSearchDraft(event.target.value)}
+              value={queryDraft}
+              aria-label="جست‌وجو در نام و شماره تماس"
+              placeholder="نام یا شماره تماس…"
+              onChange={(event) => setQueryDraft(event.target.value)}
             />
           </label>
           <label className="waitlist-filter">
-            <span>نقش</span>
+            <span>نوع کاربر</span>
             <select value={role} onChange={(event) => setRole(event.target.value)}>
-              <option value="all">همهٔ نقش‌ها</option>
+              <option value="all">همهٔ انواع</option>
               <option value="customer">مشتری</option>
               <option value="seller">فروشنده</option>
               <option value="courier">پیک</option>
             </select>
           </label>
           <label className="waitlist-filter">
-            <span>وضعیت ثبت‌نام</span>
-            <select value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option value="all">همهٔ وضعیت‌ها</option>
-              {STATUS_OPTIONS.map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="waitlist-filter">
-            <span>تاریخ ثبت‌نام</span>
+            <span>مرتب‌سازی</span>
             <select value={sort} onChange={(event) => setSort(event.target.value)}>
-              <option value="newest">جدیدترین ابتدا</option>
-              <option value="oldest">قدیمی‌ترین ابتدا</option>
+              <option value="name-asc">نام، الف تا ی</option>
+              <option value="name-desc">نام، ی تا الف</option>
+              <option value="phone-asc">شماره تماس، صعودی</option>
+              <option value="phone-desc">شماره تماس، نزولی</option>
             </select>
           </label>
         </div>
 
-        {notice && (
-          <p className="waitlist-notice" role="status">
-            {notice}
-            <button type="button" aria-label="بستن پیام" onClick={() => setNotice("")}>
-              <X size={15} />
-            </button>
-          </p>
-        )}
-        {listError && (
-          <p className="alert error waitlist-error" role="alert">
-            دریافت اطلاعات لیست انتظار ناموفق بود: {listError}
-          </p>
-        )}
-        {exportError && (
-          <p className="alert error waitlist-error" role="alert">
-            دانلود خروجی CSV ناموفق بود: {exportError}
-          </p>
-        )}
-        {loadingRows && rows.length > 0 && (
-          <p className="waitlist-loading-note" role="status">
-            <RefreshCw size={14} className="spin" /> در حال به‌روزرسانی فهرست…
-          </p>
-        )}
+        {notice && <p className="waitlist-notice" role="status">{notice}<button type="button" onClick={() => setNotice("")} aria-label="بستن پیام"><X size={15} /></button></p>}
+        {error && <div className="alert error waitlist-error" role="alert">دریافت فهرست از <code>/api/users</code> ناموفق بود: {error}</div>}
+        {loading && records.length > 0 && <p className="waitlist-loading-note" role="status"><RefreshCw size={14} className="spin" /> در حال دریافت دوبارهٔ فهرست…</p>}
 
-        <div className="table-scroll waitlist-table-scroll" aria-busy={loadingRows}>
+        <div className="table-scroll waitlist-table-scroll" aria-busy={loading}>
           <table className="waitlist-table">
-            <thead>
-              <tr>
-                <th>شناسه</th>
-                <th>نام</th>
-                <th>نام خانوادگی</th>
-                <th>شماره موبایل</th>
-                <th>نقش</th>
-                <th>وضعیت</th>
-                <th>تاریخ ثبت‌نام</th>
-                <th>آخرین ویرایش وضعیت</th>
-                <th>عملیات</th>
-              </tr>
-            </thead>
+            <thead><tr><th>نوع</th><th>نام</th><th>نام خانوادگی</th><th>شماره تماس</th><th>جزئیات</th></tr></thead>
             <tbody>
-              {rows.map((entry) => (
-                <tr key={entry.id}>
-                  <td className="waitlist-id-cell">
-                    <button type="button" onClick={() => void showDetails(entry)}>
-                      {toPersianDigits(entry.id)}
-                    </button>
-                  </td>
-                  <td>{entry.firstName || "—"}</td>
-                  <td>{entry.lastName || "—"}</td>
-                  <td dir="ltr" className="mono waitlist-phone">
-                    {entry.phone || "—"}
-                  </td>
-                  <td>
-                    <span className={`waitlist-role role-${entry.role}`}>
-                      {ROLE_LABEL[entry.role] ?? "—"}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`badge waitlist-status status-${entry.status}`}>
-                      {STATUS_LABEL[entry.status] ?? "—"}
-                    </span>
-                  </td>
-                  <td className="date-cell">{dateLabel(entry.createdAt, true)}</td>
-                  <td className="date-cell">{dateLabel(entry.updatedAt, true)}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="waitlist-view-button"
-                      onClick={() => void showDetails(entry)}
-                      aria-label={`مشاهده جزئیات ثبت‌نام ${entry.id}`}
-                    >
-                      <Eye size={15} /> مشاهده
-                    </button>
-                  </td>
+              {pageRecords.map((record) => (
+                <tr key={record.key}>
+                  <td><span className={`waitlist-role role-${roleKey(record.type) ?? "other"}`}>{roleLabel(record.type)}</span></td>
+                  <td>{record.firstName || "—"}</td>
+                  <td>{record.lastName || "—"}</td>
+                  <td dir="ltr" className="mono waitlist-phone">{record.phone}</td>
+                  <td><button type="button" className="waitlist-view-button" onClick={() => setDetail(record)}>مشاهده</button></td>
                 </tr>
               ))}
-              {loadingRows && rows.length === 0 && (
-                <tr>
-                  <td colSpan={9}>
-                    <p className="loading waitlist-initial-loading">
-                      <RefreshCw size={16} className="spin" /> در حال دریافت ثبت‌نام‌ها از سرور…
-                    </p>
-                  </td>
-                </tr>
-              )}
-              {!loadingRows && !listError && rows.length === 0 && (
-                <tr>
-                  <td colSpan={9}>
-                    <div className="empty waitlist-empty">
-                      <UserPlus size={28} />
-                      <h3>ثبت‌نامی پیدا نشد</h3>
-                      <p>عبارت جست‌وجو یا فیلترهای انتخاب‌شده را تغییر دهید.</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
+              {loading && records.length === 0 && <tr><td colSpan={5}><p className="loading waitlist-initial-loading"><RefreshCw size={16} className="spin" /> در حال دریافت از /api/users…</p></td></tr>}
+              {!loading && !error && pageRecords.length === 0 && <tr><td colSpan={5}><div className="empty waitlist-empty"><UserPlus size={28} /><h3>موردی پیدا نشد</h3><p>عبارت جست‌وجو یا نوع انتخاب‌شده را تغییر دهید.</p></div></td></tr>}
             </tbody>
           </table>
         </div>
 
         <footer className="pager waitlist-pager">
-          <span>
-            نمایش {countLabel(firstResult)} تا {countLabel(lastResult)} از {countLabel(total)} نتیجه
-          </span>
+          <span>نمایش {persianCount(first)} تا {persianCount(last)} از {persianCount(visibleRecords.length)} نتیجهٔ دریافتی از API</span>
           <div>
-            <button
-              type="button"
-              disabled={page <= 1 || loadingRows}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-            >
-              <ChevronRight size={16} /> قبلی
-            </button>
-            <b>
-              صفحه {countLabel(page)} از {countLabel(pageCount)}
-            </b>
-            <button
-              type="button"
-              disabled={page >= pageCount || loadingRows}
-              onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
-            >
-              بعدی <ChevronLeft size={16} />
-            </button>
+            <button type="button" disabled={page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))}><ChevronRight size={16} /> قبلی</button>
+            <b>صفحه {persianCount(page)} از {persianCount(pageCount)}</b>
+            <button type="button" disabled={page >= pageCount || loading} onClick={() => setPage((value) => Math.min(pageCount, value + 1))}>بعدی <ChevronLeft size={16} /></button>
           </div>
         </footer>
       </section>
 
-      {detailId !== null && (
-        <div
-          className="modal-backdrop waitlist-modal-backdrop"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) closeDetail();
-          }}
-        >
+      {detail && (
+        <div className="modal-backdrop waitlist-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setDetail(null); }}>
           <section className="modal modal-wide waitlist-detail-modal" role="dialog" aria-modal="true" aria-labelledby="waitlist-detail-title">
             <header>
-              <div>
-                <p className="eyebrow">جزئیات ثبت‌نام</p>
-                <h2 id="waitlist-detail-title">
-                  {detail ? personName(detail) : "در حال دریافت اطلاعات"}
-                </h2>
-              </div>
-              <button type="button" onClick={closeDetail} aria-label="بستن جزئیات">
-                <X size={18} />
-              </button>
+              <div><p className="eyebrow">جزئیات دریافتی از API</p><h2 id="waitlist-detail-title">{[detail.firstName, detail.lastName].filter(Boolean).join(" ") || "نام ثبت نشده"}</h2></div>
+              <button type="button" onClick={() => setDetail(null)} aria-label="بستن جزئیات"><X size={18} /></button>
             </header>
-            {detailLoading && <p className="loading">در حال دریافت جزئیات از API…</p>}
-            {detailError && (
-              <p className="alert error" role="alert">
-                {detailError}
-              </p>
-            )}
-            {detail && (
-              <>
-                <dl className="waitlist-detail-grid">
-                  <div>
-                    <dt>شناسه کاربر</dt>
-                    <dd>{toPersianDigits(detail.id)}</dd>
-                  </div>
-                  <div>
-                    <dt>نام</dt>
-                    <dd>{detail.firstName || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>نام خانوادگی</dt>
-                    <dd>{detail.lastName || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>شماره موبایل</dt>
-                    <dd dir="ltr" className="mono">{detail.phone || "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>نقش</dt>
-                    <dd>{ROLE_LABEL[detail.role] ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt>وضعیت ثبت‌نام</dt>
-                    <dd>
-                      <span className={`badge waitlist-status status-${detail.status}`}>
-                        {STATUS_LABEL[detail.status] ?? "—"}
-                      </span>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>تاریخ ایجاد</dt>
-                    <dd>{dateLabel(detail.createdAt, true)}</dd>
-                  </div>
-                  <div>
-                    <dt>آخرین ویرایش وضعیت</dt>
-                    <dd>{dateLabel(detail.updatedAt, true)}</dd>
-                  </div>
-                </dl>
-                <div className="waitlist-status-editor">
-                  <label>
-                    <span>تغییر وضعیت پیگیری</span>
-                    <select
-                      value={statusDraft}
-                      disabled={savingStatus || detailLoading}
-                      onChange={(event) => setStatusDraft(event.target.value as Status)}
-                    >
-                      {STATUS_OPTIONS.map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <p>
-                    این وضعیت در لیست انتظار ذخیره می‌شود و جایگزین وضعیت احراز هویت حساب پیک یا فروشنده نیست.
-                  </p>
-                </div>
-                <div className="modal-actions">
-                  <button type="button" onClick={closeDetail}>
-                    بستن
-                  </button>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={
-                      savingStatus ||
-                      detailLoading ||
-                      !statusDraft ||
-                      statusDraft === detail.status
-                    }
-                    onClick={() => void saveStatus()}
-                  >
-                    {savingStatus ? "در حال ذخیره…" : "ذخیره وضعیت"}
-                  </button>
-                </div>
-              </>
-            )}
+            <dl className="waitlist-detail-grid">
+              <div><dt>نوع</dt><dd>{roleLabel(detail.type)}</dd></div>
+              <div><dt>نام</dt><dd>{detail.firstName || "—"}</dd></div>
+              <div><dt>نام خانوادگی</dt><dd>{detail.lastName || "—"}</dd></div>
+              <div><dt>شماره تماس</dt><dd dir="ltr" className="mono">{detail.phone}</dd></div>
+            </dl>
+            <p className="waitlist-detail-note">این جزئیات فقط از فیلدهای موجود در پاسخ /api/users نمایش داده می‌شوند.</p>
+            <div className="modal-actions"><button type="button" onClick={() => setDetail(null)}>بستن</button></div>
           </section>
         </div>
       )}

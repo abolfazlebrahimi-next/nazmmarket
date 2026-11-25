@@ -124,17 +124,6 @@ export async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS wallet_transactions (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, order_id VARCHAR(40) NULL, kind VARCHAR(32) NOT NULL, amount BIGINT NOT NULL, note VARCHAR(255) NOT NULL DEFAULT '', created_at VARCHAR(32) NOT NULL, KEY idx_wallet_tx_user (user_id,id), UNIQUE KEY uq_wallet_tx_order_kind (order_id,kind)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS admin_sessions (token CHAR(64) PRIMARY KEY, expires_at VARCHAR(32) NOT NULL) ENGINE=InnoDB`,
-    `CREATE TABLE IF NOT EXISTS admin_waitlist_entries (
-      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      role VARCHAR(20) NOT NULL,
-      source_id BIGINT UNSIGNED NOT NULL,
-      status VARCHAR(20) NOT NULL DEFAULT 'registered',
-      created_at VARCHAR(32) NOT NULL,
-      updated_at VARCHAR(32) NULL,
-      UNIQUE KEY uq_admin_waitlist_source (role,source_id),
-      KEY idx_admin_waitlist_status_created (status,created_at),
-      KEY idx_admin_waitlist_role_created (role,created_at)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS master_products (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, name VARCHAR(180) NOT NULL, category VARCHAR(80) NOT NULL, unit VARCHAR(120) NOT NULL DEFAULT '', image_url VARCHAR(512) NOT NULL, active TINYINT NOT NULL DEFAULT 1) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS users (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -279,30 +268,6 @@ export async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   ];
   for (const sql of schema) await db.run(sql);
-
-  // One-time waitlist backfill from the real account tables. Future registrations
-  // add their waitlist rows in the same transaction as account creation, so list
-  // and stats requests do not scan the entire user directory.
-  await db.transaction(async (tx) => {
-    const marker = await tx.run(
-      "INSERT IGNORE INTO schema_migrations (migration_key,applied_at) VALUES (?,?)",
-      ["admin-waitlist-backfill-v1", new Date().toISOString()],
-    );
-    if (marker.affectedRows) {
-      await tx.run(
-        `INSERT IGNORE INTO admin_waitlist_entries (role,source_id,status,created_at)
-         SELECT 'customer',id,'registered',created_at FROM users`,
-      );
-      await tx.run(
-        `INSERT IGNORE INTO admin_waitlist_entries (role,source_id,status,created_at)
-         SELECT 'seller',id,'registered',created_at FROM seller_accounts`,
-      );
-      await tx.run(
-        `INSERT IGNORE INTO admin_waitlist_entries (role,source_id,status,created_at)
-         SELECT 'courier',id,'registered',created_at FROM courier_accounts`,
-      );
-    }
-  });
 
   // The previous app used status 3 for completed orders; preserve those records as completed before reusing 3 for courier handoff.
   await db.transaction(async (tx) => {

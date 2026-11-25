@@ -209,12 +209,8 @@ async function registerSeller(req, res, next) {
           createdAt,
         ],
       );
-      const sellerId = Number(sellerResult.insertId);
-      await tx.run(
-        "INSERT INTO admin_waitlist_entries (role,source_id,status,created_at) VALUES ('seller',?,'registered',?)",
-        [sellerId, createdAt],
-      );
-      const storeId = await allocateId(tx, "store");
+      const sellerId = Number(sellerResult.insertId),
+        storeId = await allocateId(tx, "store");
       const type = category === "hypermarket" ? "hypermarket" : "supermarket";
       await tx.run(
         `INSERT INTO stores (id, name, type, pro, is_new, rating, minutes, fee, area, tags, off_text, gradient, initial, min_basket,

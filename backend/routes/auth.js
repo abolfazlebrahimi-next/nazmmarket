@@ -11,18 +11,10 @@ router.post("/register", async (req, res) => {
   if (!isValidPhone(phone)) return bad(res, 400, "invalid_phone", "شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.");
   if (password.length < 6) return bad(res, 400, "weak_password", "رمز عبور باید حداقل ۶ کاراکتر باشد.");
   if (await db.get("SELECT id FROM users WHERE phone = ?", [phone])) return bad(res, 409, "phone_taken", "این شماره قبلاً ثبت‌نام کرده است. وارد شوید.");
-  const createdAt = new Date().toISOString();
-  const info = await db.transaction(async (tx) => {
-    const created = await tx.run(
-      "INSERT INTO users (phone, password_hash, first_name, last_name, created_at) VALUES (?, ?, ?, ?, ?)",
-      [phone, hashPassword(password), firstName, lastName, createdAt],
-    );
-    await tx.run(
-      "INSERT INTO admin_waitlist_entries (role,source_id,status,created_at) VALUES ('customer',?,'registered',?)",
-      [created.insertId, createdAt],
-    );
-    return created;
-  });
+  const info = await db.run(
+    "INSERT INTO users (phone, password_hash, first_name, last_name, created_at) VALUES (?, ?, ?, ?, ?)",
+    [phone, hashPassword(password), firstName, lastName, new Date().toISOString()],
+  );
   const userId = Number(info.insertId), token = await createSession(userId);
   res.status(201).json({ token, user: mapUser(await db.get("SELECT * FROM users WHERE id = ?", [userId])), addresses: [] });
 });

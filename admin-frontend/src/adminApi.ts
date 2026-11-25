@@ -3,26 +3,31 @@ const API_BASE_URL = (
   (import.meta.env.DEV ? "/api" : "https://nazarabadshop.ir/api")
 ).replace(/\/+$/, "");
 
-type ApiScope = "legacy" | "v1";
-type DownloadResult = { blob: Blob; filename: string };
+type ApiScope = "legacy" | "v1" | "root";
 
 let expiring = false;
 let refreshRequest: Promise<string | null> | null = null;
-let memoryToken: string | null = null;
 
-function clearPersistedAdminToken() {
-  if (typeof window === "undefined") return;
+function readSessionToken() {
+  if (typeof window === "undefined") return null;
   try {
-    localStorage.removeItem("naz_admin");
-    sessionStorage.removeItem("naz_admin");
+    return window.sessionStorage.getItem("naz_admin");
   } catch {
-    // Storage may be disabled; this client never writes tokens to it.
+    return null;
   }
 }
 
-// Older panel versions persisted this bearer token in Web Storage. Remove that
-// copy and keep new access tokens in memory only; a page reload requires login.
-clearPersistedAdminToken();
+let memoryToken: string | null = readSessionToken();
+
+// Migrate away from the old, longer-lived localStorage copy. Session storage
+// survives a page refresh in this tab, but is cleared when the tab session ends.
+if (typeof window !== "undefined") {
+  try {
+    window.localStorage.removeItem("naz_admin");
+  } catch {
+    // Storage may be disabled; this client still works in memory for this load.
+  }
+}
 
 export function adminToken(): string | null {
   return memoryToken;
@@ -30,7 +35,18 @@ export function adminToken(): string | null {
 
 export function setAdminToken(token: string | null) {
   memoryToken = token;
-  clearPersistedAdminToken();
+  if (typeof window === "undefined") return;
+  try {
+    if (token) window.sessionStorage.setItem("naz_admin", token);
+    else window.sessionStorage.removeItem("naz_admin");
+  } catch {
+    // If session storage is blocked, the token remains available until reload.
+  }
+  try {
+    window.localStorage.removeItem("naz_admin");
+  } catch {
+    // Never depend on localStorage for the admin session.
+  }
 }
 
 export function resetAdminExpiration() {
@@ -46,7 +62,7 @@ export function expireAdminSession(message: string) {
 }
 
 function endpoint(scope: ApiScope, path: string) {
-  const prefix = scope === "legacy" ? "/admin" : "/v1/admin";
+  const prefix = scope === "legacy" ? "/admin" : scope === "v1" ? "/v1/admin" : "";
   return `${API_BASE_URL}${prefix}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
@@ -117,8 +133,7 @@ async function authorizedResponse(
   }
 
   const url = endpoint(scope, path);
-  const send = (bearer: string | null) =>
-    fetch(url, withToken(init, bearer));
+  const send = (bearer: string | null) => fetch(url, withToken(init, bearer));
   let response: Response;
   try {
     response = await send(token);
@@ -165,23 +180,12 @@ export function api(path: string, init: RequestInit = {}) {
   return jsonRequest("legacy", path, init);
 }
 
-/** Versioned auth and waitlist routes for the new admin section. */
-export function adminV1Api(path: string, init: RequestInit = {}) {
-  return jsonRequest("v1", path, init);
+/** The requested `/api/users` list endpoint, using the same admin bearer session. */
+export function apiRoot(path: string, init: RequestInit = {}) {
+  return jsonRequest("root", path, init);
 }
 
-export async function adminV1Download(path: string): Promise<DownloadResult> {
-  const response = await authorizedResponse("v1", path, { method: "GET" });
-  const disposition = response.headers.get("content-disposition") ?? "";
-  const encodedName = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
-  const plainName = disposition.match(/filename="?([^";]+)"?/i)?.[1];
-  let filename = plainName || "waitlist.csv";
-  if (encodedName) {
-    try {
-      filename = decodeURIComponent(encodedName);
-    } catch {
-      filename = encodedName;
-    }
-  }
-  return { blob: await response.blob(), filename };
+/** Versioned admin login/session routes. */
+export function adminV1Api(path: string, init: RequestInit = {}) {
+  return jsonRequest("v1", path, init);
 }

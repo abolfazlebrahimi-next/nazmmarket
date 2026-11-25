@@ -224,50 +224,6 @@ test(
           "POST",
         )
       ).token;
-      assert.equal(
-        (await request("/api/v1/admin/waitlist", null)).status,
-        401,
-      );
-      const waitlistQuery = new URLSearchParams({
-        page: "1",
-        size: "30",
-        q: phone(11),
-        role: "customer",
-        status: "all",
-        sort: "newest",
-      });
-      const waitlist = await ok(
-        `/api/v1/admin/waitlist?${waitlistQuery}`,
-        versionedAdmin,
-      );
-      const waitlistCustomer = waitlist.rows.find(
-        (entry) => entry.phone === phone(11),
-      );
-      assert.ok(waitlistCustomer, "customer signup must appear in the live admin waitlist");
-      assert.equal(waitlistCustomer.firstName, "مشتری");
-      assert.equal(waitlistCustomer.role, "customer");
-      const waitlistDetail = await ok(
-        `/api/v1/admin/waitlist/${waitlistCustomer.id}`,
-        versionedAdmin,
-      );
-      assert.equal(waitlistDetail.entry.id, waitlistCustomer.id);
-      await ok(
-        `/api/v1/admin/waitlist/${waitlistCustomer.id}`,
-        versionedAdmin,
-        { status: "contacted" },
-        "PATCH",
-      );
-      const waitlistStats = await ok(
-        "/api/v1/admin/waitlist/stats",
-        versionedAdmin,
-      );
-      assert.ok(waitlistStats.stats.customers >= 1);
-      const waitlistCsvResponse = await fetch(
-        `${base}/api/v1/admin/waitlist/export?${waitlistQuery}`,
-        { headers: { Authorization: `Bearer ${versionedAdmin}` } },
-      );
-      assert.equal(waitlistCsvResponse.status, 200);
-      assert.match(await waitlistCsvResponse.text(), new RegExp(phone(11)));
       const refreshedAdmin = await ok(
         "/api/v1/admin/auth/refresh",
         versionedAdmin,

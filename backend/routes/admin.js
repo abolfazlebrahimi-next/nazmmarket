@@ -1,5 +1,4 @@
 import adminOperations from "./admin-operations.js";
-import adminWaitlist from "./admin-waitlist.js";
 import { Router } from "express";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -110,7 +109,6 @@ router.post("/auth/logout", async (req, res) => {
 });
 router.use(requireAdmin);
 router.use(adminOperations);
-router.use(adminWaitlist);
 router.post("/logout", async (req, res) => {
   await db.run("DELETE FROM admin_sessions WHERE token=?", [bearerToken(req)]);
   res.json({ ok: true });

@@ -5,8 +5,8 @@ import Customers from "./Customers";
 import Waitlist from "./Waitlist";
 import {
   adminV1Api,
-  adminV1Download,
   api,
+  apiRoot,
   adminToken,
   expireAdminSession,
   resetAdminExpiration,
@@ -645,7 +645,7 @@ export default function AdminApp() {
             </div>
           </>
         ) : page === "waitlist" ? (
-          <Waitlist api={adminV1Api} download={adminV1Download} />
+          <Waitlist api={apiRoot} />
         ) : page === "operations" ? (
           <Operations api={api} />
         ) : (
