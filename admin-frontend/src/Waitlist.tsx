@@ -95,6 +95,7 @@ export default function Waitlist() {
 
   const [rows, setRows] = useState<WaitlistUser[]>([]);
   const [stats, setStats] = useState<WaitlistStats | null>(null);
+  const [statsResponse, setStatsResponse] = useState<unknown>(null);
   const [pageInfo, setPageInfo] = useState<PageSummary>({ page: 1, perPage: PER_PAGE, total: 0, lastPage: 1 });
   const [page, setPage] = useState(1);
   const [queryDraft, setQueryDraft] = useState("");
@@ -116,15 +117,20 @@ export default function Waitlist() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportingJson, setExportingJson] = useState(false);
+  const [jsonExportProgress, setJsonExportProgress] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [exportError, setExportError] = useState("");
   const detailRequestId = useRef(0);
+  const statsRequestId = useRef(0);
 
   useEffect(() => {
     const expire = () => {
+      statsRequestId.current += 1;
       setAuthenticated(false);
       setRows([]);
       setStats(null);
+      setStatsResponse(null);
       setDetailId(null);
       setDetail(null);
       setDraft(null);
@@ -144,15 +150,21 @@ export default function Waitlist() {
   }, [query, role, status, sort, order]);
 
   const loadStats = useCallback(async () => {
+    const requestId = ++statsRequestId.current;
     setLoadingStats(true);
     setStatsError("");
+    setStatsResponse(null);
     try {
       const result = await waitlistApi.stats();
-      setStats(result);
+      if (requestId !== statsRequestId.current) return;
+      setStats(result.counts);
+      setStatsResponse(result.rawResponse);
+      setStatsError("");
     } catch (error) {
-      setStatsError((error as Error).message);
+      if (requestId === statsRequestId.current)
+        setStatsError((error as Error).message);
     } finally {
-      setLoadingStats(false);
+      if (requestId === statsRequestId.current) setLoadingStats(false);
     }
   }, []);
 
@@ -225,6 +237,7 @@ export default function Waitlist() {
   }
 
   async function handleLogout() {
+    statsRequestId.current += 1;
     setLoggingOut(true);
     try {
       await waitlistApi.logout();
@@ -232,6 +245,7 @@ export default function Waitlist() {
       setAuthenticated(false);
       setRows([]);
       setStats(null);
+      setStatsResponse(null);
       setDetail(null);
       setDraft(null);
       setLoggingOut(false);
@@ -332,9 +346,68 @@ export default function Waitlist() {
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setActionMessage("فایل CSV مستقیماً از API هاست دریافت شد.");
     } catch (error) {
-      setExportError((error as Error).message);
+      setExportError(`CSV: ${(error as Error).message}`);
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function exportJson() {
+    setExportingJson(true);
+    setJsonExportProgress("");
+    setExportError("");
+    setActionMessage("");
+    try {
+      const items: WaitlistUser[] = [];
+      let currentPage = 1;
+      let lastPage = 1;
+      let perPage = PER_PAGE;
+      const params = { per_page: PER_PAGE, q: query, role, status, sort, order };
+
+      while (currentPage <= lastPage) {
+        if (currentPage > 10_000)
+          throw new Error("خروجی بیش از ۱۰٬۰۰۰ صفحه است؛ لطفاً فیلترهای جست‌وجو را محدودتر کنید.");
+        setJsonExportProgress(`دریافت صفحه ${currentPage} از ${lastPage}…`);
+        const result = await waitlistApi.list({ ...params, page: currentPage });
+        const summary = summarizePage(result.meta, currentPage);
+        items.push(...result.items);
+        lastPage = summary.lastPage;
+        perPage = summary.perPage;
+        if (!result.items.length) break;
+        currentPage += 1;
+      }
+
+      setJsonExportProgress("ساخت فایل JSON…");
+      const payload = {
+        exported_at: new Date().toISOString(),
+        source: "PHP waitlist API",
+        filters: {
+          q: query || null,
+          role: role === "all" ? null : role,
+          status: status === "all" ? null : status,
+          sort,
+          order,
+        },
+        pagination: { per_page: perPage, pages_exported: Math.min(currentPage, lastPage) },
+        total: items.length,
+        ...(statsResponse !== null ? { stats_response: statsResponse } : {}),
+        items,
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `waitlist-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setActionMessage(`خروجی JSON شامل ${countLabel(items.length)} ثبت‌نام دانلود شد.`);
+    } catch (error) {
+      setExportError(`JSON: ${(error as Error).message}`);
+    } finally {
+      setJsonExportProgress("");
+      setExportingJson(false);
     }
   }
 
@@ -414,13 +487,16 @@ export default function Waitlist() {
             <p className="waitlist-caption">منبع داده فقط API هاست Nazarabad Shop است؛ نشست این صفحه از ورود پنل مستقل است.</p>
           </div>
           <div className="waitlist-actions">
-            <button type="button" onClick={() => void reload()} disabled={loadingRows || loadingStats}>
+            <button type="button" onClick={() => void reload()} disabled={loadingRows || loadingStats || exporting || exportingJson}>
               <RefreshCw size={15} className={loadingRows || loadingStats ? "spin" : ""} /> بارگذاری مجدد
             </button>
-            <button type="button" onClick={() => void exportCsv()} disabled={exporting}>
-              <Download size={15} className={exporting ? "spin" : ""} /> {exporting ? "در حال دریافت…" : "خروجی CSV هاست"}
+            <button type="button" onClick={() => void exportCsv()} disabled={exporting || exportingJson}>
+              <Download size={15} className={exporting ? "spin" : ""} /> {exporting ? "در حال دریافت CSV…" : "خروجی CSV هاست"}
             </button>
-            <button type="button" onClick={() => void handleLogout()} disabled={loggingOut}>
+            <button type="button" onClick={() => void exportJson()} disabled={exporting || exportingJson || loadingStats}>
+              <Download size={15} className={exportingJson ? "spin" : ""} /> {exportingJson ? jsonExportProgress || "در حال ساخت JSON…" : "خروجی JSON همهٔ نتایج"}
+            </button>
+            <button type="button" onClick={() => void handleLogout()} disabled={loggingOut || exporting || exportingJson}>
               <LogOut size={15} /> {loggingOut ? "در حال خروج…" : "خروج از نشست هاست"}
             </button>
           </div>
@@ -470,7 +546,7 @@ export default function Waitlist() {
         </div>
 
         {actionMessage && <p className="waitlist-notice" role="status">{actionMessage}<button type="button" aria-label="بستن پیام" onClick={() => setActionMessage("")}><X size={15} /></button></p>}
-        {exportError && <p className="alert error waitlist-error" role="alert">دریافت CSV ناموفق بود: {exportError}</p>}
+        {exportError && <p className="alert error waitlist-error" role="alert">آماده‌سازی خروجی ناموفق بود: {exportError}</p>}
         {listError && <div className="alert error waitlist-error" role="alert">دریافت فهرست از API هاست ناموفق بود: {listError}</div>}
         {loadingRows && rows.length > 0 && <p className="waitlist-loading-note" role="status"><RefreshCw size={14} className="spin" /> در حال به‌روزرسانی فهرست…</p>}
 

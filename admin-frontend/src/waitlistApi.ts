@@ -45,6 +45,10 @@ export type WaitlistStats = {
   sellers: number;
   couriers: number;
 };
+export type WaitlistStatsResult = {
+  counts: WaitlistStats | null;
+  rawResponse: unknown;
+};
 
 let refreshFlight: Promise<TokenPair | null> | null = null;
 let expirationDispatched = false;
@@ -323,24 +327,28 @@ export const waitlistApi = {
     };
   },
 
-  async stats(): Promise<WaitlistStats> {
+  async stats(): Promise<WaitlistStatsResult> {
     const result = await authenticatedJson<unknown>("/v1/admin/stats");
-    const data = requireObject(result.data, "آمار در response.data موجود نیست.");
-    const source = data.stats && typeof data.stats === "object" && !Array.isArray(data.stats)
-      ? data.stats as Record<string, unknown>
-      : data;
-    const total = numericCount(source.total);
-    const customers = numericCount(source.customers);
-    const sellers = numericCount(source.sellers);
-    const couriers = numericCount(source.couriers);
-    if ([total, customers, sellers, couriers].some((value) => value === null))
-      throw new Error("فیلدهای total، customers، sellers و couriers در پاسخ آمار موجود نیست.");
-    return {
-      total: total!,
-      customers: customers!,
-      sellers: sellers!,
-      couriers: couriers!,
-    };
+    const data = result.data;
+    const record = data && typeof data === "object" && !Array.isArray(data)
+      ? data as Record<string, unknown>
+      : null;
+    const source = record?.stats && typeof record.stats === "object" && !Array.isArray(record.stats)
+      ? record.stats as Record<string, unknown>
+      : record;
+    const total = numericCount(source?.total);
+    const customers = numericCount(source?.customers);
+    const sellers = numericCount(source?.sellers);
+    const couriers = numericCount(source?.couriers);
+    const counts = [total, customers, sellers, couriers].some((value) => value === null)
+      ? null
+      : {
+          total: total!,
+          customers: customers!,
+          sellers: sellers!,
+          couriers: couriers!,
+        };
+    return { counts, rawResponse: result };
   },
 
   async detail(id: string | number): Promise<WaitlistUser> {

@@ -48,8 +48,15 @@ The page uses these routes:
 - `PATCH /v1/admin/waitlist/{id}` with only the editable snake-case fields
 - `DELETE /v1/admin/waitlist/{id}`
 - `GET /v1/admin/stats`
-- `GET /v1/admin/export` (downloaded from the host; no export filters are sent
-  because the supplied contract does not confirm that export accepts them)
+- `GET /v1/admin/export` (CSV downloaded from the host; no export filters are
+  sent because the supplied contract does not confirm that export accepts them)
+
+The **JSON** button builds a JSON file from all pages of the PHP waitlist list
+endpoint using the current search/filter/sort values. It includes normalized
+records, applied filters, and—when available—the latest raw stats response
+envelope. Access and refresh tokens are never included. The file contains user
+names and phone numbers; handle it as private data. The CSV button continues to
+use the host export endpoint.
 
 List rows are read only from `response.data.items`; page metadata is read from
 `response.meta`. The UI validates the documented user fields and enum values
@@ -79,8 +86,10 @@ query keys `page`, `per_page`, `q`, `role`, `status`, `sort`, and `order`, the
 role values `customer`, `seller`, `courier`, the status values `registered`,
 `contacted`, `approved`, `rejected`, and stats values `total`, `customers`,
 `sellers`, `couriers` at `data` or `data.stats`. It accepts common page metadata
-keys but these are not verified. No fallback data is fabricated: an unexpected
-shape is reported as an API error.
+keys but these are not verified. If the stats endpoint succeeds but its fields
+do not match those expected names, the raw envelope is retained for JSON export
+and the summary cards remain blank; this is not shown as a network/API failure.
+List-row or pagination contract mismatches still produce a visible error.
 
 ## Verification limits
 
