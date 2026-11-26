@@ -32,7 +32,7 @@ export function Wordmark({ twoLine = false, size = "text-[20px]", className = ""
       aria-label="نظرآباد شاپ"
     >
       <img
-        src="/branding/nazarabad-shop-logo.jpg"
+        src="/branding/nazarabad-shop-mark.png"
         alt=""
         aria-hidden="true"
         className="h-8 w-12 shrink-0 rounded-md bg-white object-contain"

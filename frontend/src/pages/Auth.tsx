@@ -8,7 +8,6 @@ import {
 import {
   AlertCircle,
   ArrowLeft,
-  ArrowRight,
   Check,
   Eye,
   EyeOff,
@@ -20,7 +19,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { ApiError, api, tokenStore } from "../api/client";
-import { Wordmark, toEn } from "../components/ui";
+import { toEn } from "../components/ui";
 import type { AuthResponse } from "../api/client";
 
 type AuthStep =
@@ -329,7 +328,6 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
   const isPhoneStep = step === "phone" || step === "forgotPhone";
   const isOtpStep = step === "otp" || step === "forgotOtp";
-  const showBackButton = step !== "phone";
   const submitLabel: Record<AuthStep, string> = {
     phone: "دریافت کد ورود / ثبت‌نام",
     otp: "تأیید کد و ادامه",
@@ -369,19 +367,10 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
         </aside>
 
         <section className="p-6 sm:p-9" dir="rtl">
-          <div className="flex items-center justify-between gap-4">
-            <Wordmark size="text-[22px]" />
-            {showBackButton && (
-              <button
-                type="button"
-                onClick={step === "otp" || step === "register" ? editPhone : returnToPhone}
-                disabled={busy}
-                className="inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-bold text-muted transition hover:bg-[#f4f3f0] hover:text-ink disabled:opacity-50"
-              >
-                <ArrowRight className="h-3.5 w-3.5" />
-                بازگشت
-              </button>
-            )}
+          <div className="flex min-h-14 items-center">
+            <span className="text-[20px] font-black tracking-tight text-brand">
+              نظرآباد شاپ
+            </span>
           </div>
 
           {titleByStep[step] && (
@@ -434,7 +423,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
                     کد پیامک‌شده
                   </span>
                   <div
-                    className="flex items-center justify-center gap-2.5"
+                    className="grid w-full grid-cols-4 gap-2.5"
                     dir="ltr"
                     role="group"
                     aria-labelledby="sms-otp-label"
@@ -481,7 +470,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
                             otpInputs.current[index + 1]?.focus();
                           }
                         }}
-                        className="h-12 w-12 rounded-xl border border-line bg-white text-center text-[20px] font-black text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10 disabled:bg-[#fafaf8] sm:h-14 sm:w-14"
+                        className="h-14 w-full min-w-0 rounded-xl border border-line bg-white text-center text-[22px] font-black text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10 disabled:bg-[#fafaf8]"
                       />
                     ))}
                   </div>
@@ -651,7 +640,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
               disabled={busy}
               className="mt-4 w-full text-center text-[11px] font-bold text-muted transition hover:text-brand disabled:opacity-50"
             >
-              بازگشت به ورود یا ساخت حساب
+              ورود یا ساخت حساب
             </button>
           )}
         </section>
