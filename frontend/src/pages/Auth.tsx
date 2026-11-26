@@ -366,7 +366,10 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
           </p>
         </aside>
 
-        <section className="p-6 sm:p-9" dir="rtl">
+        <section
+          className="flex min-h-[380px] flex-col p-6 sm:min-h-[440px] sm:p-9"
+          dir="rtl"
+        >
           <div className="flex min-h-14 items-center">
             <span className="text-[20px] font-black tracking-tight text-brand">
               نظرآباد شاپ
@@ -384,7 +387,11 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
             </p>
           )}
 
-          <form onSubmit={submit} className="mt-5 space-y-3.5" noValidate>
+          <form
+            onSubmit={submit}
+            className="mt-6 flex flex-1 flex-col gap-3.5"
+            noValidate
+          >
             {isPhoneStep && (
               <label className="naz-floating-field auth-floating-field">
                 <span className="naz-floating-label">شماره موبایل</span>
@@ -608,7 +615,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
             <button
               type="submit"
               disabled={busy}
-              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[13.5px] font-black text-white shadow-lg shadow-brand/30 transition enabled:hover:brightness-105 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-auto flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[13.5px] font-black text-white shadow-lg shadow-brand/30 transition enabled:hover:brightness-105 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? (
                 <>
