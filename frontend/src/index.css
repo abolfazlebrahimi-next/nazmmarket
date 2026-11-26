@@ -1678,9 +1678,6 @@ textarea::placeholder {
   .mobile-app-actions .dropdown-in {
     top: 118px;
   }
-  .market-home-header > div:first-child > button > span {
-    font-size: 18px;
-  }
   .market-mobile-search {
     display: block;
     padding: 0 16px 12px;
