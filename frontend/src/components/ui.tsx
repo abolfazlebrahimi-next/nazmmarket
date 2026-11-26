@@ -35,7 +35,7 @@ export function Wordmark({ twoLine = false, size = "text-[20px]", className = ""
         src="/branding/nazarabad-shop-mark.png"
         alt=""
         aria-hidden="true"
-        className="h-8 w-12 shrink-0 rounded-md bg-white object-contain"
+        className="h-6 w-9 shrink-0 rounded-md bg-white object-contain"
       />
       <span>
         {twoLine ? (
