@@ -406,7 +406,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
         </aside>
 
         <section
-          className="flex min-h-[380px] flex-col p-6 sm:min-h-[440px] sm:p-9"
+          className="flex min-h-[320px] flex-col p-6 sm:min-h-[360px] sm:p-9"
           dir="rtl"
         >
           <div className="flex min-h-14 items-center">
@@ -428,7 +428,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
           <form
             onSubmit={submit}
-            className="mt-8 flex flex-1 flex-col gap-3.5"
+            className="mt-8 flex flex-col gap-3.5"
             noValidate
           >
             {isPhoneStep && (
@@ -670,7 +670,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
             <button
               type="submit"
               disabled={busy}
-              className="mt-auto flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[13.5px] font-black text-white shadow-lg shadow-brand/30 transition enabled:hover:brightness-105 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[13.5px] font-black text-white shadow-lg shadow-brand/30 transition enabled:hover:brightness-105 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? (
                 <>
@@ -686,13 +686,13 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
           </form>
 
           {(step === "phone" || step === "passwordLogin") && (
-            <div className="mt-4 grid grid-cols-2 gap-2.5">
+            <div className="mt-4 flex items-center justify-between gap-3 text-[11px] font-bold">
               {step === "phone" ? (
                 <button
                   type="button"
                   onClick={startPasswordLogin}
                   disabled={busy}
-                  className="flex min-h-11 items-center justify-center rounded-xl border border-line bg-white px-2 text-center text-[10.5px] font-bold text-brand transition hover:border-brand/30 hover:bg-[#f5fbf7] disabled:opacity-50"
+                  className="text-brand transition hover:underline disabled:cursor-not-allowed disabled:text-muted"
                 >
                   ورود با رمز عبور
                 </button>
@@ -705,7 +705,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
                     setStep("phone");
                   }}
                   disabled={busy}
-                  className="flex min-h-11 items-center justify-center rounded-xl border border-line bg-white px-2 text-center text-[10.5px] font-bold text-brand transition hover:border-brand/30 hover:bg-[#f5fbf7] disabled:opacity-50"
+                  className="text-brand transition hover:underline disabled:cursor-not-allowed disabled:text-muted"
                 >
                   ورود با کد پیامکی
                 </button>
@@ -714,7 +714,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
                 type="button"
                 onClick={startPasswordRecovery}
                 disabled={busy}
-                className="flex min-h-11 items-center justify-center rounded-xl border border-line bg-white px-2 text-center text-[10.5px] font-bold text-brand transition hover:border-brand/30 hover:bg-[#f5fbf7] disabled:opacity-50"
+                className="text-brand transition hover:underline disabled:cursor-not-allowed disabled:text-muted"
               >
                 فراموشی رمز عبور
               </button>
