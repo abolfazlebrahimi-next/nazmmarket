@@ -331,20 +331,6 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
             )}
           </div>
 
-          <div className="mt-7 flex items-center gap-2" aria-label={`مرحله ${step}`}>
-            {["phone", "otp", "register"].map((item, index) => {
-              const activeIndex =
-                step === "phone" || step === "forgotPhone" ? 0 :
-                step === "otp" || step === "forgotOtp" ? 1 : 2;
-              return (
-                <span
-                  key={item}
-                  className={`h-1.5 flex-1 rounded-full transition ${index <= activeIndex ? "bg-brand" : "bg-[#e9e7e3]"}`}
-                />
-              );
-            })}
-          </div>
-
           <h1 className="mt-6 text-[20px] font-black text-ink">{titleByStep[step]}</h1>
           <p className="mt-2 text-[12px] font-semibold leading-6 text-muted">{subtitleByStep[step]}</p>
 
@@ -379,24 +365,6 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
             {isOtpStep && (
               <>
-                <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#eef8f2] px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-[#59816a]">
-                      {step === "otp" ? "کد ورود / ثبت‌نام برای این شماره ارسال شد" : "کد بازیابی برای این شماره ارسال شد"}
-                    </p>
-                    <p className="mt-1 text-left text-[14px] font-black tracking-wider text-[#276647]" dir="ltr">
-                      {maskPhone(verifiedPhone)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={editPhone}
-                    disabled={busy}
-                    className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-black text-brand transition hover:bg-white/70 disabled:opacity-50"
-                  >
-                    تغییر شماره
-                  </button>
-                </div>
                 <label className="naz-floating-field auth-floating-field">
                   <span className="naz-floating-label">کد پیامک‌شده</span>
                   <span className="relative flex items-center">
@@ -422,7 +390,14 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
                   </span>
                 </label>
                 <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
-                  <span className="text-muted">کد را دریافت نکردی؟</span>
+                  <button
+                    type="button"
+                    onClick={editPhone}
+                    disabled={busy}
+                    className="text-brand transition hover:underline disabled:cursor-not-allowed disabled:text-muted"
+                  >
+                    تغییر شماره
+                  </button>
                   <button
                     type="button"
                     onClick={() => void resendCode()}
