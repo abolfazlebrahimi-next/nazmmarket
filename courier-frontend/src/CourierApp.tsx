@@ -525,7 +525,11 @@ export default function CourierApp() {
   if (boot)
     return (
       <div className="boot">
-        <Bike size={40} />
+        <img
+          className="brand-loading-logo"
+          src="/branding/nazarabad-shop-logo.jpg"
+          alt="نظرآباد شاپ"
+        />
         <p>در حال بازیابی حساب…</p>
       </div>
     );
@@ -534,12 +538,22 @@ export default function CourierApp() {
       <main className="login-page">
         <section className="login-story">
           <div className="brand">
-            <Bike /> نازمارکت · همراه سفیر
+            <span className="brand-logo-mark">
+              <img
+                src="/branding/nazarabad-shop-logo.jpg"
+                alt=""
+                aria-hidden="true"
+              />
+            </span>
+            <div className="brand-copy">
+              <b>نظرآباد شاپ</b>
+              <small>همراه سفیر</small>
+            </div>
           </div>
           <img
             className="login-illustration"
             src="/courier-ride.webp"
-            alt="سفیر نازمارکت با موتور سبز و جعبه ارسال"
+            alt="سفیر نظرآباد شاپ با موتور سبز و جعبه ارسال"
             width="800"
             height="800"
           />
@@ -784,11 +798,15 @@ export default function CourierApp() {
     <div className="courier-shell">
       <aside className="sidebar">
         <div className="brand">
-          <span>
-            <Bike size={24} />
+          <span className="brand-logo-mark">
+            <img
+              src="/branding/nazarabad-shop-logo.jpg"
+              alt=""
+              aria-hidden="true"
+            />
           </span>
-          <div>
-            <b>نازمارکت</b>
+          <div className="brand-copy">
+            <b>نظرآباد شاپ</b>
             <small>همراه سفیر</small>
           </div>
         </div>
@@ -864,7 +882,7 @@ export default function CourierApp() {
                 day: "numeric",
                 month: "long",
               })}{" "}
-              · همراه سفیر نازمارکت
+              · همراه سفیر نظرآباد شاپ
             </p>
             <h1>{titles[page]}</h1>
             <p className="muted">
@@ -1511,7 +1529,7 @@ export default function CourierApp() {
                 <h2>{thread.ticket.subject}</h2>
                 {thread.messages.map((m: Row) => (
                   <div key={m.id} className={`message ${m.role}`}>
-                    <b>{m.role === "admin" ? "پشتیبانی نازمارکت" : "شما"}</b>
+                    <b>{m.role === "admin" ? "پشتیبانی نظرآباد شاپ" : "شما"}</b>
                     <p>{m.body}</p>
                     <small>
                       {new Date(m.created_at).toLocaleString("fa-IR")}
@@ -1558,7 +1576,7 @@ export default function CourierApp() {
           </div>
         )}
         <footer>
-          نازمارکت · همراه سفیر · مبالغ به تومان · فاصله و زمان تخمینی‌اند
+          نظرآباد شاپ · همراه سفیر · مبالغ به تومان · فاصله و زمان تخمینی‌اند
         </footer>
       </main>
       {notifOpen && (

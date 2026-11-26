@@ -44,7 +44,7 @@ function Receipt({ order }: { order: Order }) {
     platform + seller + firstOffer > 0 &&
     platform + seller + firstOffer <= discount;
   const parts = [
-    platform > 0 ? `سهم نازمارکت ${fa(platform)}` : "",
+    platform > 0 ? `سهم نظرآباد شاپ ${fa(platform)}` : "",
     seller > 0 ? `سهم فروشگاه ${fa(seller)}` : "",
     firstOffer > 0 ? `پیشنهاد خرید اول ${fa(firstOffer)}` : "",
   ].filter(Boolean);
@@ -843,7 +843,7 @@ export function CheckoutView({ c }: { c: AppCtx }) {
                         </span>
                       )}
                       {c.appliedPromo?.scope === "platform"
-                        ? "سهم نازمارکت؛ کارمزد فروشگاه دست‌نخورده می‌ماند."
+                        ? "سهم نظرآباد شاپ؛ کارمزد فروشگاه دست‌نخورده می‌ماند."
                         : "کد توسط فروشگاه تعریف شده است."}
                     </p>
                   </div>

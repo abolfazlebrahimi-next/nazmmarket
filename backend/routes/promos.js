@@ -64,7 +64,7 @@ router.post("/apply", requireAuth, async (req, res) => {
     promo: { ...mapPromo(promo), storeId: Number(promo.store_id ?? 0) || null },
     message:
       promo.scope === "platform"
-        ? "کد تخفیف نازمارکت اعمال شد."
+        ? "کد تخفیف نظرآباد شاپ اعمال شد."
         : "کد تخفیف فروشگاه اعمال شد.",
   });
 });

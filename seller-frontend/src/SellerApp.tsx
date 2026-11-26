@@ -714,8 +714,8 @@ export default function SellerApp() {
   if (authLoading)
     return (
       <div className="auth-loading" dir="rtl">
-        <span className="brand-mark">
-          <Store size={20} />
+        <span className="brand-mark brand-logo-frame">
+          <img src="/branding/nazarabad-shop-logo.jpg" alt="" aria-hidden="true" />
         </span>
         <p>در حال بررسی نشست فروشنده…</p>
       </div>
@@ -747,11 +747,11 @@ export default function SellerApp() {
     <div className="app-shell" dir="rtl">
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
         <div className="brand-lockup">
-          <span className="brand-mark">
-            <Store size={20} />
+          <span className="brand-mark brand-logo-frame">
+            <img src="/branding/nazarabad-shop-logo.jpg" alt="" aria-hidden="true" />
           </span>
           <span>
-            <strong>ناز مارکت</strong>
+            <strong>نظرآباد شاپ</strong>
             <small>پنل فروشندگان</small>
           </span>
           <button
@@ -795,7 +795,7 @@ export default function SellerApp() {
             <small>مدیریت فروشگاه و سفارش</small>
             <button
               onClick={() =>
-                toast("برای پشتیبانی با مدیر نازمارکت تماس بگیرید.")
+                toast("برای پشتیبانی با مدیر نظرآباد شاپ تماس بگیرید.")
               }
             >
               راهنمای پنل <ArrowLeft size={13} />
@@ -916,7 +916,7 @@ export default function SellerApp() {
           )}
           {page === "account" && <AccountPage />}
           <footer className="page-footer">
-            <span>ناز مارکت · پنل فروشندگان</span>
+            <span>نظرآباد شاپ · پنل فروشندگان</span>
             <span>اطلاعات متصل به پایگاه‌داده</span>
           </footer>
         </div>
@@ -1245,11 +1245,11 @@ function AuthScreen({
   return (
     <div className="auth-screen" dir="rtl">
       <div className="auth-brand">
-        <span className="brand-mark">
-          <Store size={20} />
+        <span className="brand-mark brand-logo-frame">
+          <img src="/branding/nazarabad-shop-logo.jpg" alt="" aria-hidden="true" />
         </span>
         <div>
-          <strong>ناز مارکت</strong>
+          <strong>نظرآباد شاپ</strong>
           <small>مرکز فروشندگان</small>
         </div>
         <span className="auth-help">
@@ -1268,7 +1268,7 @@ function AuthScreen({
           </h1>
           <p>
             مدیریت محصولات و سفارش‌های فروشگاهت در یک پنل ساده؛ شروع همکاری با
-            ناز مارکت از اینجا است.
+            نظرآباد شاپ از اینجا است.
           </p>
           <div className="hero-points">
             <span>
@@ -2421,7 +2421,7 @@ function FirstOfferPanel({ products }: { products: Product[] }) {
         <div>
           <h3>پیشنهاد ویژهٔ اولین خرید</h3>
           <p>
-            مشتری‌هایی که اولین خریدشان در ناز مارکت است، فقط یک کالا را با این
+            مشتری‌هایی که اولین خریدشان در نظرآباد شاپ است، فقط یک کالا را با این
             تخفیف می‌گیرند و مابقی سبد را از همین فروشگاه با قیمت عادی می‌خرند.
           </p>
         </div>

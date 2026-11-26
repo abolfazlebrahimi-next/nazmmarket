@@ -437,11 +437,11 @@ export default function AdminApp() {
             }
           }}
         >
-          <span className="brand-icon">
-            <ShieldCheck />
+          <span className="brand-icon brand-logo-frame">
+            <img src="/branding/nazarabad-shop-logo.jpg" alt="" aria-hidden="true" />
           </span>
-          <p className="eyebrow">NAZMARKET / CONTROL CENTER</p>
-          <h1>مدیریت یکپارچه نازمارکت</h1>
+          <p className="eyebrow">NAZARABAD SHOP / CONTROL CENTER</p>
+          <h1>مدیریت یکپارچه نظرآباد شاپ</h1>
           <p>ورود مخصوص مدیر مجاز سامانه</p>
           <label className="naz-floating-field">
             <span className="naz-floating-label">نام کاربری</span>
@@ -483,11 +483,11 @@ export default function AdminApp() {
       />
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-icon">
-            <ShieldCheck />
+          <span className="brand-icon brand-logo-frame">
+            <img src="/branding/nazarabad-shop-logo.jpg" alt="" aria-hidden="true" />
           </span>
           <div>
-            <b>نازمارکت</b>
+            <b>نظرآباد شاپ</b>
             <small>مرکز کنترل و مدیریت</small>
           </div>
           <button
@@ -1035,7 +1035,7 @@ export default function AdminApp() {
           </>
         )}
         <footer>
-          نازمارکت · مدیریت مرکزی فروش و ارسال · به‌روزرسانی خودکار هر ۶۰ ثانیه
+          نظرآباد شاپ · مدیریت مرکزی فروش و ارسال · به‌روزرسانی خودکار هر ۶۰ ثانیه
         </footer>
       </main>
       {editing !== undefined && (

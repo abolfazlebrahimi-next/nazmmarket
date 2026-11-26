@@ -107,10 +107,10 @@ test("the checkout wording names whoever pays for the discount", () => {
   const [platform] = readDiscountCodes([{ code: "P1", scope: "platform" }]);
   const [store] = readDiscountCodes([{ code: "S1", storeName: "سوپرمارکت ناز" }]);
   const [nameless] = readDiscountCodes([{ code: "S2" }]);
-  assert.equal(codeFamilyLabel(platform), "سراسری · نازمارکت");
+  assert.equal(codeFamilyLabel(platform), "سراسری · نظرآباد شاپ");
   assert.equal(codeFamilyLabel(store), "ویژهٔ سوپرمارکت ناز");
   assert.equal(codeFamilyLabel(nameless), "ویژهٔ این فروشگاه");
-  assert.equal(codeOwner(platform), "نازمارکت");
+  assert.equal(codeOwner(platform), "نظرآباد شاپ");
   assert.equal(codeOwner(store), "فروشگاه");
   // The row must not be able to claim a store code is the platform's money.
   assert.notEqual(codeOwner(store), codeOwner(platform));

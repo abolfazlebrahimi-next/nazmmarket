@@ -293,7 +293,7 @@ function OrderCard({ c, o }: { c: AppCtx; o: Order }) {
               {faNum(Number(o.discount))} تومان تخفیف
               {!!o.promoCode && ` با کد ${o.promoCode}`}
               {Number(o.platformDiscount ?? 0) > 0
-                ? ` · ${faNum(Number(o.platformDiscount))} تومان سهم نازمارکت`
+                ? ` · ${faNum(Number(o.platformDiscount))} تومان سهم نظرآباد شاپ`
                 : ""}
             </p>
           )}

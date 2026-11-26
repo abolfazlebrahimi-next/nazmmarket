@@ -5,6 +5,7 @@ import { ConfirmHost } from "./confirm";
 import "@fontsource-variable/vazirmatn";
 import "./style.css";
 import "./redesign.css";
+import "./branding.css";
 import "../../shared/formValidation";
 
 createRoot(document.getElementById("root")!).render(

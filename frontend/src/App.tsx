@@ -1287,7 +1287,7 @@ export default function App() {
               onClick={() => c.openSub({ name: "search" })}
             >
               <Search size={21} />
-              <span>جست‌وجوی کالا یا فروشگاه در نازمارکت</span>
+              <span>جست‌وجوی کالا یا فروشگاه در نظرآباد شاپ</span>
             </button>
           </div>
         )}
@@ -1316,11 +1316,11 @@ export default function App() {
                 خرید سوپرمارکتی فوری از سوپرمارکت‌های محلی و زنجیره‌ای
               </p>
               <p className="mt-3 text-[10px] font-medium text-muted">
-                © ۱۴۰۵ نازمارکت · همهٔ حقوق محفوظ است
+                © ۱۴۰۵ نظرآباد شاپ · همهٔ حقوق محفوظ است
               </p>
             </div>
             <div className="market-footer-links">
-              <strong>نازمارکت</strong>
+              <strong>نظرآباد شاپ</strong>
               <button type="button" onClick={() => c.setSheet("rules")}>
                 قوانین و مقررات
               </button>

@@ -26,14 +26,30 @@ export function save(key: string, value: unknown) {
 }
 
 export function Wordmark({ twoLine = false, size = "text-[20px]", className = "" }: { twoLine?: boolean; size?: string; className?: string }) {
-  if (twoLine)
-    return (
-      <span className={`${size} font-black leading-[1.1] text-brand ${className}`}>
-        ناز!<br />
-        مارکت
+  return (
+    <span
+      className={`inline-flex items-center gap-2 ${size} font-black leading-[1.1] tracking-tight text-brand ${className}`}
+      aria-label="نظرآباد شاپ"
+    >
+      <img
+        src="/branding/nazarabad-shop-logo.jpg"
+        alt=""
+        aria-hidden="true"
+        className="h-8 w-12 shrink-0 rounded-md bg-white object-contain"
+      />
+      <span>
+        {twoLine ? (
+          <>
+            نظرآباد
+            <br />
+            شاپ
+          </>
+        ) : (
+          "نظرآباد شاپ"
+        )}
       </span>
-    );
-  return <span className={`text-[18px] font-black tracking-tight text-brand ${className}`}>ناز! مارکت</span>;
+    </span>
+  );
 }
 
 export function QtyStepper({ qty, onInc, onDec, small = false }: { qty: number; onInc: () => void; onDec: () => void; small?: boolean }) {

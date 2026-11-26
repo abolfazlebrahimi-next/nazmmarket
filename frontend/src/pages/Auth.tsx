@@ -1,4 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+} from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -26,6 +32,9 @@ type AuthStep =
   | "resetPassword";
 type OtpPurpose = "login" | "password_reset";
 
+const OTP_LENGTH = 4;
+const emptyOtp = () => Array.from({ length: OTP_LENGTH }, () => "");
+
 const onlyDigits = (value: string, maxLength = 11) =>
   toEn(value).replace(/\D/g, "").slice(0, maxLength);
 const maskPhone = (phone: string) =>
@@ -35,7 +44,8 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
   const [step, setStep] = useState<AuthStep>("phone");
   const [phoneInput, setPhoneInput] = useState("");
   const [verifiedPhone, setVerifiedPhone] = useState("");
-  const [otpCode, setOtpCode] = useState("");
+  const [otpDigits, setOtpDigits] = useState<string[]>(emptyOtp);
+  const otpInputs = useRef<Array<HTMLInputElement | null>>([]);
   const [signupToken, setSignupToken] = useState("");
   const [resetToken, setResetToken] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -47,18 +57,18 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
   const [error, setError] = useState("");
 
   const titleByStep: Record<AuthStep, string> = {
-    phone: "ورود یا ساخت حساب",
-    otp: "تأیید شماره موبایل",
+    phone: "",
+    otp: "",
     register: "تکمیل ساخت حساب",
     forgotPhone: "بازیابی رمز عبور",
     forgotOtp: "کد بازیابی را وارد کنید",
     resetPassword: "انتخاب رمز عبور جدید",
   };
   const subtitleByStep: Record<AuthStep, string> = {
-    phone: "شماره موبایلت را وارد کن؛ اگر حساب داشته باشی وارد می‌شوی و اگر نه، بعد از تأیید شماره حساب می‌سازی.",
-    otp: "کد پیامک‌شده را وارد کن تا وارد حساب شوی یا ساخت حساب را ادامه بدهی.",
+    phone: "",
+    otp: "",
     register: "شماره‌ات تأیید شد. یک نام دلخواه و رمز عبور برای حسابت انتخاب کن.",
-    forgotPhone: "شماره‌ای را وارد کن که حساب نازمارکت با آن ساخته شده است.",
+    forgotPhone: "شماره‌ای را وارد کن که حساب نظرآباد شاپ با آن ساخته شده است.",
     forgotOtp: "برای تأیید مالکیت شماره، کد بازیابی پیامک‌شده را وارد کن.",
     resetPassword: "کد درست بود؛ حالا رمز عبور تازه‌ای برای حسابت انتخاب کن.",
   };
@@ -80,6 +90,49 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
   const errorMessage = (cause: unknown, fallback: string) =>
     cause instanceof ApiError && cause.message.trim() ? cause.message : fallback;
 
+  const clearOtp = () => setOtpDigits(emptyOtp());
+
+  const changeOtpDigit = (index: number, value: string) => {
+    const digits = onlyDigits(value, OTP_LENGTH);
+    setError("");
+    if (!digits) {
+      setOtpDigits((current) =>
+        current.map((digit, position) => (position === index ? "" : digit)),
+      );
+      return;
+    }
+
+    if (digits.length === 1) {
+      setOtpDigits((current) =>
+        current.map((digit, position) =>
+          position === index ? digits : digit,
+        ),
+      );
+      if (index < OTP_LENGTH - 1) otpInputs.current[index + 1]?.focus();
+      return;
+    }
+
+    const next = emptyOtp();
+    digits.split("").forEach((digit, position) => {
+      next[position] = digit;
+    });
+    setOtpDigits(next);
+    otpInputs.current[Math.min(digits.length, OTP_LENGTH - 1)]?.focus();
+  };
+
+  const pasteOtp = (event: ClipboardEvent<HTMLInputElement>) => {
+    const digits = onlyDigits(event.clipboardData.getData("text"), OTP_LENGTH);
+    if (!digits) return;
+    event.preventDefault();
+    const next = emptyOtp();
+    digits.split("").forEach((digit, position) => {
+      next[position] = digit;
+    });
+    setOtpDigits(next);
+    setError("");
+    otpInputs.current[Math.min(digits.length, OTP_LENGTH - 1)]?.focus();
+  };
+
   const requestCode = async (purpose: OtpPurpose, rawPhone: string) => {
     if (busy) return;
     const normalizedPhone = onlyDigits(rawPhone);
@@ -96,7 +149,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
       // Keep the verified number only in component state; clear the editable field
       // as soon as the code step opens.
       setPhoneInput("");
-      setOtpCode("");
+      clearOtp();
       setResendIn(60);
       setStep(purpose === "login" ? "otp" : "forgotOtp");
     } catch (cause) {
@@ -113,7 +166,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
     setError("");
     try {
       await api.auth.requestOtp(verifiedPhone, purpose);
-      setOtpCode("");
+      clearOtp();
       setResendIn(60);
     } catch (cause) {
       setError(errorMessage(cause, "ارسال دوبارهٔ کد انجام نشد؛ دوباره تلاش کن."));
@@ -124,7 +177,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
   const editPhone = () => {
     setPhoneInput(verifiedPhone);
-    setOtpCode("");
+    clearOtp();
     setResendIn(0);
     setSignupToken("");
     setResetToken("");
@@ -134,7 +187,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
   const startPasswordRecovery = () => {
     setPhoneInput(phoneInput || verifiedPhone);
-    setOtpCode("");
+    clearOtp();
     setResendIn(0);
     setError("");
     setStep("forgotPhone");
@@ -142,7 +195,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
   const returnToPhone = () => {
     setPhoneInput(verifiedPhone || phoneInput);
-    setOtpCode("");
+    clearOtp();
     setSignupToken("");
     setResetToken("");
     setResendIn(0);
@@ -151,9 +204,9 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
   };
 
   const verifyLoginCode = async () => {
-    const code = onlyDigits(otpCode, 12);
-    if (code.length < 4) {
-      setError("کد یکبارمصرف پیامک‌شده را کامل وارد کن.");
+    const code = otpDigits.join("");
+    if (code.length !== OTP_LENGTH) {
+      setError("هر چهار رقم کد یکبارمصرف پیامک‌شده را وارد کن.");
       return;
     }
     setBusy(true);
@@ -177,9 +230,9 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
   };
 
   const verifyRecoveryCode = async () => {
-    const code = onlyDigits(otpCode, 12);
-    if (code.length < 4) {
-      setError("کد بازیابی پیامک‌شده را کامل وارد کن.");
+    const code = otpDigits.join("");
+    if (code.length !== OTP_LENGTH) {
+      setError("هر چهار رقم کد بازیابی را وارد کن.");
       return;
     }
     setBusy(true);
@@ -187,7 +240,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
     try {
       const response = await api.auth.verifyPasswordResetOtp(verifiedPhone, code);
       setResetToken(response.resetToken);
-      setOtpCode("");
+      clearOtp();
       setPassword("");
       setPasswordConfirm("");
       setStep("resetPassword");
@@ -294,7 +347,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
           <div className="absolute -bottom-16 -left-10 h-52 w-52 rounded-full bg-white/10" />
           <div className="relative">
             <h2 className="mt-6 text-[26px] font-black leading-9">
-              ناز! مارکت
+              نظرآباد شاپ
               <span className="mt-2 block text-[15px] font-bold leading-7 text-white/85">
                 سوپرمارکت و هایپرمارکت‌های شهر، تا ۴۵ دقیقه دم در خانه‌ی شما.
               </span>
@@ -331,8 +384,16 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
             )}
           </div>
 
-          <h1 className="mt-6 text-[20px] font-black text-ink">{titleByStep[step]}</h1>
-          <p className="mt-2 text-[12px] font-semibold leading-6 text-muted">{subtitleByStep[step]}</p>
+          {titleByStep[step] && (
+            <h1 className="mt-6 text-[20px] font-black text-ink">
+              {titleByStep[step]}
+            </h1>
+          )}
+          {subtitleByStep[step] && (
+            <p className="mt-2 text-[12px] font-semibold leading-6 text-muted">
+              {subtitleByStep[step]}
+            </p>
+          )}
 
           <form onSubmit={submit} className="mt-5 space-y-3.5" noValidate>
             {isPhoneStep && (
@@ -365,30 +426,66 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
             {isOtpStep && (
               <>
-                <label className="naz-floating-field auth-floating-field">
-                  <span className="naz-floating-label">کد پیامک‌شده</span>
-                  <span className="relative flex items-center">
-                    <ShieldCheck className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
-                    <input
-                      type="text"
-                      name="otp"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      autoFocus
-                      dir="ltr"
-                      required
-                      disabled={busy}
-                      maxLength={12}
-                      value={otpCode}
-                      onChange={(event) => {
-                        setOtpCode(onlyDigits(event.target.value, 12));
-                        setError("");
-                      }}
-                      placeholder="کد را وارد کن"
-                      className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[18px] font-black tracking-[0.4em] outline-none transition placeholder:tracking-normal placeholder:text-[12px] placeholder:text-[#c3beb9] focus:border-brand disabled:bg-[#fafaf8]"
-                    />
+                <div className="space-y-2">
+                  <span
+                    id="sms-otp-label"
+                    className="block text-[11px] font-bold text-muted"
+                  >
+                    کد پیامک‌شده
                   </span>
-                </label>
+                  <div
+                    className="flex items-center justify-center gap-2.5"
+                    dir="ltr"
+                    role="group"
+                    aria-labelledby="sms-otp-label"
+                  >
+                    {otpDigits.map((digit, index) => (
+                      <input
+                        key={index}
+                        ref={(element) => {
+                          otpInputs.current[index] = element;
+                        }}
+                        type="text"
+                        name={index === 0 ? "otp" : `otp-${index + 1}`}
+                        inputMode="numeric"
+                        autoComplete={index === 0 ? "one-time-code" : "off"}
+                        autoFocus={index === 0}
+                        aria-label={`رقم ${index + 1} از ${OTP_LENGTH}`}
+                        dir="ltr"
+                        required
+                        disabled={busy}
+                        maxLength={OTP_LENGTH}
+                        pattern="[0-9]*"
+                        value={digit}
+                        onChange={(event) =>
+                          changeOtpDigit(index, event.target.value)
+                        }
+                        onPaste={pasteOtp}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key === "Backspace" &&
+                            !otpDigits[index] &&
+                            index > 0
+                          ) {
+                            event.preventDefault();
+                            otpInputs.current[index - 1]?.focus();
+                          } else if (
+                            event.key === "ArrowLeft" &&
+                            index > 0
+                          ) {
+                            otpInputs.current[index - 1]?.focus();
+                          } else if (
+                            event.key === "ArrowRight" &&
+                            index < OTP_LENGTH - 1
+                          ) {
+                            otpInputs.current[index + 1]?.focus();
+                          }
+                        }}
+                        className="h-12 w-12 rounded-xl border border-line bg-white text-center text-[20px] font-black text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10 disabled:bg-[#fafaf8] sm:h-14 sm:w-14"
+                      />
+                    ))}
+                  </div>
+                </div>
                 <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
                   <button
                     type="button"

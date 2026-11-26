@@ -201,7 +201,7 @@ export function AccountView({ c }: { c: AppCtx }) {
           نسخه ۲.۰.۰ ·{" "}
           {c.isGuest
             ? "حالت مهمان (ذخیره روی این دستگاه)"
-            : "حساب متصل به سرور ناز مارکت"}
+            : "حساب متصل به سرور نظرآباد شاپ"}
         </p>
       </section>
     </div>
@@ -227,7 +227,7 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
       ? `NAZ-${c.user.phone}`
       : "NAZ-NAZARABAD";
   const referralLink = `${window.location.origin}/?ref=${encodeURIComponent(referralCode)}`;
-  const referralMessage = `با لینک من از ناز مارکت خرید کن؛ کد دعوت ${referralCode}: ${referralLink}`;
+  const referralMessage = `با لینک من از نظرآباد شاپ خرید کن؛ کد دعوت ${referralCode}: ${referralLink}`;
   const shareReferral = async () => {
     const shareApi = navigator as Navigator & {
       share?: (data: {
@@ -239,7 +239,7 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
     try {
       if (shareApi.share && window.isSecureContext) {
         await shareApi.share({
-          title: "دعوت به ناز مارکت",
+          title: "دعوت به نظرآباد شاپ",
           text: referralMessage,
           url: referralLink,
         });
@@ -337,10 +337,10 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
       return <WalletSheet c={c} close={close} />;
     case "support":
       return (
-        <Sheet title="پشتیبانی ناز مارکت" onClose={close}>
+        <Sheet title="پشتیبانی نظرآباد شاپ" onClose={close}>
           <div className="space-y-2.5 text-[12px] font-semibold leading-6 text-muted">
             <p>
-              تیم پشتیبانی ناز مارکت هر روز از ساعت ۷ صبح تا ۱۲ شب پاسخ‌گوی
+              تیم پشتیبانی نظرآباد شاپ هر روز از ساعت ۷ صبح تا ۱۲ شب پاسخ‌گوی
               شماست.
             </p>
             <p>
@@ -403,7 +403,7 @@ export function AccountSheetHost({ c }: { c: AppCtx }) {
         <Sheet title="حریم خصوصی" onClose={close}>
           <div className="space-y-3 text-[12px] font-medium leading-6 text-muted">
             <p>
-              ناز مارکت اطلاعات شخصی شما (شماره تماس و آدرس) را فقط برای پردازش
+              نظرآباد شاپ اطلاعات شخصی شما (شماره تماس و آدرس) را فقط برای پردازش
               و تحویل سفارش استفاده می‌کند و آن را با اشخاص ثالث به اشتراک
               نمی‌گذارد.
             </p>
@@ -455,7 +455,7 @@ function DiscountCodeList({ c }: { c: AppCtx }) {
         <Empty
           icon={TicketPercent}
           title="کد تخفیف فعالی ندارید"
-          desc="کدهای معتبر فروشگاه و کدهای سراسری نازمارکت پس از فعال‌شدن، اینجا نمایش داده می‌شوند."
+          desc="کدهای معتبر فروشگاه و کدهای سراسری نظرآباد شاپ پس از فعال‌شدن، اینجا نمایش داده می‌شوند."
         />
       </div>
     );
@@ -641,7 +641,7 @@ function WalletSheet({ c, close }: { c: AppCtx; close: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <Sheet title="کیف پول ناز مارکت" onClose={close}>
+    <Sheet title="کیف پول نظرآباد شاپ" onClose={close}>
       <div className="rounded-3xl bg-ink p-5 text-white">
         <p className="text-[11px] font-bold text-white/55">موجودی ثبت‌شده</p>
         <p className="mt-1 text-[24px] font-black">{faNum(c.wallet)} تومان</p>

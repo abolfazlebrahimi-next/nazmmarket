@@ -1,5 +1,5 @@
 /**
- * ناز مارکت — Node.js backend (Express + MySQL).
+ * نظرآباد شاپ — Node.js backend (Express + MySQL).
  *
  *   npm run dev         →  http://localhost:4000 (run inside backend/)
  */

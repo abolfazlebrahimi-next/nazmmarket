@@ -106,12 +106,12 @@ export const readDiscountCodes = (
 /** The badge every code card carries, in the shelf and at checkout alike. */
 export const codeFamilyLabel = (code: DiscountCode) =>
   code.scope === "platform"
-    ? "سراسری · نازمارکت"
+    ? "سراسری · نظرآباد شاپ"
     : `ویژهٔ ${code.storeName ?? "این فروشگاه"}`;
 
 /** Who funds the discount — used in the totals line. */
 export const codeOwner = (code: Pick<DiscountCode, "scope">) =>
-  code.scope === "platform" ? "نازمارکت" : "فروشگاه";
+  code.scope === "platform" ? "نظرآباد شاپ" : "فروشگاه";
 
 /** «۲۰٪» or «۱۵٬۰۰۰ تومان» — the value line shared by the code cards. */
 export const discountValue = (

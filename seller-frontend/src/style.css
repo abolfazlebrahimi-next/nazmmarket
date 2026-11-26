@@ -76,6 +76,17 @@ button:disabled {
   background: var(--green);
   box-shadow: 0 7px 15px #16865b2b;
 }
+.brand-logo-frame {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: none;
+}
+.brand-logo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
 .brand-lockup > span:nth-child(2),
 .auth-brand > div {
   display: flex;

@@ -219,7 +219,7 @@ export type Order = {
   items: OrderItem[];
   subtotal?: number;
   discount?: number;
-  /** Part of `discount` funded by a platform code (نازمارکت). */
+  /** Part of `discount` funded by a platform code (نظرآباد شاپ). */
   platformDiscount?: number;
   /** Part funded by the store's own code. */
   sellerDiscount?: number;
