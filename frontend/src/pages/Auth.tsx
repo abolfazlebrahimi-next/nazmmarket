@@ -24,6 +24,7 @@ import type { AuthResponse } from "../api/client";
 
 type AuthStep =
   | "phone"
+  | "passwordLogin"
   | "otp"
   | "register"
   | "forgotPhone"
@@ -57,6 +58,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
   const titleByStep: Record<AuthStep, string> = {
     phone: "",
+    passwordLogin: "ورود با رمز عبور",
     otp: "",
     register: "تکمیل ساخت حساب",
     forgotPhone: "بازیابی رمز عبور",
@@ -65,6 +67,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
   };
   const subtitleByStep: Record<AuthStep, string> = {
     phone: "",
+    passwordLogin: "",
     otp: "",
     register: "شماره‌ات تأیید شد. یک نام دلخواه و رمز عبور برای حسابت انتخاب کن.",
     forgotPhone: "شماره‌ای را وارد کن که حساب نظرآباد شاپ با آن ساخته شده است.",
@@ -184,8 +187,15 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
     setStep(step === "forgotOtp" ? "forgotPhone" : "phone");
   };
 
+  const startPasswordLogin = () => {
+    setPassword("");
+    setError("");
+    setStep("passwordLogin");
+  };
+
   const startPasswordRecovery = () => {
     setPhoneInput(phoneInput || verifiedPhone);
+    setPassword("");
     clearOtp();
     setResendIn(0);
     setError("");
@@ -194,12 +204,36 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
   const returnToPhone = () => {
     setPhoneInput(verifiedPhone || phoneInput);
+    setPassword("");
     clearOtp();
     setSignupToken("");
     setResetToken("");
     setResendIn(0);
     setError("");
     setStep("phone");
+  };
+
+  const loginWithPassword = async () => {
+    const normalizedPhone = onlyDigits(phoneInput);
+    if (!/^09\d{9}$/.test(normalizedPhone)) {
+      setError("شماره موبایل باید ۱۱ رقم باشد و با ۰۹ شروع شود.");
+      return;
+    }
+    if (!password) {
+      setError("رمز عبور را وارد کن.");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const response = await api.auth.login(normalizedPhone, password);
+      finishAuth(response);
+    } catch (cause) {
+      setError(errorMessage(cause, "شماره موبایل یا رمز عبور اشتباه است."));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const verifyLoginCode = async () => {
@@ -308,6 +342,9 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
       case "phone":
         void requestCode("login", phoneInput);
         break;
+      case "passwordLogin":
+        void loginWithPassword();
+        break;
       case "otp":
         void verifyLoginCode();
         break;
@@ -326,10 +363,12 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
     }
   };
 
-  const isPhoneStep = step === "phone" || step === "forgotPhone";
+  const isPhoneStep =
+    step === "phone" || step === "passwordLogin" || step === "forgotPhone";
   const isOtpStep = step === "otp" || step === "forgotOtp";
   const submitLabel: Record<AuthStep, string> = {
-    phone: "دریافت کد ورود / ثبت‌نام",
+    phone: "دریافت کد",
+    passwordLogin: "ورود به حساب",
     otp: "تأیید کد و ادامه",
     register: "ساخت حساب و ورود",
     forgotPhone: "دریافت کد بازیابی",
@@ -389,7 +428,7 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
 
           <form
             onSubmit={submit}
-            className="mt-6 flex flex-1 flex-col gap-3.5"
+            className="mt-8 flex flex-1 flex-col gap-3.5"
             noValidate
           >
             {isPhoneStep && (
@@ -418,6 +457,22 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
                   />
                 </span>
               </label>
+            )}
+
+            {step === "passwordLogin" && (
+              <PasswordField
+                label="رمز عبور"
+                name="password"
+                value={password}
+                onChange={(value) => {
+                  setPassword(value);
+                  setError("");
+                }}
+                show={showPassword}
+                onToggle={() => setShowPassword((visible) => !visible)}
+                disabled={busy}
+                autoComplete="current-password"
+              />
             )}
 
             {isOtpStep && (
@@ -630,15 +685,40 @@ export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) 
             </button>
           </form>
 
-          {step === "phone" && (
-            <button
-              type="button"
-              onClick={startPasswordRecovery}
-              disabled={busy}
-              className="mt-4 w-full text-center text-[11px] font-bold text-muted transition hover:text-brand disabled:opacity-50"
-            >
-              فراموشی رمز عبور؟ <span className="text-brand">بازیابی با کد پیامکی</span>
-            </button>
+          {(step === "phone" || step === "passwordLogin") && (
+            <div className="mt-4 grid grid-cols-2 gap-2.5">
+              {step === "phone" ? (
+                <button
+                  type="button"
+                  onClick={startPasswordLogin}
+                  disabled={busy}
+                  className="flex min-h-11 items-center justify-center rounded-xl border border-line bg-white px-2 text-center text-[10.5px] font-bold text-brand transition hover:border-brand/30 hover:bg-[#f5fbf7] disabled:opacity-50"
+                >
+                  ورود با رمز عبور
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPassword("");
+                    setError("");
+                    setStep("phone");
+                  }}
+                  disabled={busy}
+                  className="flex min-h-11 items-center justify-center rounded-xl border border-line bg-white px-2 text-center text-[10.5px] font-bold text-brand transition hover:border-brand/30 hover:bg-[#f5fbf7] disabled:opacity-50"
+                >
+                  ورود با کد پیامکی
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={startPasswordRecovery}
+                disabled={busy}
+                className="flex min-h-11 items-center justify-center rounded-xl border border-line bg-white px-2 text-center text-[10.5px] font-bold text-brand transition hover:border-brand/30 hover:bg-[#f5fbf7] disabled:opacity-50"
+              >
+                فراموشی رمز عبور
+              </button>
+            </div>
           )}
           {step === "forgotPhone" && (
             <button
