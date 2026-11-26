@@ -18,6 +18,20 @@ test(
   "real MySQL: bank → seller → first offer → verification → pickup → delivery → dashboard",
   { skip: !enabled, timeout: 120000 },
   async () => {
+    const originalFetch = globalThis.fetch;
+    const originalOtpUrl = process.env.MELIPAYAMAK_OTP_URL;
+    const originalOtpHashKey = process.env.AUTH_OTP_HASH_KEY;
+    process.env.MELIPAYAMAK_OTP_URL =
+      "https://console.melipayamak.com/api/send/otp/integration-test-token";
+    process.env.AUTH_OTP_HASH_KEY = "integration-otp-hash-key-at-least-32-characters";
+    globalThis.fetch = async (input, init) => {
+      if (String(input).startsWith("https://console.melipayamak.com/"))
+        return new Response(JSON.stringify({ code: "654321", status: "sent" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      return originalFetch(input, init);
+    };
     process.env.ADMIN_USERNAME = "integration-admin";
     process.env.ADMIN_PASSWORD_HASH = hashPassword("integration-password-123");
     process.env.SELLER_PII_KEY = "cd".repeat(32);
@@ -202,13 +216,36 @@ test(
         ).status,
         409,
       );
-      const customer = await ok(
+      const customerPhone = phone(11);
+      await ok(
         "/api/auth/register",
         null,
+        { phone: customerPhone, password: "customer-password-123" },
+        "POST",
+        410,
+      );
+      await ok(
+        "/api/auth/otp/request",
+        null,
+        { phone: customerPhone, purpose: "login" },
+        "POST",
+        200,
+      );
+      const signupChallenge = await ok(
+        "/api/auth/otp/verify",
+        null,
+        { phone: customerPhone, code: "654321" },
+        "POST",
+        200,
+      );
+      assert.equal(signupChallenge.needsRegistration, true);
+      const customer = await ok(
+        "/api/auth/otp/register",
+        null,
         {
-          phone: phone(11),
+          signupToken: signupChallenge.signupToken,
+          name: "مشتری تست",
           password: "customer-password-123",
-          firstName: "مشتری",
         },
         "POST",
         201,
@@ -1202,6 +1239,11 @@ test(
               .catch(() => {});
       await new Promise((r) => server.close(r));
       await pool.end();
+      globalThis.fetch = originalFetch;
+      if (originalOtpUrl === undefined) delete process.env.MELIPAYAMAK_OTP_URL;
+      else process.env.MELIPAYAMAK_OTP_URL = originalOtpUrl;
+      if (originalOtpHashKey === undefined) delete process.env.AUTH_OTP_HASH_KEY;
+      else process.env.AUTH_OTP_HASH_KEY = originalOtpHashKey;
     }
   },
 );

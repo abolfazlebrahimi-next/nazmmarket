@@ -148,7 +148,17 @@ export async function migrate() {
       expires_at BIGINT UNSIGNED NOT NULL,
       sent_at BIGINT UNSIGNED NOT NULL,
       attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+      purpose VARCHAR(24) NOT NULL DEFAULT 'login',
       KEY idx_auth_otps_expiry (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    `CREATE TABLE IF NOT EXISTS auth_otp_challenges (
+      token_hash CHAR(64) NOT NULL PRIMARY KEY,
+      phone VARCHAR(20) NOT NULL,
+      purpose VARCHAR(24) NOT NULL,
+      expires_at BIGINT UNSIGNED NOT NULL,
+      created_at BIGINT UNSIGNED NOT NULL,
+      KEY idx_auth_otp_challenges_phone (phone, purpose),
+      KEY idx_auth_otp_challenges_expiry (expires_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     `CREATE TABLE IF NOT EXISTS seller_sessions (
       token CHAR(64) NOT NULL PRIMARY KEY, seller_id BIGINT UNSIGNED NOT NULL, created_at VARCHAR(32) NOT NULL,
@@ -277,6 +287,8 @@ export async function migrate() {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   ];
   for (const sql of schema) await db.run(sql);
+  // Add the purpose to older auth_otp tables without dropping pending rows.
+  await ensureColumn("auth_otps", "purpose", "VARCHAR(24) NOT NULL DEFAULT 'login'");
 
   // The previous app used status 3 for completed orders; preserve those records as completed before reusing 3 for courier handoff.
   await db.transaction(async (tx) => {

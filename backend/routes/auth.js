@@ -6,13 +6,17 @@ const router = Router();
 const bad = (res, status, code, message) => res.status(status).json({ error: { code, message } });
 const sanitizeName = (v) => String(v ?? "").trim().slice(0, 40);
 const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const OTP_RESEND_MS = 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_REQUEST_WINDOW_MS = 15 * 60 * 1000;
 const OTP_REQUEST_MAX = 5;
+const OTP_PURPOSE_LOGIN = "login";
+const OTP_PURPOSE_PASSWORD_RESET = "password_reset";
+const OTP_PURPOSE_SIGNUP = "signup";
 const otpRequestAttempts = new Map();
 const otpSendingPhones = new Set();
-const genericOtpMessage = "اگر حسابی با این شماره وجود داشته باشد، کد ورود پیامک می‌شود.";
+const genericOtpMessage = "اگر شماره معتبر باشد، کد پیامکی ارسال می‌شود.";
 
 function otpRequestThrottle(req, res, next) {
   const now = Date.now();
@@ -67,6 +71,15 @@ function hashOtp(code, salt) {
     .digest("hex");
 }
 
+function hashChallengeToken(token) {
+  return hashOtp(token, "auth-otp-challenge");
+}
+
+function splitDisplayName(value) {
+  const parts = sanitizeName(value).split(/\s+/).filter(Boolean);
+  return { firstName: parts.shift() ?? "", lastName: parts.join(" ").slice(0, 40) };
+}
+
 function otpMatches(code, otpRow) {
   const stored = Buffer.from(String(otpRow.code_hash ?? ""), "hex");
   const candidate = Buffer.from(hashOtp(code, String(otpRow.salt ?? "")), "hex");
@@ -76,6 +89,27 @@ function otpMatches(code, otpRow) {
 function isOtpCode(code) {
   return code.length >= 4 && code.length <= 12 &&
     [...code].every((digit) => digit >= "0" && digit <= "9");
+}
+
+async function consumeOtp(tx, phone, code, purpose) {
+  const otp = await tx.get(
+    "SELECT phone, code_hash, salt, expires_at, attempts, purpose FROM auth_otps WHERE phone = ? FOR UPDATE",
+    [phone],
+  );
+  if (!otp || otp.purpose !== purpose) return false;
+  if (Number(otp.expires_at) <= Date.now() || Number(otp.attempts) >= OTP_MAX_ATTEMPTS) {
+    await tx.run("DELETE FROM auth_otps WHERE phone = ?", [phone]);
+    return false;
+  }
+  if (!otpMatches(code, otp)) {
+    if (Number(otp.attempts) + 1 >= OTP_MAX_ATTEMPTS)
+      await tx.run("DELETE FROM auth_otps WHERE phone = ?", [phone]);
+    else
+      await tx.run("UPDATE auth_otps SET attempts = attempts + 1 WHERE phone = ?", [phone]);
+    return false;
+  }
+  await tx.run("DELETE FROM auth_otps WHERE phone = ?", [phone]);
+  return true;
 }
 
 function providerOtpCode(payload) {
@@ -114,43 +148,43 @@ function safeProviderStatus(status, endpoint, phone, code) {
   return safe.replace(/[0-9۰-۹٠-٩]{4,12}/g, "[number]").trim().slice(0, 240);
 }
 
-router.post("/register", async (req, res) => {
-  const phone = normalizePhone(req.body?.phone), password = String(req.body?.password ?? "");
-  const firstName = sanitizeName(req.body?.firstName), lastName = sanitizeName(req.body?.lastName);
-  if (!isValidPhone(phone)) return bad(res, 400, "invalid_phone", "شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.");
-  if (password.length < 6) return bad(res, 400, "weak_password", "رمز عبور باید حداقل ۶ کاراکتر باشد.");
-  if (await db.get("SELECT id FROM users WHERE phone = ?", [phone])) return bad(res, 409, "phone_taken", "این شماره قبلاً ثبت‌نام کرده است. وارد شوید.");
-  const info = await db.run("INSERT INTO users (phone, password_hash, first_name, last_name, created_at) VALUES (?, ?, ?, ?, ?)", [phone, hashPassword(password), firstName, lastName, new Date().toISOString()]);
-  const userId = Number(info.insertId), token = await createSession(userId);
-  res.status(201).json({ token, user: mapUser(await db.get("SELECT * FROM users WHERE id = ?", [userId])), addresses: [] });
-});
+router.post("/register", (_req, res) =>
+  bad(res, 410, "otp_verification_required", "برای ساخت حساب، ابتدا شماره موبایل را با کد پیامکی تأیید کنید."),
+);
 
 router.post("/otp/request", otpRequestThrottle, async (req, res) => {
   const phone = normalizePhone(req.body?.phone ?? "");
+  const purpose = req.body?.purpose ?? OTP_PURPOSE_LOGIN;
   if (!isValidPhone(phone))
     return bad(res, 400, "invalid_phone", "شماره موبایل باید ۱۱ رقم و با ۰۹ شروع شود.");
+  if (![OTP_PURPOSE_LOGIN, OTP_PURPOSE_PASSWORD_RESET].includes(purpose))
+    return bad(res, 400, "invalid_otp_purpose", "نوع درخواست کد معتبر نیست.");
   const endpoint = melipayamakOtpUrl();
   if (!endpoint || !otpHashConfigured())
     return bad(res, 503, "otp_unavailable", "ورود پیامکی هنوز روی سرور پیکربندی نشده است.");
 
   const now = Date.now();
   await db.run("DELETE FROM auth_otps WHERE expires_at < ?", [now]);
-  const user = await db.get("SELECT id FROM users WHERE phone = ?", [phone]);
-  if (!user) {
-    console.info("[auth:otp] request not sent", { reason: "customer_not_found" });
-    return res.json({ ok: true, message: genericOtpMessage });
+  await db.run("DELETE FROM auth_otp_challenges WHERE expires_at < ?", [now]);
+  if (purpose === OTP_PURPOSE_PASSWORD_RESET) {
+    const user = await db.get("SELECT id FROM users WHERE phone = ?", [phone]);
+    if (!user) {
+      console.info("[auth:otp] request not sent", { reason: "customer_not_found", purpose });
+      return res.json({ ok: true, message: genericOtpMessage });
+    }
   }
 
-  const previous = await db.get("SELECT sent_at FROM auth_otps WHERE phone = ?", [phone]);
-  if (previous && now - Number(previous.sent_at) < OTP_RESEND_MS) {
+  const previous = await db.get("SELECT sent_at, purpose FROM auth_otps WHERE phone = ?", [phone]);
+  if (previous && previous.purpose === purpose && now - Number(previous.sent_at) < OTP_RESEND_MS) {
     console.info("[auth:otp] request not sent", {
       reason: "resend_cooldown",
+      purpose,
       remainingSeconds: Math.ceil((OTP_RESEND_MS - (now - Number(previous.sent_at))) / 1000),
     });
     return res.json({ ok: true, message: genericOtpMessage });
   }
   if (otpSendingPhones.has(phone)) {
-    console.info("[auth:otp] request not sent", { reason: "send_already_in_progress" });
+    console.info("[auth:otp] request not sent", { reason: "send_already_in_progress", purpose });
     return res.json({ ok: true, message: genericOtpMessage });
   }
 
@@ -190,10 +224,10 @@ router.post("/otp/request", otpRequestThrottle, async (req, res) => {
     const salt = crypto.randomBytes(16).toString("hex");
     const sentAt = Date.now();
     await db.run(
-      `INSERT INTO auth_otps (phone, code_hash, salt, expires_at, sent_at, attempts)
-       VALUES (?, ?, ?, ?, ?, 0)
-       ON DUPLICATE KEY UPDATE code_hash=VALUES(code_hash),salt=VALUES(salt),expires_at=VALUES(expires_at),sent_at=VALUES(sent_at),attempts=0`,
-      [phone, hashOtp(code, salt), salt, sentAt + OTP_TTL_MS, sentAt],
+      `INSERT INTO auth_otps (phone, code_hash, salt, expires_at, sent_at, attempts, purpose)
+       VALUES (?, ?, ?, ?, ?, 0, ?)
+       ON DUPLICATE KEY UPDATE code_hash=VALUES(code_hash),salt=VALUES(salt),expires_at=VALUES(expires_at),sent_at=VALUES(sent_at),attempts=0,purpose=VALUES(purpose)`,
+      [phone, hashOtp(code, salt), salt, sentAt + OTP_TTL_MS, sentAt, purpose],
     );
     const rawCode = providerPayload && typeof providerPayload === "object"
       ? providerPayload.code
@@ -203,6 +237,7 @@ router.post("/otp/request", otpRequestThrottle, async (req, res) => {
       : undefined;
     console.info("[auth:otp] provider accepted OTP", {
       httpStatus: providerResponse.status,
+      purpose,
       codeType: rawCode === undefined ? "missing" : rawCode === null ? "null" : typeof rawCode,
       codeLength: code.length,
       statusPreview: safeProviderStatus(rawStatus, endpoint, phone, code),
@@ -227,34 +262,28 @@ router.post("/otp/verify", loginThrottle, async (req, res) => {
     return bad(res, 400, "invalid_otp", "شماره موبایل یا کد یکبارمصرف معتبر نیست.");
 
   const result = await db.transaction(async (tx) => {
-    const otp = await tx.get(
-      "SELECT phone, code_hash, salt, expires_at, attempts FROM auth_otps WHERE phone = ? FOR UPDATE",
-      [phone],
-    );
-    if (!otp) return null;
-    if (Number(otp.expires_at) <= Date.now() || Number(otp.attempts) >= OTP_MAX_ATTEMPTS) {
-      await tx.run("DELETE FROM auth_otps WHERE phone = ?", [phone]);
-      return null;
-    }
-    if (!otpMatches(code, otp)) {
-      if (Number(otp.attempts) + 1 >= OTP_MAX_ATTEMPTS)
-        await tx.run("DELETE FROM auth_otps WHERE phone = ?", [phone]);
-      else
-        await tx.run("UPDATE auth_otps SET attempts = attempts + 1 WHERE phone = ?", [phone]);
-      return null;
-    }
-
+    if (!await consumeOtp(tx, phone, code, OTP_PURPOSE_LOGIN)) return null;
     const user = await tx.get("SELECT * FROM users WHERE phone = ?", [phone]);
     if (!user) {
-      await tx.run("DELETE FROM auth_otps WHERE phone = ?", [phone]);
-      return null;
+      const signupToken = crypto.randomBytes(32).toString("hex");
+      const createdAt = Date.now();
+      await tx.run(
+        "DELETE FROM auth_otp_challenges WHERE phone = ? AND purpose = ?",
+        [phone, OTP_PURPOSE_SIGNUP],
+      );
+      await tx.run(
+        `INSERT INTO auth_otp_challenges (token_hash, phone, purpose, expires_at, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [hashChallengeToken(signupToken), phone, OTP_PURPOSE_SIGNUP, createdAt + OTP_CHALLENGE_TTL_MS, createdAt],
+      );
+      return { needsRegistration: true, signupToken };
     }
+
     const addresses = (await tx.all(
       "SELECT * FROM addresses WHERE user_id = ? ORDER BY id ASC",
       [user.id],
     )).map(mapAddress);
     const token = crypto.randomBytes(32).toString("hex");
-    await tx.run("DELETE FROM auth_otps WHERE phone = ?", [phone]);
     await tx.run(
       "INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)",
       [token, user.id, new Date().toISOString()],
@@ -264,6 +293,144 @@ router.post("/otp/verify", loginThrottle, async (req, res) => {
 
   if (!result)
     return bad(res, 401, "invalid_otp", "کد یکبارمصرف نادرست یا منقضی شده است؛ کد تازه بگیرید.");
+  res.json(result);
+});
+
+router.post("/otp/register", async (req, res) => {
+  if (!otpHashConfigured())
+    return bad(res, 503, "otp_unavailable", "ثبت‌نام پیامکی هنوز روی سرور پیکربندی نشده است.");
+  const signupToken = String(req.body?.signupToken ?? "").trim().toLowerCase();
+  const displayName = sanitizeName(req.body?.name ?? "");
+  const password = String(req.body?.password ?? "");
+  if (!/^[a-f0-9]{64}$/.test(signupToken))
+    return bad(res, 400, "invalid_signup_challenge", "تأیید شماره منقضی شده است؛ کد تازه بگیرید.");
+  if (displayName.length < 2)
+    return bad(res, 400, "invalid_name", "نام نمایشی را وارد کنید.");
+  if (password.length < 6 || password.length > 256)
+    return bad(res, 400, "weak_password", "رمز عبور باید بین ۶ تا ۲۵۶ نویسه باشد.");
+
+  let result;
+  try {
+    result = await db.transaction(async (tx) => {
+      const tokenHash = hashChallengeToken(signupToken);
+      const challenge = await tx.get(
+        "SELECT phone, purpose, expires_at FROM auth_otp_challenges WHERE token_hash = ? FOR UPDATE",
+        [tokenHash],
+      );
+      if (!challenge || challenge.purpose !== OTP_PURPOSE_SIGNUP) return null;
+      if (Number(challenge.expires_at) <= Date.now()) {
+        await tx.run("DELETE FROM auth_otp_challenges WHERE token_hash = ?", [tokenHash]);
+        return null;
+      }
+      const existing = await tx.get("SELECT id FROM users WHERE phone = ? FOR UPDATE", [challenge.phone]);
+      if (existing) {
+        await tx.run("DELETE FROM auth_otp_challenges WHERE token_hash = ?", [tokenHash]);
+        return { phoneTaken: true };
+      }
+
+      const { firstName, lastName } = splitDisplayName(displayName);
+      const createdAt = new Date().toISOString();
+      const info = await tx.run(
+        "INSERT INTO users (phone, password_hash, first_name, last_name, created_at) VALUES (?, ?, ?, ?, ?)",
+        [challenge.phone, hashPassword(password), firstName, lastName, createdAt],
+      );
+      const user = await tx.get("SELECT * FROM users WHERE id = ?", [info.insertId]);
+      const token = crypto.randomBytes(32).toString("hex");
+      await tx.run(
+        "INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)",
+        [token, user.id, createdAt],
+      );
+      await tx.run("DELETE FROM auth_otp_challenges WHERE token_hash = ?", [tokenHash]);
+      return { token, user: mapUser(user), addresses: [] };
+    });
+  } catch (error) {
+    if (error?.code === "ER_DUP_ENTRY")
+      return bad(res, 409, "phone_taken", "این شماره قبلاً ثبت‌نام کرده است؛ وارد شوید.");
+    throw error;
+  }
+
+  if (!result)
+    return bad(res, 401, "invalid_signup_challenge", "تأیید شماره منقضی شده است؛ کد تازه بگیرید.");
+  if (result.phoneTaken)
+    return bad(res, 409, "phone_taken", "این شماره قبلاً ثبت‌نام کرده است؛ وارد شوید.");
+  res.status(201).json(result);
+});
+
+router.post("/otp/verify-reset", loginThrottle, async (req, res) => {
+  if (!otpHashConfigured())
+    return bad(res, 503, "otp_unavailable", "بازیابی رمز عبور هنوز روی سرور پیکربندی نشده است.");
+  const phone = normalizePhone(req.body?.phone ?? "");
+  const code = normalizePhone(req.body?.code ?? "");
+  if (!isValidPhone(phone) || !isOtpCode(code))
+    return bad(res, 400, "invalid_otp", "شماره موبایل یا کد یکبارمصرف معتبر نیست.");
+
+  const result = await db.transaction(async (tx) => {
+    if (!await consumeOtp(tx, phone, code, OTP_PURPOSE_PASSWORD_RESET)) return null;
+    const user = await tx.get("SELECT id FROM users WHERE phone = ?", [phone]);
+    if (!user) return null;
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const createdAt = Date.now();
+    await tx.run(
+      "DELETE FROM auth_otp_challenges WHERE phone = ? AND purpose = ?",
+      [phone, OTP_PURPOSE_PASSWORD_RESET],
+    );
+    await tx.run(
+      `INSERT INTO auth_otp_challenges (token_hash, phone, purpose, expires_at, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [hashChallengeToken(resetToken), phone, OTP_PURPOSE_PASSWORD_RESET, createdAt + OTP_CHALLENGE_TTL_MS, createdAt],
+    );
+    return { resetToken };
+  });
+
+  if (!result)
+    return bad(res, 401, "invalid_otp", "کد بازیابی نادرست یا منقضی شده است؛ کد تازه بگیرید.");
+  res.json(result);
+});
+
+router.post("/otp/reset-password", async (req, res) => {
+  if (!otpHashConfigured())
+    return bad(res, 503, "otp_unavailable", "بازیابی رمز عبور هنوز روی سرور پیکربندی نشده است.");
+  const resetToken = String(req.body?.resetToken ?? "").trim().toLowerCase();
+  const password = String(req.body?.password ?? "");
+  if (!/^[a-f0-9]{64}$/.test(resetToken))
+    return bad(res, 400, "invalid_reset_challenge", "تأیید شماره منقضی شده است؛ دوباره تلاش کنید.");
+  if (password.length < 6 || password.length > 256)
+    return bad(res, 400, "weak_password", "رمز عبور باید بین ۶ تا ۲۵۶ نویسه باشد.");
+
+  const result = await db.transaction(async (tx) => {
+    const tokenHash = hashChallengeToken(resetToken);
+    const challenge = await tx.get(
+      "SELECT phone, purpose, expires_at FROM auth_otp_challenges WHERE token_hash = ? FOR UPDATE",
+      [tokenHash],
+    );
+    if (!challenge || challenge.purpose !== OTP_PURPOSE_PASSWORD_RESET) return null;
+    if (Number(challenge.expires_at) <= Date.now()) {
+      await tx.run("DELETE FROM auth_otp_challenges WHERE token_hash = ?", [tokenHash]);
+      return null;
+    }
+    const user = await tx.get("SELECT * FROM users WHERE phone = ?", [challenge.phone]);
+    if (!user) {
+      await tx.run("DELETE FROM auth_otp_challenges WHERE token_hash = ?", [tokenHash]);
+      return null;
+    }
+    await tx.run("UPDATE users SET password_hash = ? WHERE id = ?", [hashPassword(password), user.id]);
+    await tx.run("DELETE FROM sessions WHERE user_id = ?", [user.id]);
+    const token = crypto.randomBytes(32).toString("hex");
+    await tx.run(
+      "INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)",
+      [token, user.id, new Date().toISOString()],
+    );
+    const addresses = (await tx.all(
+      "SELECT * FROM addresses WHERE user_id = ? ORDER BY id ASC",
+      [user.id],
+    )).map(mapAddress);
+    await tx.run("DELETE FROM auth_otp_challenges WHERE token_hash = ?", [tokenHash]);
+    const refreshedUser = await tx.get("SELECT * FROM users WHERE id = ?", [user.id]);
+    return { token, user: mapUser(refreshedUser), addresses };
+  });
+
+  if (!result)
+    return bad(res, 401, "invalid_reset_challenge", "تأیید شماره منقضی شده است؛ دوباره تلاش کنید.");
   res.json(result);
 });
 

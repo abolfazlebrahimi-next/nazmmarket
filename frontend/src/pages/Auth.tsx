@@ -1,135 +1,295 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowRight,
   Check,
   Eye,
   EyeOff,
   LoaderCircle,
   Lock,
   Phone,
+  RefreshCw,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
 import { ApiError, api, tokenStore } from "../api/client";
 import { Wordmark, toEn } from "../components/ui";
-import type { User } from "../data";
+import type { AuthResponse } from "../api/client";
 
-type Mode = "login" | "register";
-type Result = { token: string; user: User; addresses: unknown[] };
+type AuthStep =
+  | "phone"
+  | "otp"
+  | "register"
+  | "forgotPhone"
+  | "forgotOtp"
+  | "resetPassword";
+type OtpPurpose = "login" | "password_reset";
 
-export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
-  const [mode, setMode] = useState<Mode>("login");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [name, setName] = useState("");
+const onlyDigits = (value: string, maxLength = 11) =>
+  toEn(value).replace(/\D/g, "").slice(0, maxLength);
+const maskPhone = (phone: string) =>
+  phone.length === 11 ? `${phone.slice(0, 3)}•••••${phone.slice(-3)}` : phone;
+
+export default function AuthPage({ onAuth }: { onAuth: (response: AuthResponse) => void }) {
+  const [step, setStep] = useState<AuthStep>("phone");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [verifiedPhone, setVerifiedPhone] = useState("");
   const [otpCode, setOtpCode] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const [signupToken, setSignupToken] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [resendIn, setResendIn] = useState(0);
-  const [showPass, setShowPass] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  const phoneOk = /^09\d{9}$/.test(phone);
+  const titleByStep: Record<AuthStep, string> = {
+    phone: "ورود یا ساخت حساب",
+    otp: "تأیید شماره موبایل",
+    register: "تکمیل ساخت حساب",
+    forgotPhone: "بازیابی رمز عبور",
+    forgotOtp: "کد بازیابی را وارد کنید",
+    resetPassword: "انتخاب رمز عبور جدید",
+  };
+  const subtitleByStep: Record<AuthStep, string> = {
+    phone: "شماره موبایلت را وارد کن؛ اگر حساب داشته باشی وارد می‌شوی و اگر نه، بعد از تأیید شماره حساب می‌سازی.",
+    otp: "کد پیامک‌شده را وارد کن تا وارد حساب شوی یا ساخت حساب را ادامه بدهی.",
+    register: "شماره‌ات تأیید شد. یک نام دلخواه و رمز عبور برای حسابت انتخاب کن.",
+    forgotPhone: "شماره‌ای را وارد کن که حساب نازمارکت با آن ساخته شده است.",
+    forgotOtp: "برای تأیید مالکیت شماره، کد بازیابی پیامک‌شده را وارد کن.",
+    resetPassword: "کد درست بود؛ حالا رمز عبور تازه‌ای برای حسابت انتخاب کن.",
+  };
 
   useEffect(() => {
     if (resendIn <= 0) return;
-    const timer = window.setTimeout(() => setResendIn((seconds) => Math.max(0, seconds - 1)), 1000);
+    const timer = window.setTimeout(
+      () => setResendIn((seconds) => Math.max(0, seconds - 1)),
+      1000,
+    );
     return () => window.clearTimeout(timer);
   }, [resendIn]);
 
-  const switchMode = (next: Mode) => {
-    setMode(next);
-    setError("");
-    setConfirm("");
-    setOtpCode("");
-    setOtpSent(false);
-    setResendIn(0);
+  const finishAuth = (response: AuthResponse) => {
+    tokenStore.set(response.token);
+    onAuth(response);
   };
 
-  const sendOtp = async () => {
+  const errorMessage = (cause: unknown, fallback: string) =>
+    cause instanceof ApiError && cause.message.trim() ? cause.message : fallback;
+
+  const requestCode = async (purpose: OtpPurpose, rawPhone: string) => {
     if (busy) return;
-    if (!phoneOk) {
+    const normalizedPhone = onlyDigits(rawPhone);
+    if (!/^09\d{9}$/.test(normalizedPhone)) {
       setError("شماره موبایل باید ۱۱ رقم باشد و با ۰۹ شروع شود.");
       return;
     }
+
     setBusy(true);
     setError("");
     try {
-      await api.auth.requestOtp(phone);
-      setOtpSent(true);
+      await api.auth.requestOtp(normalizedPhone, purpose);
+      setVerifiedPhone(normalizedPhone);
+      // Keep the verified number only in component state; clear the editable field
+      // as soon as the code step opens.
+      setPhoneInput("");
       setOtpCode("");
       setResendIn(60);
-    } catch (err) {
-      setError(
-        err instanceof ApiError && err.message.trim()
-          ? err.message
-          : "ارسال کد ورود انجام نشد؛ دوباره تلاش کنید.",
-      );
+      setStep(purpose === "login" ? "otp" : "forgotOtp");
+    } catch (cause) {
+      setError(errorMessage(cause, "ارسال کد انجام نشد؛ دوباره تلاش کن."));
     } finally {
       setBusy(false);
     }
   };
 
-  const submit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (busy) return;
-    if (!phoneOk) {
-      setError("شماره موبایل باید ۱۱ رقم باشد و با ۰۹ شروع شود.");
+  const resendCode = async () => {
+    if (busy || resendIn > 0 || !verifiedPhone) return;
+    const purpose: OtpPurpose = step === "forgotOtp" ? "password_reset" : "login";
+    setBusy(true);
+    setError("");
+    try {
+      await api.auth.requestOtp(verifiedPhone, purpose);
+      setOtpCode("");
+      setResendIn(60);
+    } catch (cause) {
+      setError(errorMessage(cause, "ارسال دوبارهٔ کد انجام نشد؛ دوباره تلاش کن."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const editPhone = () => {
+    setPhoneInput(verifiedPhone);
+    setOtpCode("");
+    setResendIn(0);
+    setSignupToken("");
+    setResetToken("");
+    setError("");
+    setStep(step === "forgotOtp" ? "forgotPhone" : "phone");
+  };
+
+  const startPasswordRecovery = () => {
+    setPhoneInput(phoneInput || verifiedPhone);
+    setOtpCode("");
+    setResendIn(0);
+    setError("");
+    setStep("forgotPhone");
+  };
+
+  const returnToPhone = () => {
+    setPhoneInput(verifiedPhone || phoneInput);
+    setOtpCode("");
+    setSignupToken("");
+    setResetToken("");
+    setResendIn(0);
+    setError("");
+    setStep("phone");
+  };
+
+  const verifyLoginCode = async () => {
+    const code = onlyDigits(otpCode, 12);
+    if (code.length < 4) {
+      setError("کد یکبارمصرف پیامک‌شده را کامل وارد کن.");
       return;
     }
-    if (mode === "login" && !otpSent) {
-      await sendOtp();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await api.auth.verifyOtp(verifiedPhone, code);
+      if ("signupToken" in response) {
+        setSignupToken(response.signupToken);
+        setDisplayName("");
+        setPassword("");
+        setPasswordConfirm("");
+        setStep("register");
+      } else {
+        finishAuth(response);
+      }
+    } catch (cause) {
+      setError(errorMessage(cause, "کد نادرست یا منقضی شده است؛ دوباره بررسی کن."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const verifyRecoveryCode = async () => {
+    const code = onlyDigits(otpCode, 12);
+    if (code.length < 4) {
+      setError("کد بازیابی پیامک‌شده را کامل وارد کن.");
       return;
     }
-    const code = toEn(otpCode).replace(/\D/g, "").slice(0, 12);
-    if (mode === "login" && (code.length < 4 || code.length > 12)) {
-      setError("کد یکبارمصرف پیامک‌شده را وارد کنید.");
+    setBusy(true);
+    setError("");
+    try {
+      const response = await api.auth.verifyPasswordResetOtp(verifiedPhone, code);
+      setResetToken(response.resetToken);
+      setOtpCode("");
+      setPassword("");
+      setPasswordConfirm("");
+      setStep("resetPassword");
+    } catch (cause) {
+      setError(errorMessage(cause, "کد نادرست یا منقضی شده است؛ دوباره بررسی کن."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createAccount = async () => {
+    const name = displayName.trim();
+    if (name.length < 2) {
+      setError("یک نام دلخواه با دست‌کم ۲ نویسه وارد کن.");
       return;
     }
-    if (mode === "register" && password.length < 6) {
+    if (password.length < 6) {
       setError("رمز عبور باید دست‌کم ۶ نویسه باشد.");
       return;
     }
-    if (mode === "register" && password !== confirm) {
+    if (password !== passwordConfirm) {
       setError("رمز عبور و تکرار آن یکسان نیستند.");
       return;
     }
     setBusy(true);
     setError("");
     try {
-      let res: Result;
-      if (mode === "login") {
-        res = await api.auth.verifyOtp(phone, code);
-      } else {
-        const [firstName, ...rest] = name.trim().split(" ");
-        res = await api.auth.register({
-          phone,
-          password,
-          firstName: firstName ?? "",
-          lastName: rest.join(" "),
-        });
-      }
-      tokenStore.set(res.token);
-      onAuth(res);
-    } catch (err) {
-      const fallback = mode === "login"
-        ? "کد ورود معتبر نیست یا منقضی شده؛ دوباره کد بگیرید."
-        : "ثبت‌نام انجام نشد؛ اطلاعات واردشده را بررسی کنید.";
-      setError(
-        err instanceof ApiError && err.message.trim() ? err.message : fallback,
-      );
+      const response = await api.auth.completeOtpRegistration({
+        signupToken,
+        name,
+        password,
+      });
+      finishAuth(response);
+    } catch (cause) {
+      setError(errorMessage(cause, "ساخت حساب انجام نشد؛ دوباره تلاش کن."));
     } finally {
       setBusy(false);
     }
   };
 
+  const saveNewPassword = async () => {
+    if (password.length < 6) {
+      setError("رمز عبور باید دست‌کم ۶ نویسه باشد.");
+      return;
+    }
+    if (password !== passwordConfirm) {
+      setError("رمز عبور و تکرار آن یکسان نیستند.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const response = await api.auth.resetPassword(resetToken, password);
+      finishAuth(response);
+    } catch (cause) {
+      setError(errorMessage(cause, "تغییر رمز انجام نشد؛ کد بازیابی تازه بگیر."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (busy) return;
+    switch (step) {
+      case "phone":
+        void requestCode("login", phoneInput);
+        break;
+      case "otp":
+        void verifyLoginCode();
+        break;
+      case "register":
+        void createAccount();
+        break;
+      case "forgotPhone":
+        void requestCode("password_reset", phoneInput);
+        break;
+      case "forgotOtp":
+        void verifyRecoveryCode();
+        break;
+      case "resetPassword":
+        void saveNewPassword();
+        break;
+    }
+  };
+
+  const isPhoneStep = step === "phone" || step === "forgotPhone";
+  const isOtpStep = step === "otp" || step === "forgotOtp";
+  const showBackButton = step !== "phone";
+  const submitLabel: Record<AuthStep, string> = {
+    phone: "دریافت کد ورود / ثبت‌نام",
+    otp: "تأیید کد و ادامه",
+    register: "ساخت حساب و ورود",
+    forgotPhone: "دریافت کد بازیابی",
+    forgotOtp: "تأیید کد بازیابی",
+    resetPassword: "ذخیره رمز جدید و ورود",
+  };
+
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[radial-gradient(120%_120%_at_100%_0%,#eaf4ee_0%,#fafcfb_45%,#edf1ee_100%)] px-4 py-8 sm:px-6">
       <div className="grid w-full max-w-4xl overflow-hidden rounded-[30px] border border-line bg-white shadow-[0_30px_80px_-40px_rgba(40,25,10,0.45)] lg:grid-cols-[0.85fr_1fr]">
-        {/* brand side (desktop) */}
-        <aside className="relative hidden flex-col justify-between bg-gradient-to-br from-[#16865b] to-[#26352e] p-9 text-white lg:flex">
+        <aside className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-[#16865b] to-[#26352e] p-9 text-white lg:flex">
           <div className="absolute -right-10 -top-12 h-44 w-44 rounded-full bg-white/10" />
           <div className="absolute -bottom-16 -left-10 h-52 w-52 rounded-full bg-white/10" />
           <div className="relative">
@@ -140,108 +300,105 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
               </span>
             </h2>
             <ul className="mt-7 space-y-3 text-[12.5px] font-semibold text-white/90">
-              {["ثبت سفارش از فروشگاه‌های محلی", "مشاهده کالاهای ثبت‌شده توسط فروشنده", "پرداخت در محل؛ درگاه آنلاین فعال نیست"].map((t) => (
-                <li key={t} className="flex items-center gap-2">
+              {["ورود سریع و امن با شماره موبایل", "ساخت حساب در چند قدم کوتاه", "ثبت سفارش از فروشگاه‌های محلی"].map((item) => (
+                <li key={item} className="flex items-center gap-2">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
                     <Check className="h-3 w-3" strokeWidth={3} />
                   </span>
-                  {t}
+                  {item}
                 </li>
               ))}
             </ul>
           </div>
+          <p className="relative text-[11px] font-semibold text-white/70">
+            اطلاعات ورودت فقط برای امن نگه‌داشتن حساب استفاده می‌شود.
+          </p>
         </aside>
 
-        {/* form side */}
-        <section className="p-6 sm:p-9">
-          <div className="flex items-center justify-between">
+        <section className="p-6 sm:p-9" dir="rtl">
+          <div className="flex items-center justify-between gap-4">
             <Wordmark size="text-[22px]" />
-
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-1 rounded-2xl bg-[#f4f3f0] p-1" role="tablist" aria-label="ورود یا ثبت‌نام">
-            {([
-              { key: "login", label: "ورود" },
-              { key: "register", label: "ثبت‌نام" },
-            ] as const).map((t) => (
+            {showBackButton && (
               <button
-                key={t.key}
                 type="button"
-                role="tab"
-                aria-selected={mode === t.key}
-                onClick={() => switchMode(t.key)}
+                onClick={step === "otp" || step === "register" ? editPhone : returnToPhone}
                 disabled={busy}
-                className={`rounded-xl py-2.5 text-[12.5px] font-black transition ${
-                  mode === t.key ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"
-                }`}
+                className="inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-bold text-muted transition hover:bg-[#f4f3f0] hover:text-ink disabled:opacity-50"
               >
-                {t.label}
+                <ArrowRight className="h-3.5 w-3.5" />
+                بازگشت
               </button>
-            ))}
+            )}
           </div>
 
-          <h1 className="mt-6 text-[19px] font-black text-ink">
-            {mode === "login" ? "به حساب خود وارد شوید" : "یک حساب تازه بسازید"}
-          </h1>
-
-          <form onSubmit={submit} className="mt-5 space-y-3.5">
-            <label className="naz-floating-field auth-floating-field">
-              <span className="naz-floating-label">شماره موبایل</span>
-              <span className="relative flex items-center">
-                <Phone className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
-                <input
-                  type="tel"
-                  name="phone"
-                  inputMode="numeric"
-                  autoComplete="tel"
-                  dir="ltr"
-                  required
-                  disabled={busy}
-                  pattern="09[0-9]{9}"
-                  value={phone}
-                  onChange={(e) => {
-                    const nextPhone = toEn(e.target.value).replace(/\D/g, "").slice(0, 11);
-                    setPhone(nextPhone);
-                    setError("");
-                    if (nextPhone !== phone) {
-                      setOtpSent(false);
-                      setOtpCode("");
-                      setResendIn(0);
-                    }
-                  }}
-                  placeholder="09xxxxxxxxx"
-                  className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[14px] font-bold tracking-wide outline-none transition placeholder:tracking-normal placeholder:text-[#c3beb9] focus:border-brand"
+          <div className="mt-7 flex items-center gap-2" aria-label={`مرحله ${step}`}>
+            {["phone", "otp", "register"].map((item, index) => {
+              const activeIndex =
+                step === "phone" || step === "forgotPhone" ? 0 :
+                step === "otp" || step === "forgotOtp" ? 1 : 2;
+              return (
+                <span
+                  key={item}
+                  className={`h-1.5 flex-1 rounded-full transition ${index <= activeIndex ? "bg-brand" : "bg-[#e9e7e3]"}`}
                 />
-              </span>
-            </label>
+              );
+            })}
+          </div>
 
-            {mode === "register" && (
+          <h1 className="mt-6 text-[20px] font-black text-ink">{titleByStep[step]}</h1>
+          <p className="mt-2 text-[12px] font-semibold leading-6 text-muted">{subtitleByStep[step]}</p>
+
+          <form onSubmit={submit} className="mt-5 space-y-3.5" noValidate>
+            {isPhoneStep && (
               <label className="naz-floating-field auth-floating-field">
-                <span className="naz-floating-label">نام و نام خانوادگی</span>
+                <span className="naz-floating-label">شماره موبایل</span>
                 <span className="relative flex items-center">
-                  <UserRound className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
+                  <Phone className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
                   <input
-                    name="fullName"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
+                    type="tel"
+                    name="phone"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    autoFocus
+                    dir="ltr"
+                    required
+                    disabled={busy}
+                    maxLength={11}
+                    pattern="09[0-9]{9}"
+                    value={phoneInput}
+                    onChange={(event) => {
+                      setPhoneInput(onlyDigits(event.target.value));
                       setError("");
                     }}
-                    placeholder="مثلاً سارا محمدی"
-                    autoComplete="name"
-                    className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-[13px] font-bold outline-none transition placeholder:text-[#c3beb9] focus:border-brand"
+                    placeholder="09xxxxxxxxx"
+                    className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[14px] font-bold tracking-wide outline-none transition placeholder:tracking-normal placeholder:text-[#c3beb9] focus:border-brand disabled:bg-[#fafaf8]"
                   />
                 </span>
               </label>
             )}
 
-            {mode === "login" && otpSent && (
-              <div className="space-y-3">
-                <p className="rounded-2xl bg-[#eef8f2] px-3.5 py-3 text-[11.5px] font-bold leading-5 text-[#276647]">
-                  اگر این شماره در سامانه حساب داشته باشد، کد ورود برایش پیامک می‌شود.
-                </p>
+            {isOtpStep && (
+              <>
+                <div className="flex items-center justify-between gap-3 rounded-2xl bg-[#eef8f2] px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-[#59816a]">
+                      {step === "otp" ? "کد ورود / ثبت‌نام برای این شماره ارسال شد" : "کد بازیابی برای این شماره ارسال شد"}
+                    </p>
+                    <p className="mt-1 text-left text-[14px] font-black tracking-wider text-[#276647]" dir="ltr">
+                      {maskPhone(verifiedPhone)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={editPhone}
+                    disabled={busy}
+                    className="shrink-0 rounded-lg px-2 py-1 text-[10px] font-black text-brand transition hover:bg-white/70 disabled:opacity-50"
+                  >
+                    تغییر شماره
+                  </button>
+                </div>
                 <label className="naz-floating-field auth-floating-field">
-                  <span className="naz-floating-label">کد یکبارمصرف</span>
+                  <span className="naz-floating-label">کد پیامک‌شده</span>
                   <span className="relative flex items-center">
                     <ShieldCheck className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
                     <input
@@ -249,132 +406,236 @@ export default function AuthPage({ onAuth }: { onAuth: (r: Result) => void }) {
                       name="otp"
                       inputMode="numeric"
                       autoComplete="one-time-code"
+                      autoFocus
                       dir="ltr"
                       required
                       disabled={busy}
                       maxLength={12}
                       value={otpCode}
-                      onChange={(e) => {
-                        setOtpCode(toEn(e.target.value).replace(/\D/g, "").slice(0, 12));
+                      onChange={(event) => {
+                        setOtpCode(onlyDigits(event.target.value, 12));
                         setError("");
                       }}
-                      placeholder="کد پیامک‌شده"
-                      className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[16px] font-black tracking-[0.35em] outline-none transition placeholder:tracking-normal placeholder:text-[12px] placeholder:text-[#c3beb9] focus:border-brand"
+                      placeholder="کد را وارد کن"
+                      className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[18px] font-black tracking-[0.4em] outline-none transition placeholder:tracking-normal placeholder:text-[12px] placeholder:text-[#c3beb9] focus:border-brand disabled:bg-[#fafaf8]"
                     />
                   </span>
                 </label>
                 <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
+                  <span className="text-muted">کد را دریافت نکردی؟</span>
                   <button
                     type="button"
-                    disabled={busy}
-                    onClick={() => {
-                      setOtpSent(false);
-                      setOtpCode("");
-                      setResendIn(0);
-                      setError("");
-                    }}
-                    className="text-muted transition hover:text-ink"
-                  >
-                    تغییر شماره
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void sendOtp()}
+                    onClick={() => void resendCode()}
                     disabled={busy || resendIn > 0}
-                    className="text-brand transition enabled:hover:underline disabled:cursor-not-allowed disabled:text-muted"
+                    className="inline-flex items-center gap-1 text-brand transition enabled:hover:underline disabled:cursor-not-allowed disabled:text-muted"
                   >
+                    <RefreshCw className="h-3 w-3" />
                     {resendIn > 0 ? `ارسال دوباره پس از ${resendIn} ثانیه` : "ارسال دوباره کد"}
                   </button>
                 </div>
-              </div>
+              </>
             )}
 
-            {mode === "register" && (
-              <label className="naz-floating-field auth-floating-field">
-                <span className="naz-floating-label">رمز عبور</span>
-                <span className="relative flex items-center">
-                  <Lock className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
-                  <input
-                    type={showPass ? "text" : "password"}
-                    name="password"
-                    autoComplete="new-password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      setError("");
-                    }}
-                    placeholder="حداقل ۶ کاراکتر"
-                    className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-11 text-left text-[13.5px] font-bold outline-none transition placeholder:text-right placeholder:text-[#c3beb9] focus:border-brand"
-                    dir="ltr"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass((s) => !s)}
-                    aria-label={showPass ? "پنهان کردن رمز" : "نمایش رمز"}
-                    className="absolute left-3 flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-[#f4f3f0]"
-                  >
-                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </span>
-              </label>
-            )}
-
-            {mode === "register" && (
-              <label className="naz-floating-field auth-floating-field">
-                <span className="naz-floating-label">تکرار رمز عبور</span>
-                <span className="relative flex items-center">
-                  <Lock className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
-                  <input
-                    type={showPass ? "text" : "password"}
-                    name="passwordConfirm"
-                    autoComplete="new-password"
-                    required
-                    minLength={6}
-                    value={confirm}
-                    onChange={(e) => {
-                      setConfirm(e.target.value);
-                      setError("");
-                    }}
-                    placeholder="رمز عبور را دوباره بنویسید"
-                    className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-left text-[13.5px] font-bold outline-none transition placeholder:text-right placeholder:text-[#c3beb9] focus:border-brand"
-                    dir="ltr"
-                  />
-                </span>
-                {confirm.length > 0 && confirm !== password && (
-                  <span className="mt-1.5 block text-[10.5px] font-bold text-red-600">رمزها یکسان نیستند.</span>
+            {step === "register" && (
+              <>
+                <div className="flex items-center gap-2 rounded-2xl bg-[#eef8f2] px-4 py-3 text-[11px] font-bold text-[#276647]">
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  شماره <b dir="ltr" className="tracking-wide">{maskPhone(verifiedPhone)}</b> تأیید شد.
+                </div>
+                <label className="naz-floating-field auth-floating-field">
+                  <span className="naz-floating-label">نام دلخواه / نام نمایشی</span>
+                  <span className="relative flex items-center">
+                    <UserRound className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
+                    <input
+                      type="text"
+                      name="displayName"
+                      autoComplete="name"
+                      autoFocus
+                      required
+                      maxLength={40}
+                      disabled={busy}
+                      value={displayName}
+                      onChange={(event) => {
+                        setDisplayName(event.target.value);
+                        setError("");
+                      }}
+                      placeholder="مثلاً سارا محمدی"
+                      className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-4 text-[13px] font-bold outline-none transition placeholder:text-[#c3beb9] focus:border-brand disabled:bg-[#fafaf8]"
+                    />
+                  </span>
+                </label>
+                <PasswordField
+                  label="رمز عبور"
+                  name="newPassword"
+                  value={password}
+                  onChange={(value) => {
+                    setPassword(value);
+                    setError("");
+                  }}
+                  show={showPassword}
+                  onToggle={() => setShowPassword((visible) => !visible)}
+                  disabled={busy}
+                  autoComplete="new-password"
+                />
+                <PasswordField
+                  label="تکرار رمز عبور"
+                  name="confirmPassword"
+                  value={passwordConfirm}
+                  onChange={(value) => {
+                    setPasswordConfirm(value);
+                    setError("");
+                  }}
+                  show={showPassword}
+                  onToggle={() => setShowPassword((visible) => !visible)}
+                  disabled={busy}
+                  autoComplete="new-password"
+                />
+                {passwordConfirm.length > 0 && password !== passwordConfirm && (
+                  <p className="text-[10.5px] font-bold text-red-600">رمزها یکسان نیستند.</p>
                 )}
-              </label>
+                <p className="text-[10px] font-semibold leading-5 text-muted">
+                  تأیید شماره تا ۱۰ دقیقه برای تکمیل ساخت حساب معتبر است.
+                </p>
+              </>
+            )}
+
+            {step === "resetPassword" && (
+              <>
+                <div className="flex items-center gap-2 rounded-2xl bg-[#eef8f2] px-4 py-3 text-[11px] font-bold text-[#276647]">
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
+                  شماره <b dir="ltr" className="tracking-wide">{maskPhone(verifiedPhone)}</b> تأیید شد.
+                </div>
+                <PasswordField
+                  label="رمز عبور جدید"
+                  name="newPassword"
+                  value={password}
+                  onChange={(value) => {
+                    setPassword(value);
+                    setError("");
+                  }}
+                  show={showPassword}
+                  onToggle={() => setShowPassword((visible) => !visible)}
+                  disabled={busy}
+                  autoComplete="new-password"
+                />
+                <PasswordField
+                  label="تکرار رمز جدید"
+                  name="confirmNewPassword"
+                  value={passwordConfirm}
+                  onChange={(value) => {
+                    setPasswordConfirm(value);
+                    setError("");
+                  }}
+                  show={showPassword}
+                  onToggle={() => setShowPassword((visible) => !visible)}
+                  disabled={busy}
+                  autoComplete="new-password"
+                />
+                {passwordConfirm.length > 0 && password !== passwordConfirm && (
+                  <p className="text-[10.5px] font-bold text-red-600">رمزها یکسان نیستند.</p>
+                )}
+              </>
             )}
 
             {error && (
               <p role="alert" className="flex items-start gap-2 rounded-2xl bg-red-50 px-3.5 py-3 text-[11.5px] font-bold leading-5 text-red-700">
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                {error}
+                <span>{error}</span>
               </p>
             )}
 
             <button
               type="submit"
               disabled={busy}
-              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[13.5px] font-black text-white shadow-lg shadow-brand/30 transition enabled:hover:brightness-105 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+              className="mt-1 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-[13.5px] font-black text-white shadow-lg shadow-brand/30 transition enabled:hover:brightness-105 enabled:active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {busy ? (
                 <>
-                  <LoaderCircle className="h-4 w-4 animate-spin" /> لطفاً صبر کنید…
+                  <LoaderCircle className="h-4 w-4 animate-spin" /> لطفاً صبر کن…
                 </>
               ) : (
                 <>
-                  {mode === "login" ? (otpSent ? "تأیید کد و ورود" : "ارسال کد ورود") : "ساخت حساب"}
+                  {submitLabel[step]}
                   <ArrowLeft className="h-4 w-4" />
                 </>
               )}
             </button>
           </form>
 
+          {step === "phone" && (
+            <button
+              type="button"
+              onClick={startPasswordRecovery}
+              disabled={busy}
+              className="mt-4 w-full text-center text-[11px] font-bold text-muted transition hover:text-brand disabled:opacity-50"
+            >
+              فراموشی رمز عبور؟ <span className="text-brand">بازیابی با کد پیامکی</span>
+            </button>
+          )}
+          {step === "forgotPhone" && (
+            <button
+              type="button"
+              onClick={returnToPhone}
+              disabled={busy}
+              className="mt-4 w-full text-center text-[11px] font-bold text-muted transition hover:text-brand disabled:opacity-50"
+            >
+              بازگشت به ورود یا ساخت حساب
+            </button>
+          )}
         </section>
       </div>
     </div>
+  );
+}
+
+function PasswordField({
+  label,
+  name,
+  value,
+  onChange,
+  show,
+  onToggle,
+  disabled,
+  autoComplete,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  show: boolean;
+  onToggle: () => void;
+  disabled: boolean;
+  autoComplete: string;
+}) {
+  return (
+    <label className="naz-floating-field auth-floating-field">
+      <span className="naz-floating-label">{label}</span>
+      <span className="relative flex items-center">
+        <Lock className="pointer-events-none absolute right-4 h-4 w-4 text-muted" />
+        <input
+          type={show ? "text" : "password"}
+          name={name}
+          autoComplete={autoComplete}
+          required
+          minLength={6}
+          maxLength={256}
+          disabled={disabled}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="حداقل ۶ نویسه"
+          className="h-12 w-full rounded-2xl border border-line bg-white pr-11 pl-12 text-left text-[13.5px] font-bold outline-none transition placeholder:text-right placeholder:text-[#c3beb9] focus:border-brand disabled:bg-[#fafaf8]"
+          dir="ltr"
+        />
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={show ? "پنهان کردن رمز" : "نمایش رمز"}
+          disabled={disabled}
+          className="absolute left-3 flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-[#f4f3f0] disabled:opacity-50"
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </span>
+    </label>
   );
 }

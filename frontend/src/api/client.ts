@@ -118,6 +118,9 @@ export type CatalogResponse = {
 };
 
 export type AuthResponse = { token: string; user: User; addresses: Address[] };
+export type OtpVerifyResponse =
+  | AuthResponse
+  | { needsRegistration: true; signupToken: string };
 
 export type ServerState = {
   user: User;
@@ -154,33 +157,44 @@ export const api = {
       body,
     }),
   auth: {
-    register: (payload: {
-      phone: string;
-      password: string;
-      firstName?: string;
-      lastName?: string;
-    }) =>
-      request<AuthResponse>("/auth/register", {
-        method: "POST",
-        body: payload,
-        auth: false,
-      }),
     login: (phone: string, password: string) =>
       request<AuthResponse>("/auth/login", {
         method: "POST",
         body: { phone, password },
         auth: false,
       }),
-    requestOtp: (phone: string) =>
+    requestOtp: (phone: string, purpose: "login" | "password_reset" = "login") =>
       request<{ ok: boolean; message: string }>("/auth/otp/request", {
         method: "POST",
-        body: { phone },
+        body: { phone, purpose },
         auth: false,
       }),
     verifyOtp: (phone: string, code: string) =>
-      request<AuthResponse>("/auth/otp/verify", {
+      request<OtpVerifyResponse>("/auth/otp/verify", {
         method: "POST",
         body: { phone, code },
+        auth: false,
+      }),
+    completeOtpRegistration: (payload: {
+      signupToken: string;
+      name: string;
+      password: string;
+    }) =>
+      request<AuthResponse>("/auth/otp/register", {
+        method: "POST",
+        body: payload,
+        auth: false,
+      }),
+    verifyPasswordResetOtp: (phone: string, code: string) =>
+      request<{ resetToken: string }>("/auth/otp/verify-reset", {
+        method: "POST",
+        body: { phone, code },
+        auth: false,
+      }),
+    resetPassword: (resetToken: string, password: string) =>
+      request<AuthResponse>("/auth/otp/reset-password", {
+        method: "POST",
+        body: { resetToken, password },
         auth: false,
       }),
     logout: () => request<{ ok: boolean }>("/auth/logout", { method: "POST" }),
